@@ -1,9 +1,9 @@
 //
-// Created by Administrator on 2019/6/26.
+// Created by Alex on 2019/6/26.
 //
 
-#ifndef TEST_COMMAND_QUEUE_H
-#define TEST_COMMAND_QUEUE_H
+#ifndef _COMMAND_QUEUE_H
+#define _COMMAND_QUEUE_H
 
 #include <queue>
 struct Element;

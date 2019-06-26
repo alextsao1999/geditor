@@ -1,9 +1,9 @@
 //
-// Created by Administrator on 2019/6/25.
+// Created by Alex on 2019/6/25.
 //
 
-#ifndef TEST_DOCUMENT_H
-#define TEST_DOCUMENT_H
+#ifndef _DOCUMENT_H
+#define _DOCUMENT_H
 
 #include <vector>
 #include "paint_manager.h"

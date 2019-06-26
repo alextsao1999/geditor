@@ -1,3 +1,0 @@
-"E:\CLion 2018.3.3\bin\cmake\win\bin\cmake.exe" -E remove -f CMakeFiles\geditor.dir/objects.a
-C:\MinGW64\bin\ar.exe cr CMakeFiles\geditor.dir/objects.a @CMakeFiles\geditor.dir\objects1.rsp
-C:\MinGW64\bin\g++.exe -g   -Wl,--whole-archive CMakeFiles\geditor.dir/objects.a -Wl,--no-whole-archive  -o geditor.exe -Wl,--out-implib,libgeditor.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\geditor.dir\linklibs.rsp

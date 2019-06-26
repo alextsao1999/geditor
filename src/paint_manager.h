@@ -1,5 +1,5 @@
 //
-// Created by Administrator on 2019/6/26.
+// Created by Alex on 2019/6/26.
 //
 
 #ifndef _PAINT_MANAGER_H

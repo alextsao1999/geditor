@@ -5,7 +5,7 @@
 #ifndef GEDITOR_LAYOUT_H
 #define GEDITOR_LAYOUT_H
 
-struct Element;
+struct ElementRoot;
 struct RelativeElement;
 struct Document;
 enum class SelectionState {
@@ -24,7 +24,7 @@ class LayoutManager {
 public:
     virtual void reflow() {}
     virtual void reflow(RelativeElement *element) {}
-    virtual void redraw(Element *element) {}
+    virtual void redraw(ElementRoot *element) {}
 
 private:
     Document *m_document = nullptr;

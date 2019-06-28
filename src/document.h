@@ -22,8 +22,7 @@ struct Context {
     LayoutManager *m_layoutManager;
 };
 
-struct Element {
-    Element *m_parent{};
+struct ElementRoot {
     virtual Rect getRect() { return {0, 0, 0, 0}; }
     virtual Rect getLogicRect() { return {0, 0, 0, 0}; }
     virtual std::vector<Element *> *children() { return nullptr; };
@@ -42,12 +41,21 @@ struct Element {
     DEFINE_EVENT(undo, Command command);
 };
 
+class Element : public ElementRoot{
+public:
+    Element() = default;
+    explicit Element(ElementRoot *parent) : m_parent(parent) {}
+    ElementRoot *parent() const { return m_parent; }
+protected:
+    ElementRoot *m_parent{};
+};
+
 class RelativeElement : public Element {
 protected:
     RelativeElement *m_prev{};
     RelativeElement *m_next{};
 public:
-    RelativeElement() = default;
+    RelativeElement(ElementRoot *parent, RelativeElement *prev) : Element(parent), m_prev(prev) {}
     explicit RelativeElement(RelativeElement *prev) : m_prev(prev) {}
     RelativeElement(RelativeElement *_prev, RelativeElement *_next) : m_prev(_prev), m_next(_next) {}
     virtual Display getDisplay() { return Display::None; };
@@ -117,8 +125,11 @@ public:
 
 class LineElement : public BlockRelativeElement {
 public:
-    LineElement() : m_top(0) {}
     explicit LineElement(LineElement *prev) : BlockRelativeElement(prev), m_top(prev->getRect().bottom) {
+        prev->m_next = this;
+    }
+    explicit LineElement(ElementRoot *doc, LineElement *prev) : BlockRelativeElement(doc, prev),
+                                                                m_top(prev->getRect().bottom) {
         prev->m_next = this;
     }
     inline void setTop(Context *context, int top) {
@@ -128,6 +139,9 @@ public:
         return 0;
     }
     Rect getRect() override {
+        if (m_parent != nullptr) {
+            return {0, m_top, m_parent->getRect().right, getHeight()};
+        }
         return {0, m_top, 0, getHeight()};
     }
 private:
@@ -144,7 +158,7 @@ public:
 private:
 public:
     Rect getLogicRect() override {
-        return Rect(left, top, width, height);
+        return {left, top, width, height};
     }
     Rect getRect() override {
         if (m_parent != nullptr) {
@@ -160,7 +174,7 @@ public:
 
 };
 
-class Document {
+class Document : public ElementRoot {
     std::vector<LineElement *> m_buffer;
 
 };

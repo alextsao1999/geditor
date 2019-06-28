@@ -8,6 +8,8 @@
 #include <vector>
 #include "paint_manager.h"
 #include "command_queue.h"
+#include "layout.h"
+#define DEFINE_EVENT(event, ...) virtual void event(Context *context, ##__VA_ARGS__) {}
 enum class Display {
     None,
     Inline,
@@ -15,169 +17,99 @@ enum class Display {
 };
 
 struct Context {
-    PaintManager *paintManager;
-    CommandQueue *queue;
+    PaintManager *m_paintManager;
+    CommandQueue *m_queue;
+    LayoutManager *m_layoutManager;
 };
-struct Element {
-    Element *parent{};
 
-    // 将所有element链接到链表中
-    virtual int get_left() {
-        return 0;
-    };
-    virtual int get_top() {
-        return 0;
-    };
-    virtual int get_right() {
-        return 0;
-    };
-    virtual int get_bottom() {
-        return 0;
-    };
-    Rect get_rect() {
-        return {get_left(), get_top(), get_right(), get_bottom()};
-    }
-    // 子元素
-    virtual std::vector<Element *> *get_list() { return nullptr; };
-    bool is_viewport(Context *context) {
-        return context->paintManager->is_viewport(get_rect());
-    }
-    virtual void mouse_enter(Context *context) {}
-    virtual void mouse_move(Context *context, int x, int y) {}
-    virtual void mouse_leave(Context *context) {}
-    virtual void left_click(Context *context, int x, int y) {}
-    virtual void left_double_click(Context *context, int x, int y) {}
-    virtual void right_click(Context *context, int x, int y) {}
-    virtual void right_double_click(Context *context, int x, int y) {}
-    virtual void select(Context *context) {}
-    virtual void unselect(Context *context) {}
-    virtual void input(Context *context, const char *string) {}
-    virtual Element *copy() { return nullptr; }
-    virtual void undo(Context *context, Command command) {}
+struct Element {
+    Element *m_parent{};
+    virtual Rect getRect() { return {0, 0, 0, 0}; }
+    virtual Rect getLogicRect() { return {0, 0, 0, 0}; }
+    virtual std::vector<Element *> *children() { return nullptr; };
+    bool isViewport(Context *context) { return context->m_paintManager->isViewport(getRect()); }
+    DEFINE_EVENT(draw);
+    DEFINE_EVENT(mouseEnter);
+    DEFINE_EVENT(mouseMove);
+    DEFINE_EVENT(mouseLeave);
+    DEFINE_EVENT(leftClick, int x, int y);
+    DEFINE_EVENT(leftDoubleClick, int x, int y);
+    DEFINE_EVENT(rightClick, int x, int y);
+    DEFINE_EVENT(rightDouble_click, int x, int y);
+    DEFINE_EVENT(select);
+    DEFINE_EVENT(unselect);
+    DEFINE_EVENT(input, const char *string);
+    DEFINE_EVENT(undo, Command command);
 };
+
 class RelativeElement : public Element {
 protected:
-    // 上一个同级相对布局元素
-    RelativeElement *_last{};
-    // 下一个同级相对布局元素
-    RelativeElement *_next{};
+    RelativeElement *m_prev{};
+    RelativeElement *m_next{};
 public:
     RelativeElement() = default;
-    explicit RelativeElement(RelativeElement *_last) : _last(_last) {}
-    RelativeElement(RelativeElement *_last, RelativeElement *_next) : _last(_last), _next(_next) {}
-    int get_left() override {
-        if (_last != nullptr) {
-            if (_last->get_display() == Display::Inline) {
-                return _last->get_right();
-            }
-            if (_last->get_display() == Display::Block && parent != nullptr) {
-                return parent->get_left();
-            }
-        }
-        return 0;
+    explicit RelativeElement(RelativeElement *_last) : m_prev(_last) {}
+    RelativeElement(RelativeElement *_prev, RelativeElement *_next) : m_prev(_prev), m_next(_next) {}
+    virtual Display getDisplay() { return Display::None; };
+    virtual int getWidth() { return 0; };
+    virtual int getHeight() { return 0; };
+    virtual void setWidth(Context *context, int width) {
+        context->m_layoutManager->redraw(this);
     }
-    int get_top() override {
-        if (_last != nullptr) {
-            if (_last->get_display() == Display::Inline && _last->parent != nullptr) {
-                return _last->parent->get_bottom();
-            }
-            if (_last->get_display() == Display::Block) {
-                return _last->get_bottom();
-            }
-        } else {
-            if (parent != nullptr) {
-                return parent->get_top();
-            }
-        }
-        return 0;
+    virtual void setHeight(Context *context, int height) {
+        context->m_layoutManager->reflow(this);
     }
-    int get_right() override {
-        return get_top() + get_width();
-    }
-    int get_bottom() override {
-        return get_top() + get_height();
-    }
-    virtual Display get_display() {
-        return Display::None;
-    };
-    virtual int get_width() {
-        return 0;
-    };
-    virtual int get_height() {
-        return 0;
-    };
 };
+
 class InlineRelativeElement : public RelativeElement {
 public:
     using RelativeElement::RelativeElement;
-    int get_left() override {
-        if (_last != nullptr) {
-            return _last->get_right();
-        }
-        return 0;
-    }
-    int get_top() override {
-        if (_last != nullptr) {
-            return _last->get_top();
+    Rect getRect() override {
+        Rect rect = getLogicRect();
+        if (m_prev != nullptr) {
+            Rect prev = m_prev->getRect();
+            rect.left += prev.right;
+            rect.top += prev.bottom;
+            rect.bottom = rect.top + getHeight();
+            rect.right = rect.left + getWidth();
         } else {
-            if (parent != nullptr) {
-                return parent->get_top();
-            }
+            Rect parent = m_parent->getRect();
+            rect.top += parent.top;
+            rect.left += parent.left;
+            rect.bottom = rect.top + getHeight();
+            rect.right = rect.left + getWidth();
         }
-        return 0;
+       return rect;
     }
-    int get_right() override {
-        return get_top() + get_width();
-    }
-    int get_bottom() override {
-        return get_top() + get_height();
-    }
-    virtual int get_width() {
-        return 0;
-    };
-    virtual int get_height() {
-        return 0;
-    };
-
-    Display get_display() override {
-        return Display::Inline;
-    }
+    int getWidth() override { return 0; };
+    int getHeight() override { return 0; };
+    Display getDisplay() override { return Display::Inline; }
 };
+
 class BlockRelativeElement : public RelativeElement {
 public:
     using RelativeElement::RelativeElement;
-    int get_left() override {
-        if (parent != nullptr) {
-            return parent->get_left();
-        }
-        return 0;
-    }
-    int get_top() override {
-        if (_last != nullptr) {
-            return _last->get_bottom();
+    Rect getRect() override {
+        if (m_prev != nullptr) {
+            Rect prev = m_prev->getRect();
+            prev.left = prev.right;
+            prev.top = prev.bottom;
+            prev.right = prev.left + getWidth();
+            prev.bottom = prev.top + getHeight();
+            return prev;
         } else {
-            if (parent != nullptr) {
-                return parent->get_top();
+            Rect rect = getLogicRect();
+            if (m_parent != nullptr) {
+                Rect base = m_parent->getRect();
+                rect.top += base.top;
+                rect.left += base.left;
+                rect.bottom = rect.top + getHeight();
+                rect.right = rect.left + getWidth();
             }
+            return rect;
         }
-        return 0;
     }
-    int get_right() override {
-        return get_top() + get_width();
-    }
-    int get_bottom() override {
-        return get_top() + get_height();
-    }
-    virtual int get_width() {
-        return 0;
-    };
-    virtual int get_height() {
-        return 0;
-    };
-    Display get_display() override {
-        return Display::Block;
-    }
-
+    Display getDisplay() override { return Display::Block; }
 };
 class AbsoluteElement : public Element {
     int left{};
@@ -187,24 +119,22 @@ class AbsoluteElement : public Element {
 public:
     AbsoluteElement(int left, int top, int width, int height) : left(left), top(top), width(width), height(height) {}
 private:
-    int get_left() override {
-        if (parent != nullptr) {
-            return parent->get_left() + left;
+public:
+    Rect getLogicRect() override {
+        return Rect(left, top, width, height);
+    }
+    Rect getRect() override {
+        if (m_parent != nullptr) {
+            Rect parent = m_parent->getRect();
+            parent.left += left;
+            parent.top += top;
+            parent.bottom = parent.top + height;
+            parent.right = parent.left + width;
+            return parent;
         }
-        return left;
+        return {0, 0, 0, 0};
     }
-    int get_top() override {
-        if (parent != nullptr) {
-            return parent->get_top() + top;
-        }
-        return top;
-    }
-    int get_right() override {
-        return get_left() + width;
-    }
-    int get_bottom() override {
-        return get_top() + height;
-    }
+
 };
 
 class Document {

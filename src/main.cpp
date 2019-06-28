@@ -19,13 +19,13 @@ public:
     }
 
 private:
-    Display get_display() override {
+    Display getDisplay() override {
         return display;
     }
-    int get_width() override {
+    int getWidth() override {
         return width;
     }
-    int get_height() override {
+    int getHeight() override {
         return height;
     }
 };
@@ -33,9 +33,9 @@ int main() {
     auto *ele = new TestElement(Display::Block, 100, 200);
     auto *ele1 = new TestElement(ele, 10, 20);
     auto *ele2 = new TestElement(ele1, 10, 20);
-    ele->get_rect().dump();
-    ele1->get_rect().dump();
-    ele2->get_rect().dump();
+    ele->getRect().dump();
+    ele1->getRect().dump();
+    ele2->getRect().dump();
     return 0;
 }
 

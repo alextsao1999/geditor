@@ -13,7 +13,7 @@ struct Rect {
     int top;
     int right;
     int bottom;
-    Rect(int left, int top, int right, int bottom) : left(left), top(top), right(right), bottom(bottom) {}
+    Rect(int left, int top, int width, int height) : left(left), top(top), right(left + width), bottom(top + height) {}
     void dump() {
         std::cout << "{ " << left << " , " << top << " , " << right << " , " << bottom << " }" << std::endl;
     }
@@ -21,22 +21,16 @@ struct Rect {
 
 class Painter {
 public:
-    virtual void draw_line(){
-    };
+    virtual void drawLine() {};
+
 };
 
 class PaintManager {
 public:
-    virtual bool is_viewport(Rect &&rect) {
-        return is_viewport(rect);
-    }
-    virtual bool is_viewport(Rect &rect) {
-        return false;
-    }
+    virtual bool isViewport(Rect &&rect) { return isViewport(rect); }
+    virtual bool isViewport(Rect &rect) { return false; }
+    virtual Painter *getPainter() { return nullptr; }
 
-    virtual std::unique_ptr<Painter> get_painter() {
-        return std::make_unique<Painter>();
-    }
 
 };
 

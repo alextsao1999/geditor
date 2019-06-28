@@ -6,6 +6,7 @@
 #define _DOCUMENT_H
 
 #include <vector>
+#include "common.h"
 #include "paint_manager.h"
 #include "command_queue.h"
 #include "layout.h"
@@ -45,7 +46,7 @@ class Element : public ElementRoot{
 public:
     Element() = default;
     explicit Element(ElementRoot *parent) : m_parent(parent) {}
-    ElementRoot *parent() const { return m_parent; }
+    inline ElementRoot *parent() const { return m_parent; }
 protected:
     ElementRoot *m_parent{};
 };
@@ -55,6 +56,7 @@ protected:
     RelativeElement *m_prev{};
     RelativeElement *m_next{};
 public:
+    RelativeElement() = default;
     RelativeElement(ElementRoot *parent, RelativeElement *prev) : Element(parent), m_prev(prev) {}
     explicit RelativeElement(RelativeElement *prev) : m_prev(prev) {}
     RelativeElement(RelativeElement *_prev, RelativeElement *_next) : m_prev(_prev), m_next(_next) {}
@@ -112,9 +114,6 @@ public:
             Rect base = m_parent->getRect();
             rect.left += base.left;
             rect.top += base.top;
-            rect.right = rect.left + getWidth();
-            rect.bottom = rect.top + getHeight();
-            return rect;
         }
         rect.right = rect.left + getWidth();
         rect.bottom = rect.top + getHeight();
@@ -125,7 +124,7 @@ public:
 
 class LineElement : public BlockRelativeElement {
 public:
-    explicit LineElement(LineElement *prev) : BlockRelativeElement(prev), m_top(prev->getRect().bottom) {
+    explicit LineElement(LineElement *prev) : BlockRelativeElement(prev->parent(), prev), m_top(prev->getRect().bottom) {
         prev->m_next = this;
     }
     explicit LineElement(ElementRoot *doc, LineElement *prev) : BlockRelativeElement(doc, prev),
@@ -138,10 +137,11 @@ public:
     int getHeight() override {
         return 0;
     }
-    Rect getRect() override {
+    Rect getLogicRect() override {
         if (m_parent != nullptr) {
-            return {0, m_top, m_parent->getRect().right, getHeight()};
+            return {0, m_top, m_parent->getRect().width(), getHeight()};
         }
+        NOT_REACHED();
         return {0, m_top, 0, getHeight()};
     }
 private:
@@ -175,8 +175,17 @@ public:
 };
 
 class Document : public ElementRoot {
-    std::vector<LineElement *> m_buffer;
-
+private:
+    Context m_context;
+    std::vector<Element *> m_buffer;
+public:
+    Rect getLogicRect() override {
+        Size size = m_context.m_paintManager->getViewportSize();
+        return {0, 0, size.width, size.height};
+    }
+    std::vector<Element *> *children() override {
+        return &m_buffer;
+    }
 };
 
 

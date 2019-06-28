@@ -48,7 +48,7 @@ protected:
     RelativeElement *m_next{};
 public:
     RelativeElement() = default;
-    explicit RelativeElement(RelativeElement *_last) : m_prev(_last) {}
+    explicit RelativeElement(RelativeElement *prev) : m_prev(prev) {}
     RelativeElement(RelativeElement *_prev, RelativeElement *_next) : m_prev(_prev), m_next(_next) {}
     virtual Display getDisplay() { return Display::None; };
     virtual int getWidth() { return 0; };
@@ -92,25 +92,48 @@ public:
     Rect getRect() override {
         if (m_prev != nullptr) {
             Rect prev = m_prev->getRect();
-            prev.left = prev.right;
+            if (m_prev->getDisplay() != Display::Block)
+                prev.left = prev.right;
             prev.top = prev.bottom;
             prev.right = prev.left + getWidth();
             prev.bottom = prev.top + getHeight();
             return prev;
-        } else {
-            Rect rect = getLogicRect();
-            if (m_parent != nullptr) {
-                Rect base = m_parent->getRect();
-                rect.top += base.top;
-                rect.left += base.left;
-                rect.bottom = rect.top + getHeight();
-                rect.right = rect.left + getWidth();
-            }
+        }
+        Rect rect = getLogicRect();
+        if (m_parent != nullptr) {
+            Rect base = m_parent->getRect();
+            rect.left += base.left;
+            rect.top += base.top;
+            rect.right = rect.left + getWidth();
+            rect.bottom = rect.top + getHeight();
             return rect;
         }
+        rect.right = rect.left + getWidth();
+        rect.bottom = rect.top + getHeight();
+        return rect;
     }
     Display getDisplay() override { return Display::Block; }
 };
+
+class LineElement : public BlockRelativeElement {
+public:
+    LineElement() : m_top(0) {}
+    explicit LineElement(LineElement *prev) : BlockRelativeElement(prev), m_top(prev->getRect().bottom) {
+        prev->m_next = this;
+    }
+    inline void setTop(Context *context, int top) {
+        m_top = top;
+    }
+    int getHeight() override {
+        return 0;
+    }
+    Rect getRect() override {
+        return {0, m_top, 0, getHeight()};
+    }
+private:
+    int m_top = 0;
+};
+
 class AbsoluteElement : public Element {
     int left{};
     int top{};
@@ -128,8 +151,8 @@ public:
             Rect parent = m_parent->getRect();
             parent.left += left;
             parent.top += top;
-            parent.bottom = parent.top + height;
             parent.right = parent.left + width;
+            parent.bottom = parent.top + height;
             return parent;
         }
         return {0, 0, 0, 0};
@@ -138,7 +161,7 @@ public:
 };
 
 class Document {
-    std::vector<Element *> _buffer;
+    std::vector<LineElement *> m_buffer;
 
 };
 

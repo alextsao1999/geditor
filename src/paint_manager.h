@@ -14,8 +14,11 @@ struct Rect {
     int right;
     int bottom;
     Rect(int left, int top, int width, int height) : left(left), top(top), right(left + width), bottom(top + height) {}
+    inline int width() { return bottom - top; }
+    inline int height() { return right - left; }
     void dump() {
         std::cout << "{ " << left << " , " << top << " , " << right << " , " << bottom << " }" << std::endl;
+//        std::cout << "{ x: " << left << " , y: " << top << " , w: " << right - left << " , h: " << bottom - top << " }" << std::endl;
     }
 };
 

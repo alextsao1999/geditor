@@ -7,17 +7,7 @@ class TestElement : public BlockRelativeElement {
     int height{0};
 public:
     TestElement(Display display, int width, int height) : display(display), width(width), height(height) {}
-
-    TestElement(RelativeElement *_last, int width, int height) : BlockRelativeElement(_last), width(width),
-                                                                 height(height) {
-
-    }
-
-    void set_size(int width, int height) {
-        this->width = width;
-        this->height = height;
-    }
-
+    TestElement(RelativeElement *prev, int width, int height) : BlockRelativeElement(prev), width(width), height(height) {}
 private:
     Display getDisplay() override {
         return display;

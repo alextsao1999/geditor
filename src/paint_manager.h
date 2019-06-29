@@ -7,7 +7,7 @@
 
 #include <memory>
 #include <iostream>
-
+#include "common.h"
 struct Rect {
     int left;
     int top;
@@ -17,8 +17,8 @@ struct Rect {
     inline int width() const { return bottom - top; }
     inline int height() const { return right - left; }
     void dump() {
-        std::cout << "{ " << left << " , " << top << " , " << right << " , " << bottom << " }" << std::endl;
-//        std::cout << "{ x: " << left << " , y: " << top << " , w: " << right - left << " , h: " << bottom - top << " }" << std::endl;
+        // std::cout << "{ " << left << " , " << top << " , " << right << " , " << bottom << " }" << std::endl;
+        std::cout << "{ x: " << left << " , y: " << top << " , w: " << right - left << " , h: " << bottom - top << " }" << std::endl;
     }
 };
 struct Size {
@@ -32,14 +32,17 @@ public:
 
 };
 
+class TextMeter {
+    virtual int meter(GChar *text, int length) { return 0; }
+};
+
 class PaintManager {
 public:
     virtual bool isViewport(Rect &&rect) { return isViewport(rect); }
     virtual bool isViewport(Rect &rect) { return false; }
     virtual Painter *getPainter() { return nullptr; }
-    virtual Size getViewportSize() {
-        return {0, 0};
-    };
+    virtual TextMeter *getTextMeter() { return nullptr; }
+    virtual Size getViewportSize() { return {0, 0}; };
 
 };
 

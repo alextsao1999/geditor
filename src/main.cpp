@@ -1,31 +1,69 @@
 #include <iostream>
 #include "document.h"
-
-class TestElement : public BlockRelativeElement {
-    Display display;
-    int width{0};
-    int height{0};
-public:
-    TestElement(Display display, int width, int height) : display(display), width(width), height(height) {}
-    TestElement(RelativeElement *prev, int width, int height) : BlockRelativeElement(prev), width(width), height(height) {}
-private:
-    Display getDisplay() override {
-        return display;
+#include "common.h"
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+        case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hWnd, &ps);
+//             HDC mem = CreateCompatibleDC(nullptr);
+            SetBkMode(hdc, TRANSPARENT);
+            SetTextColor(hdc, RGB(0, 0, 0));
+            TextOut(hdc, 10, 10, _GT("测试绘图文本"), 6);
+            EndPaint(hWnd, &ps);
+        }
+            break;
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            break;
+        default:
+            return DefWindowProc(hWnd, message, wParam, lParam);
     }
-    int getWidth() override {
-        return width;
-    }
-    int getHeight() override {
-        return height;
-    }
-};
-int main() {
-    auto *ele = new TestElement(Display::Block, 100, 200);
-    auto *ele1 = new TestElement(ele, 10, 20);
-    auto *ele2 = new TestElement(ele1, 10, 20);
-    ele->getRect().dump();
-    ele1->getRect().dump();
-    ele2->getRect().dump();
     return 0;
+}
+const GChar *CLASSNAME = _GT("MyWindowClass");
+ATOM MyRegisterClass(HINSTANCE hInstance) {
+    WNDCLASSEXW wcex;
+    wcex.cbSize = sizeof(WNDCLASSEX);
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = WndProc;
+    wcex.cbClsExtra = 0;
+    wcex.cbWndExtra = 0;
+    wcex.hInstance = hInstance;
+    wcex.hIcon = nullptr;
+    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wcex.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
+    wcex.lpszMenuName = nullptr;
+    wcex.lpszClassName = CLASSNAME;
+
+    wcex.hIconSm = nullptr;
+    return RegisterClassExW(&wcex);
+}
+auto CreateMyWindow() {
+    HWND hWnd = CreateWindow(CLASSNAME, _GT("Code Editor"), WS_OVERLAPPEDWINDOW,
+                             CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, nullptr, nullptr);
+    if (!hWnd) {
+        return hWnd;
+    }
+    ShowWindow(hWnd, 1);
+    UpdateWindow(hWnd);
+    return hWnd;
+}
+int main() {
+    if (MyRegisterClass(nullptr) == 0) {
+        MessageBox(nullptr, _GT("注册窗口类名失败"), _GT("错误"), 0);
+        exit(1);
+    }
+
+    CreateMyWindow();
+    MSG msg;
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        if (!TranslateAccelerator(msg.hwnd, nullptr, &msg)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+    }
+    return msg.wParam;
 }
 

@@ -10,6 +10,7 @@
 #include "paint_manager.h"
 #include "command_queue.h"
 #include "layout.h"
+#include "text_buffer.h"
 #define DEFINE_EVENT(event, ...) virtual void event(Context *context, ##__VA_ARGS__) {}
 enum class Display {
     None,
@@ -21,6 +22,8 @@ struct Context {
     PaintManager *m_paintManager;
     CommandQueue *m_queue;
     LayoutManager *m_layoutManager;
+    TextBufferManager *m_textBuffer;
+
 };
 
 struct ElementRoot {
@@ -42,7 +45,7 @@ struct ElementRoot {
     DEFINE_EVENT(undo, Command command);
 };
 
-class Element : public ElementRoot{
+class Element : public ElementRoot {
 public:
     Element() = default;
     explicit Element(ElementRoot *parent) : m_parent(parent) {}
@@ -80,16 +83,14 @@ public:
             Rect prev = m_prev->getRect();
             rect.left += prev.right;
             rect.top += prev.bottom;
-            rect.bottom = rect.top + getHeight();
-            rect.right = rect.left + getWidth();
         } else {
-            Rect parent = m_parent->getRect();
-            rect.top += parent.top;
-            rect.left += parent.left;
-            rect.bottom = rect.top + getHeight();
-            rect.right = rect.left + getWidth();
+            Rect base = m_parent->getRect();
+            rect.top += base.top;
+            rect.left += base.left;
         }
-       return rect;
+        rect.bottom = rect.top + getHeight();
+        rect.right = rect.left + getWidth();
+        return rect;
     }
     int getWidth() override { return 0; };
     int getHeight() override { return 0; };
@@ -122,12 +123,12 @@ public:
     Display getDisplay() override { return Display::Block; }
 };
 
-class LineElement : public BlockRelativeElement {
+class FixedElement : public BlockRelativeElement {
 public:
-    explicit LineElement(LineElement *prev) : BlockRelativeElement(prev->parent(), prev), m_top(prev->getRect().bottom) {
+    explicit FixedElement(FixedElement *prev) : BlockRelativeElement(prev->parent(), prev), m_top(prev->getRect().bottom) {
         prev->m_next = this;
     }
-    explicit LineElement(ElementRoot *doc, LineElement *prev) : BlockRelativeElement(doc, prev),
+    explicit FixedElement(ElementRoot *parent, FixedElement *prev) : BlockRelativeElement(parent, prev),
                                                                 m_top(prev->getRect().bottom) {
         prev->m_next = this;
     }
@@ -171,7 +172,6 @@ public:
         }
         return {0, 0, 0, 0};
     }
-
 };
 
 class Document : public ElementRoot {
@@ -182,6 +182,20 @@ public:
     Rect getLogicRect() override {
         Size size = m_context.m_paintManager->getViewportSize();
         return {0, 0, size.width, size.height};
+    }
+    inline Context *getContext() {
+        return &m_context;
+    }
+    void append(FixedElement *element) {
+        m_buffer.push_back(element);
+    }
+    void insert(int index, FixedElement *element) {
+        m_buffer.insert(m_buffer.begin() + index, element);
+    }
+    FixedElement *erase(int index) {
+        auto ele = m_buffer.begin() + index;
+        m_buffer.erase(ele);
+        return (FixedElement *) *ele;
     }
     std::vector<Element *> *children() override {
         return &m_buffer;

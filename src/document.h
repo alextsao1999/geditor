@@ -11,7 +11,7 @@
 #include "command_queue.h"
 #include "layout.h"
 #include "text_buffer.h"
-#define DEFINE_EVENT(event, ...) virtual void event(Context *context, ##__VA_ARGS__) {}
+#define DEFINE_EVENT(event, ...) virtual void event(Context *context, LineViewer *viewer, ##__VA_ARGS__) {}
 enum class Display {
     None,
     Inline,
@@ -22,7 +22,7 @@ struct Context {
     PaintManager *m_paintManager;
     CommandQueue *m_queue;
     LayoutManager *m_layoutManager;
-    TextBufferManager *m_textBuffer;
+    TextBuffer *m_textBuffer;
 
 };
 
@@ -66,12 +66,6 @@ public:
     virtual Display getDisplay() { return Display::None; };
     virtual int getWidth() { return 0; };
     virtual int getHeight() { return 0; };
-    virtual void setWidth(Context *context, int width) {
-        context->m_layoutManager->redraw(this);
-    }
-    virtual void setHeight(Context *context, int height) {
-        context->m_layoutManager->reflow(this);
-    }
 };
 
 class InlineRelativeElement : public RelativeElement {
@@ -150,24 +144,24 @@ private:
 };
 
 class AbsoluteElement : public Element {
-    int left{};
-    int top{};
-    int width{};
-    int height{};
+    int m_left{};
+    int m_top{};
+    int m_width{};
+    int m_height{};
 public:
-    AbsoluteElement(int left, int top, int width, int height) : left(left), top(top), width(width), height(height) {}
+    AbsoluteElement(int left, int top, int width, int height) : m_left(left), m_top(top), m_width(width), m_height(height) {}
 private:
 public:
     Rect getLogicRect() override {
-        return {left, top, width, height};
+        return {m_left, m_top, m_width, m_height};
     }
     Rect getRect() override {
         if (m_parent != nullptr) {
             Rect parent = m_parent->getRect();
-            parent.left += left;
-            parent.top += top;
-            parent.right = parent.left + width;
-            parent.bottom = parent.top + height;
+            parent.left += m_left;
+            parent.top += m_top;
+            parent.right = parent.left + m_width;
+            parent.bottom = parent.top + m_height;
             return parent;
         }
         return {0, 0, 0, 0};

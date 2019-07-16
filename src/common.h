@@ -7,10 +7,12 @@
 
 #define _UNICODE
 #define UNICODE
+
 #include <windows.h>
 #include <wingdi.h>
 #include <tchar.h>
 #include <string>
+#include "memory.h"
 #define GChar _TCHAR
 #define _GT(t) _T(t)
 #define GString std::wstring

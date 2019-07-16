@@ -7,6 +7,8 @@ set(sources
         command_queue.cpp
         layout.cpp
         text_buffer.cpp
-        geditor.cpp)
+        geditor.cpp
+        memory.cpp
+        )
 
 add_executable(geditor ${sources})

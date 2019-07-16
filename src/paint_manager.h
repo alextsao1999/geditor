@@ -17,7 +17,7 @@ struct Rect {
     inline int width() const { return bottom - top; }
     inline int height() const { return right - left; }
     void dump() {
-        // std::cout << "{ " << left << " , " << top << " , " << right << " , " << bottom << " }" << std::endl;
+        // std::cout << "{ " << m_left << " , " << m_top << " , " << right << " , " << bottom << " }" << std::endl;
         std::cout << "{ x: " << left << " , y: " << top << " , w: " << right - left << " , h: " << bottom - top << " }" << std::endl;
     }
 };

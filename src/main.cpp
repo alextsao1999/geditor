@@ -36,7 +36,6 @@ ATOM MyRegisterClass(HINSTANCE hInstance) {
     wcex.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
     wcex.lpszMenuName = nullptr;
     wcex.lpszClassName = CLASSNAME;
-
     wcex.hIconSm = nullptr;
     return RegisterClassExW(&wcex);
 }
@@ -50,12 +49,12 @@ auto CreateMyWindow() {
     UpdateWindow(hWnd);
     return hWnd;
 }
+
 int main() {
     if (MyRegisterClass(nullptr) == 0) {
         MessageBox(nullptr, _GT("注册窗口类名失败"), _GT("错误"), 0);
         exit(1);
     }
-
     CreateMyWindow();
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {

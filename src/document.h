@@ -170,30 +170,45 @@ public:
 
 class Document : public ElementRoot {
 private:
-    Context m_context;
-    std::vector<Element *> m_buffer;
+    Context m_context{};
+    RelativeElement *m_header = nullptr;
+
 public:
     Rect getLogicRect() override {
         Size size = m_context.m_paintManager->getViewportSize();
         return {0, 0, size.width, size.height};
     }
+
     inline Context *getContext() {
         return &m_context;
     }
-    void append(FixedElement *element) {
-        m_buffer.push_back(element);
+
+    void append(RelativeElement *element) {
+        if (m_header == nullptr) {
+            m_header = element;
+            return;
+        }
+        RelativeElement *ele = m_header;
+/*
+        while (ele != nullptr && ele->m_next != nullptr)
+            ele = ele->m_next;
+        if (ele != nullptr)
+            ele->m_next = element;
+*/
     }
-    void insert(int index, FixedElement *element) {
-        m_buffer.insert(m_buffer.begin() + index, element);
+
+    void insert(int index, RelativeElement *element) {
+
     }
-    FixedElement *erase(int index) {
-        auto ele = m_buffer.begin() + index;
-        m_buffer.erase(ele);
-        return (FixedElement *) *ele;
+
+    RelativeElement *erase(int index) {
+        //auto ele = m_buffer.begin() + index;
+        //m_buffer.erase(ele);
+        // return (FixedElement *) *ele;
+
+        return nullptr;
     }
-    std::vector<Element *> *children() override {
-        return &m_buffer;
-    }
+
 };
 
 

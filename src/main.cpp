@@ -25,7 +25,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 }
 const GChar *CLASSNAME = _GT("MyWindowClass");
 ATOM MyRegisterClass(HINSTANCE hInstance) {
-    WNDCLASSEXW wcex;
+    WNDCLASSEX wcex;
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.style = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc = WndProc;
@@ -38,7 +38,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance) {
     wcex.lpszMenuName = nullptr;
     wcex.lpszClassName = CLASSNAME;
     wcex.hIconSm = nullptr;
-    return RegisterClassExW(&wcex);
+    return RegisterClassEx(&wcex);
 }
 auto CreateMyWindow() {
     HWND hWnd = CreateWindow(CLASSNAME, _GT("Code Editor"), WS_OVERLAPPEDWINDOW,

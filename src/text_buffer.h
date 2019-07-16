@@ -81,8 +81,9 @@ struct TextLine {
 
 class LineViewer {
 private:
-    TextLine *line;
+
 public:
+    TextLine *line;
     explicit LineViewer(TextLine *first) : line(first) {}
     inline bool empty() { return line == nullptr; }
     GString *getContent(int column = 0) {
@@ -94,7 +95,8 @@ class TextBuffer {
 private:
     std::vector<TextLine> m_buffer;
 public:
-    int getLineCount() { return m_buffer.size(); }
+    TextBuffer() { m_buffer.emplace_back(); }
+    inline int getLineCount() { return m_buffer.size(); }
 
     void insertLine(int prev = -1) {
         m_buffer.insert(m_buffer.begin() + prev, TextLine());
@@ -105,6 +107,7 @@ public:
     }
 
     void deleteLine(int line) {
+        if (m_buffer.size() == 1) { return; }
         m_buffer.erase(m_buffer.begin() + line);
     }
 
@@ -121,9 +124,8 @@ public:
     }
 
     LineViewer getLine(int line) {
-        return LineViewer(nullptr);
+        return LineViewer(&m_buffer[line]);
     }
-
 
 };
 

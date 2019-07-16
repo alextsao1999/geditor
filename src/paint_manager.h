@@ -26,10 +26,10 @@ struct Size {
     int height;
     Size(int width, int height) : width(width), height(height) {}
 };
+
 class Painter {
 public:
     virtual void drawLine() {};
-
 };
 
 class TextMeter {

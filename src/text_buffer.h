@@ -78,17 +78,17 @@ struct TextLine {
         return *findNode(column);
     }
 };
-
 class LineViewer {
 private:
-
 public:
+    int number;
     TextLine *line;
-    explicit LineViewer(TextLine *first) : line(first) {}
+    LineViewer(int number, TextLine *line) : number(number), line(line) {}
     inline bool empty() { return line == nullptr; }
     GString *getContent(int column = 0) {
         return nullptr;
     }
+    inline int getLineNumber() { return 0; }
 
 };
 class TextBuffer {
@@ -124,11 +124,10 @@ public:
     }
 
     LineViewer getLine(int line) {
-        return LineViewer(&m_buffer[line]);
+        return {line, &m_buffer[line]};
     }
 
 };
-
 
 
 #endif //GEDITOR_TEXT_BUFFER_H

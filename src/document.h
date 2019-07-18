@@ -12,6 +12,7 @@
 #include "layout.h"
 #include "text_buffer.h"
 #define DEFINE_EVENT(event, ...) virtual void event(Context *context, LineViewer *viewer, ##__VA_ARGS__) {}
+
 enum class Display {
     None,
     Inline,
@@ -20,18 +21,42 @@ enum class Display {
 
 struct Context {
     PaintManager *m_paintManager;
-    CommandQueue *m_queue;
     LayoutManager *m_layoutManager;
-    TextBuffer *m_textBuffer;
+    CommandQueue m_queue;
+    TextBuffer m_textBuffer;
 
 };
 
-struct ElementRoot {
-    virtual Rect getRect() { return {0, 0, 0, 0}; }
+struct Root {
+    ///////////////////////////////////////////////////////////////////
+    template <typename Item>
+    class Iterator {
+    public:
+        Iterator() = default;
+        inline Iterator<Item> &operator++() { next();return *this; }
+        inline bool operator!=(const Iterator<Item> &item) { return (!(item.end() && end())) || (pointer() != item.pointer()); }
+        inline Element &operator*() const { return *(pointer()); }
+        inline Element *operator->() const { return pointer(); }
+        inline bool has() { return !end(); }
+        virtual Element *pointer() const { return nullptr; }
+        virtual bool end() const { return true; }
+        virtual void next() {};
+    };
+    ///////////////////////////////////////////////////////////////////
+    virtual void dump() {}
+
+    virtual Offset getOffset() { return {0, 0}; }
+    virtual Offset getLogicOffset() { return {0, 0}; }
+    virtual Rect getRect() { return getLogicRect(); }
     virtual Rect getLogicRect() { return {0, 0, 0, 0}; }
-    virtual std::vector<Element *> *children() { return nullptr; };
+    virtual Iterator<Element *> children() { return {}; }
+    inline Iterator<Element *> begin() { return children(); }
+    inline Iterator<Element *> end() { return {}; }
     bool isViewport(Context *context) { return context->m_paintManager->isViewport(getRect()); }
-    DEFINE_EVENT(draw);
+    /////////////////////////////////////////
+    DEFINE_EVENT(redraw);
+    DEFINE_EVENT(reflow, RelativeElement *begin);
+    /////////////////////////////////////////
     DEFINE_EVENT(mouseEnter);
     DEFINE_EVENT(mouseMove);
     DEFINE_EVENT(mouseLeave);
@@ -45,22 +70,32 @@ struct ElementRoot {
     DEFINE_EVENT(undo, Command command);
 };
 
-class Element : public ElementRoot {
+class Element : public Root {
 public:
     Element() = default;
-    explicit Element(ElementRoot *parent) : m_parent(parent) {}
-    inline ElementRoot *parent() const { return m_parent; }
+    explicit Element(Root *parent) : m_parent(parent) {}
+    inline Root *parent() const { return m_parent; }
+    Offset getOffset() override {
+        Offset offset = getLogicOffset();
+        if (m_parent != nullptr) {
+            Offset base = m_parent->getOffset();
+            offset.x += base.x;
+            offset.y += base.y;
+        }
+        return offset;
+    }
 protected:
-    ElementRoot *m_parent{};
+    Root *m_parent{};
 };
 
 class RelativeElement : public Element {
+    friend Document;
 protected:
-    RelativeElement *m_prev{};
-    RelativeElement *m_next{};
+    RelativeElement *m_prev = nullptr;
+    RelativeElement *m_next = nullptr;
 public:
     RelativeElement() = default;
-    RelativeElement(ElementRoot *parent, RelativeElement *prev) : Element(parent), m_prev(prev) {}
+    RelativeElement(Root *parent, RelativeElement *prev) : Element(parent), m_prev(prev) {}
     explicit RelativeElement(RelativeElement *prev) : m_prev(prev) {}
     RelativeElement(RelativeElement *_prev, RelativeElement *_next) : m_prev(_prev), m_next(_next) {}
     virtual Display getDisplay() { return Display::None; };
@@ -68,6 +103,102 @@ public:
     virtual int getHeight() { return 0; };
 };
 
+class FixedElement : public RelativeElement {
+public:
+    explicit FixedElement(FixedElement *prev) : RelativeElement(prev->parent(), prev), m_top(prev->getRect().bottom) {
+        prev->m_next = this;
+    }
+    explicit FixedElement(Root *parent, FixedElement *prev) : RelativeElement(parent, prev), m_top(prev->getRect().bottom) {
+        prev->m_next = this;
+    }
+    inline void setTop(Context *context, int top) {
+        m_top = top;
+    }
+    int getHeight() override {
+        return 0;
+    }
+    Rect getLogicRect() override {
+        if (m_parent != nullptr) {
+            return {0, m_top, m_parent->getRect().width(), getHeight()};
+        }
+        NOT_REACHED();
+        return {0, m_top, 0, getHeight()};
+    }
+    Display getDisplay() override { return Display::Block; }
+private:
+    int m_top = 0;
+};
+
+class AbsoluteElement : public Element {
+    int m_left{};
+    int m_top{};
+    int m_width{};
+    int m_height{};
+public:
+    AbsoluteElement(int left, int top, int width, int height) : m_left(left), m_top(top), m_width(width), m_height(height) {}
+private:
+public:
+    Offset getLogicOffset() override {
+        return {m_left, m_top};
+    }
+    Rect getLogicRect() override {
+        return {m_left, m_top, m_width, m_height};
+    }
+    Rect getRect() override {
+        return {getOffset(), m_width, m_height};
+    }
+
+};
+
+class Document : public Root {
+private:
+    Context m_context{};
+    RelativeElement *m_header = nullptr;
+    std::vector<RelativeElement *> m_rel;
+    std::vector<AbsoluteElement *> m_abs;
+public:
+
+    ///////////////////////////////////////////////////////////////////
+    class DocumentIterator : public Iterator<Element *> {
+    private:
+        RelativeElement *m_current = nullptr;
+        std::vector<AbsoluteElement *> &m_abs;
+        int index = 0;
+    public:
+        DocumentIterator(RelativeElement *m_current, std::vector<AbsoluteElement *> &m_abs) : m_current(m_current), m_abs(m_abs) {}
+        Element *pointer() const override { return m_current; }
+        bool end() const override { return m_current == nullptr; }
+        void next() override { m_current = m_current->m_next; }
+    };
+    ///////////////////////////////////////////////////////////////////
+
+    Rect getLogicRect() override {
+        Size size = m_context.m_paintManager->getViewportSize();
+        return {0, 0, size.width, size.height};
+    }
+
+    inline Context *getContext() { return &m_context; }
+
+    void append(RelativeElement *element) {
+        RelativeElement *ele = m_header;
+        while (ele != nullptr && ele->m_next != nullptr)
+            ele = ele->m_next;
+        if (ele != nullptr) {
+            element->m_prev = ele;
+            ele->m_next = element;
+        } else {
+            m_header = element;
+        }
+    }
+
+    Iterator<Element *> children() override {
+        return DocumentIterator(m_header, m_abs);
+    }
+
+};
+
+// 现在没什么用
+//////////////////////////////////////////////////////////////////
 class InlineRelativeElement : public RelativeElement {
 public:
     using RelativeElement::RelativeElement;
@@ -90,7 +221,6 @@ public:
     int getHeight() override { return 0; };
     Display getDisplay() override { return Display::Inline; }
 };
-
 class BlockRelativeElement : public RelativeElement {
 public:
     using RelativeElement::RelativeElement;
@@ -116,100 +246,6 @@ public:
     }
     Display getDisplay() override { return Display::Block; }
 };
-
-class FixedElement : public BlockRelativeElement {
-public:
-    explicit FixedElement(FixedElement *prev) : BlockRelativeElement(prev->parent(), prev), m_top(prev->getRect().bottom) {
-        prev->m_next = this;
-    }
-    explicit FixedElement(ElementRoot *parent, FixedElement *prev) : BlockRelativeElement(parent, prev),
-                                                                m_top(prev->getRect().bottom) {
-        prev->m_next = this;
-    }
-    inline void setTop(Context *context, int top) {
-        m_top = top;
-    }
-    int getHeight() override {
-        return 0;
-    }
-    Rect getLogicRect() override {
-        if (m_parent != nullptr) {
-            return {0, m_top, m_parent->getRect().width(), getHeight()};
-        }
-        NOT_REACHED();
-        return {0, m_top, 0, getHeight()};
-    }
-private:
-    int m_top = 0;
-};
-
-class AbsoluteElement : public Element {
-    int m_left{};
-    int m_top{};
-    int m_width{};
-    int m_height{};
-public:
-    AbsoluteElement(int left, int top, int width, int height) : m_left(left), m_top(top), m_width(width), m_height(height) {}
-private:
-public:
-    Rect getLogicRect() override {
-        return {m_left, m_top, m_width, m_height};
-    }
-    Rect getRect() override {
-        if (m_parent != nullptr) {
-            Rect parent = m_parent->getRect();
-            parent.left += m_left;
-            parent.top += m_top;
-            parent.right = parent.left + m_width;
-            parent.bottom = parent.top + m_height;
-            return parent;
-        }
-        return {0, 0, 0, 0};
-    }
-};
-
-class Document : public ElementRoot {
-private:
-    Context m_context{};
-    RelativeElement *m_header = nullptr;
-
-public:
-    Rect getLogicRect() override {
-        Size size = m_context.m_paintManager->getViewportSize();
-        return {0, 0, size.width, size.height};
-    }
-
-    inline Context *getContext() {
-        return &m_context;
-    }
-
-    void append(RelativeElement *element) {
-        if (m_header == nullptr) {
-            m_header = element;
-            return;
-        }
-        RelativeElement *ele = m_header;
-/*
-        while (ele != nullptr && ele->m_next != nullptr)
-            ele = ele->m_next;
-        if (ele != nullptr)
-            ele->m_next = element;
-*/
-    }
-
-    void insert(int index, RelativeElement *element) {
-
-    }
-
-    RelativeElement *erase(int index) {
-        //auto ele = m_buffer.begin() + index;
-        //m_buffer.erase(ele);
-        // return (FixedElement *) *ele;
-
-        return nullptr;
-    }
-
-};
-
+//////////////////////////////////////////////////////////////////
 
 #endif //TEST_DOCUMENT_H

@@ -8,12 +8,20 @@
 #include <memory>
 #include <iostream>
 #include "common.h"
+
+struct Offset {
+    int x;
+    int y;
+};
+
 struct Rect {
-    int left;
-    int top;
-    int right;
-    int bottom;
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
+    Rect() = default;
     Rect(int left, int top, int width, int height) : left(left), top(top), right(left + width), bottom(top + height) {}
+    Rect(Offset offset, int width, int height) : left(offset.x), top(offset.y), right(offset.x + width), bottom(offset.y + height) {}
     inline int width() const { return bottom - top; }
     inline int height() const { return right - left; }
     void dump() {
@@ -29,7 +37,7 @@ struct Size {
 
 class Painter {
 public:
-    virtual void drawLine() {};
+    void drawLine() {};
 };
 
 class TextMeter {

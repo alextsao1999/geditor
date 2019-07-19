@@ -5,9 +5,12 @@
 #ifndef GEDITOR_LAYOUT_H
 #define GEDITOR_LAYOUT_H
 
+#include "common.h"
+
 struct Root;
 struct RelativeElement;
 struct Document;
+struct Element;
 enum class SelectionState {
     SelectionNone,
     SelectionStart,
@@ -17,10 +20,14 @@ enum class SelectionState {
 };
 
 class LayoutManager {
+private:
+    Document *document;
 public:
-    virtual void reflow() {}
-    virtual void reflow(RelativeElement *element) {}
-    virtual void redraw(Root *element) {}
+    explicit LayoutManager(Document *document) : document(document) {}
+    void reflow(Root *sender);
+    void reflow(RelativeElement *sender);
+    void reflow(Document *sender);
+    void reflow(Element *sender);
 
 };
 

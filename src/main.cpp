@@ -51,7 +51,36 @@ auto CreateMyWindow() {
     return hWnd;
 }
 
+class LineElement : public RelativeElement {
+    using  RelativeElement::RelativeElement;
+public:
+    int getLogicHeight() override {
+        return 20;
+    }
+
+    void dump() override {
+        std::cout << "{ x:" << m_offset.x << " y:" << m_offset.y << " }" << std::endl;
+    }
+
+    Display getDisplay() override {
+        return Display::Block;
+    }
+};
 int main() {
+    Document doc;
+    doc.append(new LineElement());
+    doc.append(new LineElement());
+    doc.append(new LineElement());
+    doc.append(new LineElement());
+    doc.append(new LineElement());
+    doc.flow();
+    auto iter = doc.children();
+    while (iter->has()) {
+        (*iter)->dump();
+        iter->next();
+    }
+    exit(0);
+
     if (MyRegisterClass(nullptr) == 0) {
         MessageBox(nullptr, _GT("注册窗口类名失败"), _GT("错误"), 0);
         exit(1);

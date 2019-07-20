@@ -10,9 +10,9 @@ void LayoutManager::reflow(Root *sender) {
 
 void LayoutManager::reflow(RelativeElement *sender) {
     // 先把同级别的元素都安排一下
-    Offset offset;
+    Offset offset = sender->getLogicOffset();
     RelativeElement *element = sender;
-    while (element->m_next != nullptr) {
+    while (element != nullptr) {
         element->setLogicOffset(offset);
         switch (element->getDisplay()) {
             case Display::None:
@@ -25,6 +25,7 @@ void LayoutManager::reflow(RelativeElement *sender) {
                 offset.y += element->getHeight();
                 break;
         }
+        element = element->m_next;
     }
     // 再把父亲安排一下
     sender->m_parent->reflow(document->getContext());

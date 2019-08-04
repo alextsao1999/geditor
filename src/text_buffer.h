@@ -15,7 +15,7 @@ struct ColumnNode {
     GString content;
     ColumnNode *next = nullptr;
     ColumnNode() = default;
-    explicit ColumnNode(std::wstring content) : content(std::move(content)) {}
+    explicit ColumnNode(GString content) : content(std::move(content)) {}
 };
 
 struct TextLine {
@@ -78,6 +78,7 @@ struct TextLine {
         return *findNode(column);
     }
 };
+
 class LineViewer {
 private:
 public:
@@ -86,11 +87,12 @@ public:
     LineViewer(int number, TextLine *line) : number(number), line(line) {}
     inline bool empty() { return line == nullptr; }
     GString *getContent(int column = 0) {
-        return nullptr;
+        return &line->getNode(column)->content;
     }
-    inline int getLineNumber() { return 0; }
+    inline int getLineNumber() { return number; }
 
 };
+
 class TextBuffer {
 private:
     std::vector<TextLine> m_buffer;
@@ -128,6 +130,5 @@ public:
     }
 
 };
-
 
 #endif //GEDITOR_TEXT_BUFFER_H

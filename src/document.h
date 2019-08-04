@@ -11,8 +11,12 @@
 #include "command_queue.h"
 #include "layout.h"
 #include "text_buffer.h"
-#define DEFINE_EVENT(event, ...) virtual void event(Document *doc, EventContext context, ##__VA_ARGS__) {}
-#define DECLARE_ACTION() friend LayoutManager; void reflow(Context *context) override { context->m_layoutManager->reflow(this); }
+#define DEFINE_EVENT(event, ...) virtual void event(EventContext context, ##__VA_ARGS__) {}
+//#define DECLARE_ACTION()  \
+// friend LayoutManager; \
+// void reflow(Context *context) override { context->m_layoutManager->reflow(this); }
+#define DECLARE_ACTION() friend LayoutManager; void reflow(EventContext context) override { context.doc->getContext()->m_layoutManager->reflow(context, this); }
+
 enum class Display {
     None,
     Inline,
@@ -27,28 +31,80 @@ struct Context {
 
 };
 
-struct EventContext {
-    LineViewer *viewer;
+using ElementIterator = std::vector<Element *>::iterator;
+class ElementIndex {
+private:
+    std::vector<Element *> m_buffer;
+public:
+    void append(Element *element) {
+        m_buffer.push_back(element);
+    }
+
+    inline ElementIterator begin() {
+        return m_buffer.begin();
+    }
+    inline ElementIterator end() {
+        return m_buffer.end();
+    }
 
 };
 
+class Document : public Root {
+public:
+    Context m_context{};
+    RelativeElement *m_header = nullptr;
+    LayoutManager m_layoutManager{this};
+    ElementIndex m_elements;
+
+public:
+    Document();
+    static void FreeAll(RelativeElement *ele);
+    ~Document() { FreeAll(m_header); }
+    DECLARE_ACTION();
+    ElementIterator children() override;
+    ///////////////////////////////////////////////////////////////////
+    inline Context *getContext();
+    void append(RelativeElement *element);
+    void flow();
+};
+
+struct EventContext {
+    Document *doc;
+    std::vector<Element *> *m_buffer;
+
+    int line = 0;
+
+    bool has() { return false; }
+    void next() {}
+
+    inline Element *current() {
+        return m_buffer->at((unsigned int) line);
+    }
+    LineViewer getLineViewer() {
+        return doc->getContext()->m_textBuffer.getLine(line);
+    }
+};
+
+/*
+class ElementIterator {
+private:
+    ElementIndex *buffer = nullptr;
+public:
+    ElementIterator() = default;
+    inline ElementIterator &operator++() { next();return *this; }
+    inline bool operator!=(const ElementIterator &item) { return (!(item.end() && end())) || (pointer() != item.pointer()); }
+    inline Element &operator*() const { return *(pointer()); }
+    inline Element *operator->() const { return pointer(); }
+    inline bool has() { return !end(); }
+    virtual Element *pointer() const { return nullptr; }
+    virtual bool end() const { return true; }
+    virtual void next() {};
+};
+*/
 // Root 无 父元素
 struct Root {
     ///////////////////////////////////////////////////////////////////
-    class Iterator {
-    public:
-        Iterator() = default;
-        inline Iterator &operator++() { next();return *this; }
-        inline bool operator!=(const Iterator &item) { return (!(item.end() && end())) || (pointer() != item.pointer()); }
-        inline Element &operator*() const { return *(pointer()); }
-        inline Element *operator->() const { return pointer(); }
-        inline bool has() { return !end(); }
-        virtual Element *pointer() const { return nullptr; }
-        virtual bool end() const { return true; }
-        virtual void next() {};
-    };
-    using IteratorPtr = std::unique_ptr<Iterator>;
-    virtual IteratorPtr children() { return nullptr; }
+    virtual ElementIterator children() { return {}; }
     ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
     virtual Offset getOffset() { return {0, 0}; }
@@ -58,9 +114,8 @@ struct Root {
     virtual int getLogicWidth() { return 0; };
     virtual int getLogicHeight() { return 0; };
     /////////////////////////////////////////
-    virtual void reflow(Context *context) { context->m_layoutManager->reflow(this); }
-    DEFINE_EVENT(enterReflow);
     DEFINE_EVENT(redraw);
+    DEFINE_EVENT(reflow);
     /////////////////////////////////////////
     DEFINE_EVENT(mouseEnter);
     DEFINE_EVENT(mouseMove);
@@ -74,6 +129,7 @@ struct Root {
     DEFINE_EVENT(input, const char *string);
     DEFINE_EVENT(undo, Command command);
 };
+
 // Element 有 父元素
 class Element : public Root {
     friend Document;
@@ -82,15 +138,7 @@ public:
     explicit Element(Root *parent) : m_parent(parent) {}
     DECLARE_ACTION();
     inline Root *parent() const { return m_parent; }
-    Offset getOffset() override {
-        Offset offset = getLogicOffset();
-        if (m_parent != nullptr) {
-            Offset base = m_parent->getOffset();
-            offset.x += base.x;
-            offset.y += base.y;
-        }
-        return offset;
-    }
+    Offset getOffset() override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
 protected:
@@ -123,54 +171,5 @@ public:
     int getLogicHeight() override { return m_height; }
 };
 
-class Document : public Root {
-public:
-    Context m_context{};
-    RelativeElement *m_header = nullptr;
-    LayoutManager m_layoutManager{this};
-    std::vector<RelativeElement *> m_rel;
-    std::vector<AbsoluteElement *> m_abs;
-public:
-    Document() { m_context.m_layoutManager = &m_layoutManager; }
-    static void FreeAll(RelativeElement *ele) {
-        if (ele == nullptr) {
-            return;
-        }
-        FreeAll(ele->m_next);
-        delete ele;
-    }
-    ~Document() { FreeAll(m_header); }
-    DECLARE_ACTION();
-    ///////////////////////////////////////////////////////////////////
-    class DocumentIterator : public Iterator {
-    private:
-        RelativeElement *m_current = nullptr;
-        std::vector<AbsoluteElement *> &m_abs;
-    public:
-        DocumentIterator(RelativeElement *m_current, std::vector<AbsoluteElement *> &m_abs) : m_current(m_current), m_abs(m_abs) {}
-        Element *pointer() const override { return m_current; }
-        bool end() const override { return m_current == nullptr; }
-        void next() override { m_current = m_current->m_next; }
-    };
-    IteratorPtr children() override {
-        return std::make_unique<DocumentIterator>(m_header, m_abs);
-    }
-    ///////////////////////////////////////////////////////////////////
-    inline Context *getContext() { return &m_context; }
-    void append(RelativeElement *element) {
-        element->m_parent = this;
-        RelativeElement *ele = m_header;
-        while (ele != nullptr && ele->m_next != nullptr)
-            ele = ele->m_next;
-        if (ele != nullptr) {
-            element->m_prev = ele;
-            ele->m_next = element;
-        } else {
-            m_header = element;
-        }
-    }
-    void flow() { m_header->reflow(getContext()); }
-
-};
 
 #endif //TEST_DOCUMENT_H

@@ -74,11 +74,7 @@ int main() {
     doc.append(new LineElement());
     doc.append(new LineElement());
     doc.flow();
-    auto iter = doc.children();
-    while (iter->has()) {
-        (*iter)->dump();
-        iter->next();
-    }
+
     exit(0);
 
     if (MyRegisterClass(nullptr) == 0) {

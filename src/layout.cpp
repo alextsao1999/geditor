@@ -25,10 +25,11 @@ void LayoutManager::reflow(RelativeElement *sender) {
                 offset.y += element->getHeight();
                 break;
         }
-        element = element->m_next;
+
+//        element = element->m_next;
     }
     // 再把父亲安排一下
-    sender->m_parent->reflow(document->getContext());
+//    sender->m_parent->reflow(document->getContext());
 }
 
 void LayoutManager::reflow(Document *sender) {
@@ -36,5 +37,41 @@ void LayoutManager::reflow(Document *sender) {
 }
 
 void LayoutManager::reflow(Element *sender) {
+
+}
+
+void LayoutManager::reflow(EventContext context, RelativeElement *sender) {
+    // 先把同级别的元素都安排一下
+    Offset offset = sender->getLogicOffset();
+    RelativeElement *element = sender;
+    while (context.has()) {
+
+        element->setLogicOffset(offset);
+        switch (element->getDisplay()) {
+            case Display::None:
+                break;
+            case Display::Inline:
+                offset.x += element->getWidth();
+                break;
+            case Display::Block:
+                offset.x = 0;
+                offset.y += element->getHeight();
+                break;
+        }
+        context.next();
+    }
+
+
+}
+
+void LayoutManager::reflow(EventContext context, Document *sender) {
+
+}
+
+void LayoutManager::reflow(EventContext context, Element *sender) {
+
+}
+
+void LayoutManager::reflow(EventContext context, Root *sender) {
 
 }

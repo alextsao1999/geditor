@@ -4,74 +4,29 @@
 
 #include "layout.h"
 #include "document.h"
-void LayoutManager::reflow(Root *sender) {
-    NOT_REACHED();
-}
 
-void LayoutManager::reflow(RelativeElement *sender) {
+void LayoutManager::reflow(EventContext context) {
     // 先把同级别的元素都安排一下
-    Offset offset = sender->getLogicOffset();
-    RelativeElement *element = sender;
-    while (element != nullptr) {
-        element->setLogicOffset(offset);
-        switch (element->getDisplay()) {
-            case Display::None:
-                break;
-            case Display::Inline:
-                offset.x += element->getWidth();
-                break;
-            case Display::Block:
-                offset.x = 0;
-                offset.y += element->getHeight();
-                break;
-        }
-
-//        element = element->m_next;
-    }
-    // 再把父亲安排一下
-//    sender->m_parent->reflow(document->getContext());
-}
-
-void LayoutManager::reflow(Document *sender) {
-    // 重排Document... 好像没啥要干的啊
-}
-
-void LayoutManager::reflow(Element *sender) {
-
-}
-
-void LayoutManager::reflow(EventContext context, RelativeElement *sender) {
-    // 先把同级别的元素都安排一下
-    Offset offset = sender->getLogicOffset();
-    RelativeElement *element = sender;
+    Offset offset = context.current()->getLogicOffset();
     while (context.has()) {
-
-        element->setLogicOffset(offset);
-        switch (element->getDisplay()) {
+        Element *current = context.current();
+        current->setLogicOffset(offset);
+        switch (current->getDisplay()) {
             case Display::None:
                 break;
             case Display::Inline:
-                offset.x += element->getWidth();
+                offset.x += current->getWidth();
                 break;
             case Display::Block:
                 offset.x = 0;
-                offset.y += element->getHeight();
+                offset.y += current->getHeight();
                 break;
         }
         context.next();
     }
-
-
-}
-
-void LayoutManager::reflow(EventContext context, Document *sender) {
-
-}
-
-void LayoutManager::reflow(EventContext context, Element *sender) {
-
-}
-
-void LayoutManager::reflow(EventContext context, Root *sender) {
+    // 再把父级别的元素都安排一下
+//    if (context.outer != nullptr && context.outer->has()) {
+//        reflow(*(context.outer));
+//    }
 
 }

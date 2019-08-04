@@ -7,15 +7,15 @@
 
 #include <vector>
 #include "common.h"
+#include "layout.h"
 #include "paint_manager.h"
 #include "command_queue.h"
-#include "layout.h"
 #include "text_buffer.h"
 #define DEFINE_EVENT(event, ...) virtual void event(EventContext context, ##__VA_ARGS__) {}
-//#define DECLARE_ACTION()  \
-// friend LayoutManager; \
-// void reflow(Context *context) override { context->m_layoutManager->reflow(this); }
-#define DECLARE_ACTION() friend LayoutManager; void reflow(EventContext context) override { context.doc->getContext()->m_layoutManager->reflow(context, this); }
+#define DECLARE_ACTION() friend LayoutManager; \
+    void reflow(EventContext context) override { \
+        context.doc->getContext()->m_layoutManager->reflow(context); \
+    }
 
 enum class Display {
     None,
@@ -24,16 +24,31 @@ enum class Display {
 };
 
 struct Context {
-    PaintManager *m_paintManager;
-    LayoutManager *m_layoutManager;
+    PaintManager *m_paintManager = nullptr;
+    LayoutManager *m_layoutManager = nullptr;
     CommandQueue m_queue;
     TextBuffer m_textBuffer;
+};
+struct Element;
+struct EventContext {
+    Document *doc = nullptr;
+    std::vector<Element *> *buffer = nullptr;
+    int index = 0;
 
+    bool has() { return index < buffer->size(); }
+    void next() { index++; }
+
+    inline Element *current() {
+        return buffer->at((unsigned int) index);
+    }
+    LineViewer getLineViewer();
+    EventContext() = default;
+    EventContext(Document *doc, std::vector<Element *> *buffer, int index) : doc(doc), buffer(buffer), index(index) {}
 };
 
 using ElementIterator = std::vector<Element *>::iterator;
 class ElementIndex {
-private:
+public:
     std::vector<Element *> m_buffer;
 public:
     void append(Element *element) {
@@ -48,43 +63,6 @@ public:
     }
 
 };
-
-class Document : public Root {
-public:
-    Context m_context{};
-    RelativeElement *m_header = nullptr;
-    LayoutManager m_layoutManager{this};
-    ElementIndex m_elements;
-
-public:
-    Document();
-    static void FreeAll(RelativeElement *ele);
-    ~Document() { FreeAll(m_header); }
-    DECLARE_ACTION();
-    ElementIterator children() override;
-    ///////////////////////////////////////////////////////////////////
-    inline Context *getContext();
-    void append(RelativeElement *element);
-    void flow();
-};
-
-struct EventContext {
-    Document *doc;
-    std::vector<Element *> *m_buffer;
-
-    int line = 0;
-
-    bool has() { return false; }
-    void next() {}
-
-    inline Element *current() {
-        return m_buffer->at((unsigned int) line);
-    }
-    LineViewer getLineViewer() {
-        return doc->getContext()->m_textBuffer.getLine(line);
-    }
-};
-
 /*
 class ElementIterator {
 private:
@@ -101,6 +79,7 @@ public:
     virtual void next() {};
 };
 */
+
 // Root 无 父元素
 struct Root {
     ///////////////////////////////////////////////////////////////////
@@ -136,13 +115,43 @@ class Element : public Root {
 public:
     Element() = default;
     explicit Element(Root *parent) : m_parent(parent) {}
-    DECLARE_ACTION();
     inline Root *parent() const { return m_parent; }
     Offset getOffset() override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
 protected:
     Root *m_parent{};
+};
+
+class Document : public Root {
+public:
+    Context m_context{};
+    RelativeElement *m_header = nullptr;
+    LayoutManager m_layoutManager{this};
+    ElementIndex m_elements;
+
+public:
+    Document();
+    ~Document() {
+        for (auto element : m_elements.m_buffer) {
+            delete element;
+        }
+    }
+    ///////////////////////////////////////////////////////////////////
+    inline Context *getContext() { return &m_context; };
+
+    void append(Element *element) {
+        m_elements.append(element);
+    };
+
+    void flow(int index = 0) {
+        if (m_elements.m_buffer.empty())
+            return;
+        m_elements.m_buffer[index]->reflow(EventContext(this, &(m_elements.m_buffer), index));
+    }
+
+    DECLARE_ACTION();
+
 };
 
 class RelativeElement : public Element {
@@ -153,6 +162,8 @@ protected:
     RelativeElement *m_next = nullptr;
 public:
     using Element::Element;
+
+    Offset getLogicOffset() override { return m_offset; }
     void setLogicOffset(Offset offset) override { m_offset = offset; }
     DECLARE_ACTION();
 };

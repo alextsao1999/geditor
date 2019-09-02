@@ -37,8 +37,13 @@ struct Size {
 };
 
 class Painter {
+private:
+    HDC m_HDC{};
 public:
-    void drawLine() {};
+    explicit Painter(HDC hdc) : m_HDC(hdc) {}
+    void drawLine() {
+
+    };
 };
 
 class TextMeter {
@@ -46,12 +51,21 @@ class TextMeter {
 };
 
 class PaintManager {
+private:
+    HDC m_HDC{};
 public:
+    PaintManager() : m_HDC(CreateCompatibleDC(nullptr)) {
+
+    }
     virtual bool isViewport(Rect &&rect) { return isViewport(rect); }
     virtual bool isViewport(Rect &rect) { return false; }
-    virtual Painter *getPainter() { return nullptr; }
-    virtual TextMeter *getTextMeter() { return nullptr; }
+    virtual Painter getPainter() { return Painter(m_HDC); }
+    virtual TextMeter getTextMeter() { return {}; }
     virtual Size getViewportSize() { return {0, 0}; };
+
+    bool copy(HDC to) {
+        return (bool) BitBlt(to, 0, 0, 0, 0, m_HDC, 0, 0, SRCCOPY);
+    }
 
 };
 

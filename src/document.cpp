@@ -4,8 +4,6 @@
 
 #include "document.h"
 
-Document::Document() { m_context.m_layoutManager = &m_layoutManager; }
-
 Offset Element::getOffset() {
     Offset offset = getLogicOffset();
     if (m_parent != nullptr) {
@@ -17,6 +15,12 @@ Offset Element::getOffset() {
 }
 
 LineViewer EventContext::getLineViewer() {
-    return doc->getContext()->m_textBuffer.getLine(index);
+    return doc->getContext()->m_textBuffer.getLine(line);
 }
 
+void EventContext::set(Root *obj, int idx = 0) {
+    if (obj->getChildrenNum()) {
+        buffer = obj->children()->getPointer();
+        index = idx;
+    }
+}

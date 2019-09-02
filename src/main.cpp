@@ -2,19 +2,10 @@
 #include "document.h"
 #include "common.h"
 #include "text_buffer.h"
+#include "table.h"
+#include "geditor.h"
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
-        case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-//             HDC mem = CreateCompatibleDC(nullptr);
-            SetBkMode(hdc, TRANSPARENT);
-            SetTextColor(hdc, RGB(0, 0, 0));
-            TextOut(hdc, 10, 10, _GT("测试绘图文本"), 6);
-            EndPaint(hWnd, &ps);
-        }
-            break;
         case WM_DESTROY:
             PostQuitMessage(0);
             break;
@@ -54,7 +45,7 @@ auto CreateMyWindow() {
 class LineElement : public RelativeElement {
     using  RelativeElement::RelativeElement;
 public:
-    int getLogicHeight() override {
+    int getLogicHeight(EventContext context) override {
         return 20;
     }
 
@@ -67,21 +58,13 @@ public:
     }
 };
 int main() {
-    Document doc;
-    doc.append(new LineElement());
-    doc.append(new LineElement());
-    doc.append(new LineElement());
-    doc.append(new LineElement());
-    doc.append(new LineElement());
-    doc.flow();
-
-    exit(0);
-
     if (MyRegisterClass(nullptr) == 0) {
         MessageBox(nullptr, _GT("注册窗口类名失败"), _GT("错误"), 0);
         exit(1);
     }
-    CreateMyWindow();
+    HWND hwnd = CreateMyWindow();
+    auto g = GEditorBuilder::build(hwnd);
+
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
         if (!TranslateAccelerator(msg.hwnd, nullptr, &msg)) {

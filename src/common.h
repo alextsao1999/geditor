@@ -27,4 +27,6 @@ if (!(cond)) { \
     abort(); \
 } \
 } while (0)
+
+
 #endif //GEDITOR_COMMON_H

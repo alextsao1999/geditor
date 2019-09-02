@@ -9,6 +9,8 @@ set(sources
         text_buffer.cpp
         geditor.cpp
         memory.cpp
+        table.cpp
+        utils.cpp
         )
 
 add_executable(geditor ${sources})

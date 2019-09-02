@@ -22,9 +22,7 @@ enum class SelectionState {
 
 class LayoutManager {
 private:
-    Document *document;
 public:
-    explicit LayoutManager(Document *document) : document(document) {}
     void reflow(EventContext context);
 };
 

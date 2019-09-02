@@ -144,11 +144,18 @@ public:
     bool contain(EventContext &context, int x, int y) override {
         Offset offset = getOffset();
         if (getDisplay() == Display::Block) {
-            return (offset.x < x) && (offset.y < y) &&
+            return (offset.x < x) && (m_parent->getOffset().x + m_parent->getWidth(context) > x) && (offset.y < y) &&
                    (offset.y + getHeight(context) > y);
         }
         return (offset.x < x) && (offset.x + getWidth(context) > x) && (offset.y < y) &&
                (offset.y + getHeight(context) > y);
+    }
+
+    int getWidth(EventContext &context) override {
+        if (getDisplay() == Display::Block) {
+            return parent()->getWidth(context) - (getOffset().x - parent()->getOffset().x);
+        }
+        return Root::getWidth(context);
     }
 
 protected:
@@ -173,6 +180,7 @@ public:
 
     void append(Element *element) {
         m_elements.append(element);
+        element->m_parent = this;
     };
 
     Element *getLineElement(int line) {
@@ -198,6 +206,14 @@ public:
 
     ElementIndex *children() override {
         return &m_elements;
+    }
+
+    int getLogicWidth(EventContext &context) override {
+        return m_context.m_paintManager->getViewportSize().width;
+    }
+
+    int getLogicHeight(EventContext &context) override {
+        return m_context.m_paintManager->getViewportSize().height;
     }
 
 };

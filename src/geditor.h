@@ -20,16 +20,16 @@ struct GEditorData {
 class LineElement : public RelativeElement {
     using  RelativeElement::RelativeElement;
 public:
-    LineElement(int value) : value(value) {}
+    explicit LineElement(int value) : value(value) {}
     int value;
     Offset getOffset() override {
         Offset off = Element::getOffset();
-        off.x += 20;
-        off.y += 10;
+        off.x += 0;
+        off.y += 0;
         return off;
     }
     int getLogicHeight(EventContext &context) override {
-        return 40;
+        return 20;
     }
     void dump() override {
         std::cout << "{ x:" << m_offset.x << " y:" << m_offset.y << " }" << std::endl;
@@ -39,11 +39,16 @@ public:
     }
     void redraw(EventContext &context) override {
         Painter painter = context.getPainter();
-        painter.drawRect(0, 0, 200, getHeight(context));
-        painter.drawText(5, 5, _GT("我来测试一下啊"), 7);
+        GChar str[20];
+        wsprintf(str, L"我被点击%d下了\0", value);
+        painter.drawText(5, 5, str, lstrlenW(str));
+        //painter.drawRect(5, 5, getWidth(context) - 40, getHeight(context));
     }
     void leftClick(EventContext &context, int x, int y) override {
-        std::cout << "I was Clicked!! " << value << " x:" << x << " y:" << y << std::endl;
+        value++;
+        context.doc->getContext()->m_paintManager->refresh();
+
+        //InvalidateRect
     }
 };
 
@@ -58,20 +63,20 @@ public:
                                         WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL,
                                         x, y, nWidth, nHeight, parent,
                                         nullptr, nullptr, nullptr);
-        if (m_data->m_hwnd) {
-            SetWindowLong(m_data->m_hwnd, GWL_USERDATA, (LONG) m_data);
+        if (!m_data->m_hwnd) {
+            return;
         }
+        SetWindowLong(m_data->m_hwnd, GWL_USERDATA, (LONG) m_data);
+        m_data->m_paintManager = PaintManager::FromWindow(m_data->m_hwnd);
         m_data->m_document.getContext()->m_paintManager = &m_data->m_paintManager;
-        m_data->m_document.append(new LineElement(111));
-        m_data->m_document.append(new LineElement(222));
-        m_data->m_document.append(new LineElement(333));
+        for (int i = 0; i < 10; ++i) {
+            m_data->m_document.append(new LineElement(i));
+        }
         m_data->m_document.flow();
     }
     ~GEditor() {
         delete m_data;
     }
-
-
 
 };
 
@@ -109,13 +114,11 @@ public:
         switch (message) {
             case WM_LBUTTONUP:
                 {
-                    //std::cout << "x : " << (lParam & 0xffff) << "  y:" <<  ((lParam >> 16) & 0xffff) << std::endl ;
                     context.set(&data->m_document, 0);
                     while (context.has()) {
-                        if(context.current()->contain(context, lParam & 0xffff, (lParam >> 16) & 0xffff)) {
+                        if(context.current()->contain(context, LOWORD(lParam), HIWORD(lParam))) {
                             Offset offset = context.current()->getOffset();
-                            context.current()->leftClick(context, (lParam & 0xffff) - offset.x,
-                                                         ((lParam >> 16) & 0xffff) - offset.y);
+                            context.current()->leftClick(context, LOWORD(lParam) - offset.x, HIWORD(lParam) - offset.y);
                         }
                         context.next();
                     }
@@ -125,7 +128,7 @@ public:
                 {
                     PAINTSTRUCT ps;
                     HDC hdc = BeginPaint(hWnd, &ps);
-                    data->m_paintManager.m_HDC = hdc;
+                    data->m_paintManager.update();
                     context.set(&data->m_document, 0);
                     while (context.has()) {
                         context.current()->redraw(context);

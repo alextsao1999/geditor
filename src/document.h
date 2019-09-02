@@ -40,11 +40,16 @@ struct EventContext {
     bool has() { return index < buffer->size(); }
     void next() { index++; }
     void nextLine() { line++; }
-
-    inline void set(Root *obj, int index);
+    /**
+     * 设置当前上下文对象
+     * @param obj
+     * @param index
+     */
+    void set(Root *obj, int index);
     inline Element *current() {
         return buffer->at((unsigned int) index);
     }
+    Painter getPainter();
 
     LineViewer getLineViewer();
     EventContext() = default;
@@ -96,11 +101,17 @@ struct Root {
     // 获取对于父元素的相对偏移
     virtual Offset getLogicOffset() { return {0, 0}; }
     // 获取实际宽度
-    virtual int getWidth(EventContext context) { return getLogicWidth(context); };
+    virtual int getWidth(EventContext &context) { return getLogicWidth(context); };
     // 获取实际高度
-    virtual int getHeight(EventContext context) { return getLogicHeight(context); };
-    virtual int getLogicWidth(EventContext context) { return 0; };
-    virtual int getLogicHeight(EventContext context) { return 0; };
+    virtual int getHeight(EventContext &context) { return getLogicHeight(context); };
+    virtual int getLogicWidth(EventContext &context) { return 0; };
+    virtual int getLogicHeight(EventContext &context) { return 0; };
+    virtual bool contain(EventContext &context, int x, int y) {
+        Offset offset = getOffset();
+        return (offset.x < x) && (offset.x + getWidth(context) > x) && (offset.y < y) &&
+               (offset.y + getHeight(context) > y);
+    };
+    Root *getContain(EventContext &context, int x, int y);
     /////////////////////////////////////////
     DEFINE_EVENT(redraw);
     DEFINE_EVENT(reflow);
@@ -129,6 +140,17 @@ public:
     Offset getOffset() override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
+
+    bool contain(EventContext &context, int x, int y) override {
+        Offset offset = getOffset();
+        if (getDisplay() == Display::Block) {
+            return (offset.x < x) && (offset.y < y) &&
+                   (offset.y + getHeight(context) > y);
+        }
+        return (offset.x < x) && (offset.x + getWidth(context) > x) && (offset.y < y) &&
+               (offset.y + getHeight(context) > y);
+    }
+
 protected:
     Root *m_parent{};
 };
@@ -161,7 +183,7 @@ public:
         if (m_elements.m_buffer.empty())
             return;
         EventContext context = EventContextBuilder::build(this);
-        context.setElement(this, index);
+        context.set(this, index);
         m_elements.m_buffer[index]->reflow(context);
     }
 
@@ -191,7 +213,7 @@ public:
     void setLogicOffset(Offset offset) override { m_offset = offset; }
 
     void reflow(EventContext &context) override {
-        context.doc->getContext()->m_layoutManager->reflow(context);
+        context.doc->getContext()->m_layoutManager.reflow(context);
     }
 
 };
@@ -206,8 +228,8 @@ public:
 private:
 public:
     Offset getLogicOffset() override { return {m_left, m_top}; }
-    int getLogicWidth(EventContext context) override { return m_width; }
-    int getLogicHeight(EventContext context) override { return m_height; }
+    int getLogicWidth(EventContext &context) override { return m_width; }
+    int getLogicHeight(EventContext &context) override { return m_height; }
 };
 
 /*

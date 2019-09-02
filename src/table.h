@@ -13,11 +13,11 @@ public:
     RowElement() = default;
     RowElement(int column) : column(column) {}
 
-    int getLogicWidth(EventContext context) override {
+    int getLogicWidth(EventContext &context) override {
         return Root::getLogicWidth(context);
     }
 
-    int getLogicHeight(EventContext context) override {
+    int getLogicHeight(EventContext &context) override {
         return Root::getLogicHeight(context);
     }
 };
@@ -39,11 +39,11 @@ public:
         return 0;
     }
 
-    int getLogicWidth(EventContext context) override {
+    int getLogicWidth(EventContext &context) override {
         return Root::getLogicWidth(context);
     }
 
-    int getLogicHeight(EventContext context) override {
+    int getLogicHeight(EventContext &context) override {
         return Root::getLogicHeight(context);
     }
 };

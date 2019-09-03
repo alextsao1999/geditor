@@ -8,11 +8,31 @@
 #include <memory>
 #include <iostream>
 #include "common.h"
+#include "layout.h"
 
 struct Offset {
     int x = 0;
     int y = 0;
     Offset() = default;
+    Offset(int x, int y) : x(x), y(y) {}
+    inline Offset operator+(const Offset &offset) {
+        return {x + offset.x, y + offset.y};
+    }
+    inline Offset operator-(const Offset &offset) {
+        return {x - offset.x, y - offset.y};
+    }
+
+    inline Offset &operator+=(const Offset &offset) {
+        x += offset.x;
+        y += offset.y;
+        return *this;
+    }
+    inline Offset &operator-=(const Offset &offset) {
+        x -= offset.x;
+        y -= offset.y;
+        return *this;
+    }
+
 };
 
 struct Rect {
@@ -82,6 +102,7 @@ public:
     HDC m_hMemDC = nullptr;
     HDC m_hWndDC = nullptr;
     HBITMAP m_hBitmap = nullptr;
+    Offset m_offset;
     HBRUSH hBrushes[1] = {
             CreateSolidBrush(RGB (255, 255, 255))
     };
@@ -130,6 +151,16 @@ public:
     }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
     virtual TextMeter getTextMeter() { return {}; }
+    virtual void setViewportOffset(Offset offset) {
+        m_offset = offset;
+    }
+    virtual void updateViewport(LayoutManager *layoutManager) {
+        Offset offset;
+        offset.x = GetScrollPos(m_hWnd, SB_HORZ);
+        offset.y = GetScrollPos(m_hWnd, SB_VERT);
+        m_offset.x = (int) (layoutManager->getWidth() * ((float) offset.x / 100));
+        m_offset.y = (int) (layoutManager->getHeight() * ((float) offset.y / 100));
+    }
     virtual Size getViewportSize() {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);

@@ -36,7 +36,11 @@ struct EventContext {
     EventContext *outer = nullptr;
     int index = 0;
     int line = 0;
-
+    void jump(int idx) {
+        if (idx >= buffer->size())
+            return;
+        index = idx;
+    }
     bool has() { return index < buffer->size(); }
     void next() { index++; }
     void nextLine() { line++; }
@@ -53,7 +57,7 @@ struct EventContext {
 
     LineViewer getLineViewer();
     EventContext() = default;
-    EventContext(Document *doc) : doc(doc) {}
+    explicit EventContext(Document *doc) : doc(doc) {}
 };
 
 using ElementIterator = std::vector<Element *>::iterator;
@@ -83,7 +87,7 @@ public:
 class EventContextBuilder {
 public:
     inline static EventContext build(Document *doc) {
-        return {doc};
+        return EventContext(doc);
     }
 };
 

@@ -22,14 +22,9 @@ class LineElement : public RelativeElement {
 public:
     explicit LineElement(int value) : value(value) {}
     int value;
-    Offset getOffset() override {
-        Offset off = Element::getOffset();
-        off.x += 0;
-        off.y += 0;
-        return off;
-    }
+    int height = 20;
     int getLogicHeight(EventContext &context) override {
-        return 20;
+        return height;
     }
     void dump() override {
         std::cout << "{ x:" << m_offset.x << " y:" << m_offset.y << " }" << std::endl;
@@ -42,13 +37,15 @@ public:
         GChar str[20];
         wsprintf(str, L"我被点击%d下了\0", value);
         painter.drawText(5, 5, str, lstrlenW(str));
-        //painter.drawRect(5, 5, getWidth(context) - 40, getHeight(context));
+        painter.drawRect(5, 5, getWidth(context) - 40, getHeight(context));
     }
     void leftClick(EventContext &context, int x, int y) override {
         value++;
+        height += 10;
+        context.doc->reflow(context);
         context.doc->getContext()->m_paintManager->refresh();
+        std::cout << "{ x:" << x << " y:" << y << " }" << std::endl;
 
-        //InvalidateRect
     }
 };
 
@@ -112,17 +109,28 @@ public:
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
         EventContext context = EventContextBuilder::build(&data->m_document);
         switch (message) {
-            case WM_LBUTTONUP:
-                {
-                    context.set(&data->m_document, 0);
-                    while (context.has()) {
-                        if(context.current()->contain(context, LOWORD(lParam), HIWORD(lParam))) {
-                            Offset offset = context.current()->getOffset();
-                            context.current()->leftClick(context, LOWORD(lParam) - offset.x, HIWORD(lParam) - offset.y);
-                        }
-                        context.next();
+            case WM_MOUSEWHEEL:
+            case WM_VSCROLL:
+                handleScroll(SB_VERT, data, hWnd, wParam);
+                break;
+            case WM_HSCROLL:
+                handleScroll(SB_HORZ, data, hWnd, wParam);
+                break;
+            case WM_SIZE:
+                data->m_paintManager.resize();
+                break;
+            case WM_LBUTTONUP: {
+                context.set(&data->m_document, 0);
+                Offset pos(LOWORD(lParam), HIWORD(lParam));
+
+                while (context.has()) {
+                    if (context.current()->contain(context, pos.x, pos.y)) {
+                        Offset offset = pos - context.current()->getOffset();
+                        context.current()->leftClick(context, offset.x, offset.y);
                     }
+                    context.next();
                 }
+            }
                 break;
             case WM_PAINT:
                 {
@@ -147,6 +155,46 @@ public:
                 return DefWindowProc(hWnd, message, wParam, lParam);
         }
         return 0;
+    }
+
+    static void handleScroll(int nBar, GEditorData *data, HWND hWnd, WPARAM wParam) {
+        int prev = GetScrollPos(hWnd, nBar);
+        int movement = ((int16_t) HIWORD(wParam)) / -60;
+        prev += movement;
+        int status = LOWORD(wParam);
+        switch (status) {
+            case SB_LINEUP:
+                prev -= 1;
+                break;
+            case SB_LINEDOWN:
+                prev += 1;
+                break;
+            case SB_THUMBTRACK:
+            {
+                SCROLLINFO si;
+                si.cbSize = sizeof(SCROLLINFO);
+                si.fMask = SIF_ALL;
+                GetScrollInfo(hWnd, nBar, &si);
+                prev = si.nTrackPos;
+            }
+                break;
+            case SB_PAGEUP:
+                prev -= 1;
+                break;
+            case SB_PAGEDOWN:
+                prev += 1;
+                break;
+            case SB_ENDSCROLL:
+                break;
+            default:
+                break;
+        }
+        SetScrollPos(hWnd, nBar, prev, true);
+        data->m_paintManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
+    }
+
+    static void handleChildren() {
+
     }
 
 };

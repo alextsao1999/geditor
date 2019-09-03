@@ -1,0 +1,5 @@
+C:/Users/Administrator/Desktop/geditor/cmake-build-release/CMakeFiles/edit_cache.dir
+C:/Users/Administrator/Desktop/geditor/cmake-build-release/CMakeFiles/rebuild_cache.dir
+C:/Users/Administrator/Desktop/geditor/cmake-build-release/src/CMakeFiles/geditor.dir
+C:/Users/Administrator/Desktop/geditor/cmake-build-release/src/CMakeFiles/edit_cache.dir
+C:/Users/Administrator/Desktop/geditor/cmake-build-release/src/CMakeFiles/rebuild_cache.dir

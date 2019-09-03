@@ -11,6 +11,8 @@
 #include "paint_manager.h"
 #include "command_queue.h"
 #include "text_buffer.h"
+#include "caret_manager.h"
+
 #define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
 #define DECLARE_ACTION() friend LayoutManager; \
     void reflow(EventContext context) override { \
@@ -24,10 +26,13 @@ enum class Display {
 };
 
 struct Context {
-    PaintManager *m_paintManager = nullptr;
+    PaintManager *m_paintManager;
     LayoutManager m_layoutManager;
+    CaretManager m_caretManager;
     CommandQueue m_queue;
     TextBuffer m_textBuffer;
+    explicit Context(PaintManager *paintManager) : m_paintManager(paintManager),
+                                                     m_caretManager(CaretManager(paintManager)) {}
 };
 
 struct Element;
@@ -52,14 +57,23 @@ struct EventContext {
     EventContext *outer = nullptr;
     int index = 0;
     int line = 0;
-
+    EventContext *copy() {
+        return new EventContext(this, outer ? outer->copy() : nullptr);
+    }
+    void free() {
+        if (!outer)
+            return;
+        outer->free();
+        delete outer;
+        outer = nullptr;
+    }
     void jump(int idx) {
         if (idx >= buffer->size())
             return;
         index = idx;
     }
     bool has() { return index < buffer->size(); }
-    void next() { index++; }
+    void next();
     void nextLine() {
         if (outer) {
             outer->nextLine();
@@ -79,13 +93,23 @@ struct EventContext {
     Painter getPainter();
     PaintManager *getPaintManager();
     LayoutManager *getLayoutManager();
+    CaretManager *getCaretManager();
     LineViewer getLineViewer();
     EventContext() = default;
     explicit EventContext(Document *doc) : doc(doc) {}
-    explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *outer) : doc(doc),
+    explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx) : doc(doc),
                                                                                                 buffer(buffer),
-                                                                                                outer(outer) {}
-
+                                                                                                outer(out), index(idx) {}
+    explicit EventContext(const EventContext *context, EventContext *out) : doc(context->doc),
+                                                                            buffer(context->buffer),
+                                                                            index(context->index), line(context->line),
+                                                                            outer(out) {}
+    /**
+     * 进入Children
+     * @param element
+     * @param index
+     * @return
+     */
     EventContext enter(Element *element, int index = 0);
 };
 
@@ -174,12 +198,11 @@ protected:
 
 class Document : public Root {
 public:
-    Context m_context{};
+    Context m_context;
     ElementIndex m_elements;
 
 public:
-    Document() = default;
-
+    explicit Document(PaintManager *paintManager) : m_context(Context(paintManager)) {}
     ~Document() {
         for (auto element : m_elements) {
             delete element;
@@ -188,9 +211,10 @@ public:
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
 
-    void append(Element *element) {
+    LineViewer append(Element *element) {
         m_elements.append(element);
         element->m_parent = this;
+        return m_context.m_textBuffer.appendLine();
     };
 
     Element *getLineElement(int line) {

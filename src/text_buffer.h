@@ -86,8 +86,8 @@ public:
     TextLine *line;
     LineViewer(int number, TextLine *line) : number(number), line(line) {}
     inline bool empty() { return line == nullptr; }
-    GString *getContent(int column = 0) {
-        return &line->getNode(column)->content;
+    GString &getContent(int column = 0) {
+        return line->getNode(column)->content;
     }
     inline int getLineNumber() { return number; }
 
@@ -97,11 +97,15 @@ class TextBuffer {
 private:
     std::vector<TextLine> m_buffer;
 public:
-    TextBuffer() { m_buffer.emplace_back(); }
+    TextBuffer() = default;
     inline int getLineCount() { return m_buffer.size(); }
-
-    void insertLine(int prev = -1) {
+    LineViewer insertLine(int prev = -1) {
         m_buffer.insert(m_buffer.begin() + prev, TextLine());
+        return {prev, &m_buffer[prev]};
+    }
+    LineViewer appendLine() {
+        m_buffer.emplace_back();
+        return {(int) (m_buffer.size() - 1), &m_buffer.back()};
     }
 
     void insertColumn(int line, int prev = -1) {
@@ -115,14 +119,6 @@ public:
 
     void deleteColumn(int line, int column = -1) {
         m_buffer[line].deleteColumn(column);
-    }
-
-    void insertString(GString &str, unsigned int pos, int line, int column = 0) {
-        m_buffer[line].getNode(column)->content.insert(pos, str);
-    }
-
-    void insertChar(GChar ch, unsigned int pos, int line, int column = 0) {
-        m_buffer[line].getNode(column)->content.insert(pos, &ch);
     }
 
     LineViewer getLine(int line) {

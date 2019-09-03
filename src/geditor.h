@@ -16,36 +16,41 @@ struct GEditorData {
     HWND m_hwnd{};
     Document m_document;
     PaintManager m_paintManager;
+    GEditorData() : m_document(Document(&m_paintManager)) {}
+
 };
 class LineElement : public RelativeElement {
     using  RelativeElement::RelativeElement;
 public:
     explicit LineElement(int value) : value(value) {}
     int value;
-    int height = 20;
+    int height = 25;
+    int m_x = 0;
+    int m_y = 0;
     int getLogicHeight(EventContext &context) override {
         return height;
-    }
-    void dump() override {
-        std::cout << "{ x:" << m_offset.x << " y:" << m_offset.y << " }" << std::endl;
     }
     Display getDisplay() override {
         return Display::Block;
     }
     void redraw(EventContext &context) override {
         Painter painter = context.getPainter();
-        GChar str[20];
-        wsprintf(str, L"我被点击%d下了\0", value);
-        painter.drawText(5, 5, str, lstrlenW(str));
-        painter.drawRect(5, 5, getWidth(context) - 40, getHeight(context));
+        LineViewer line = context.getLineViewer();
+        painter.setTextColor(RGB(0, 0, 0));
+        painter.drawText(4, 4, line.getContent().c_str(), line.getContent().size());
+        painter.drawRect(2, 2, getWidth(context) - 40, getHeight(context));
     }
     void leftClick(EventContext &context, int x, int y) override {
-        value++;
-        height += 10;
-        context.doc->reflow(context);
-        context.doc->getContext()->m_paintManager->refresh();
-        std::cout << "{ x:" << x << " y:" << y << " }" << std::endl;
+        context.getCaretManager()->focus(&context);
 
+        auto caret = context.getCaretManager();
+        caret->set(x, 5);
+        caret->show();
+        value++;
+        context.doc->reflow(context);
+        context.getPaintManager()->refresh();
+        m_x = x;
+        m_y = y;
     }
 };
 
@@ -65,9 +70,11 @@ public:
         }
         SetWindowLong(m_data->m_hwnd, GWL_USERDATA, (LONG) m_data);
         m_data->m_paintManager = PaintManager::FromWindow(m_data->m_hwnd);
-        m_data->m_document.getContext()->m_paintManager = &m_data->m_paintManager;
         for (int i = 0; i < 10; ++i) {
-            m_data->m_document.append(new LineElement(i));
+            GChar str[255];
+            auto line = m_data->m_document.append(new LineElement(i));
+            wsprintf(str, _GT("this is test string %d\0"), line.number);
+            line.getContent().append(str);
         }
         m_data->m_document.flow();
     }
@@ -127,6 +134,7 @@ public:
                     if (context.current()->contain(context, pos.x, pos.y)) {
                         Offset offset = pos - context.current()->getOffset();
                         context.current()->leftClick(context, offset.x, offset.y);
+                        break;
                     }
                     context.next();
                 }
@@ -150,6 +158,18 @@ public:
                 break;
             case WM_DESTROY:
                 PostQuitMessage(0);
+                break;
+            case WM_LBUTTONDOWN:
+                SetFocus(hWnd);
+                break;
+            case WM_RBUTTONDOWN:
+                SetFocus(hWnd);
+                break;
+            case WM_SETFOCUS:
+                data->m_document.getContext()->m_caretManager.create();
+                break;
+            case WM_KILLFOCUS:
+                // DestroyCaret();
                 break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
@@ -190,6 +210,8 @@ public:
         }
         SetScrollPos(hWnd, nBar, prev, true);
         data->m_paintManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
+        data->m_document.getContext()->m_caretManager.update();
+
     }
     static void handleChildren() {
 

@@ -59,13 +59,14 @@ class EventContext;
 class Painter {
 private:
     HDC m_HDC{};
-    EventContext *context;
-    Offset offset;
+    EventContext *m_context;
+    Offset m_offset;
 public:
     explicit Painter(HDC m_HDC, EventContext *context);
+    ~Painter() = default;
     void drawLine(int x1, int y1, int x2, int y2) {
-        MoveToEx(m_HDC, x1 + offset.x, y1 + offset.y, nullptr);
-        LineTo(m_HDC, x2 + offset.x, y2 + offset.y);
+        MoveToEx(m_HDC, x1 + m_offset.x, y1 + m_offset.y, nullptr);
+        LineTo(m_HDC, x2 + m_offset.x, y2 + m_offset.y);
     };
     void drawVerticalLine(int x, int y, int length) {
         drawLine(x, y, x, y + length);
@@ -84,11 +85,17 @@ public:
         HBRUSH brush = CreateBrushIndirect(nullptr);
         FillRect(m_HDC, &rect, brush);
     }
-    void drawText(int x, int y, const GChar *str, int count) {
-        // SetBkMode(m_hMemDC, TRANSPARENT);
-        SetBkColor(m_HDC, RGB(222, 222, 222));
-        SetTextColor(m_HDC, RGB(0, 0, 0));
-        TextOut(m_HDC, offset.x + x, offset.y + y, str, count);
+    void setTextColor(COLORREF color) {
+        SetTextColor(m_HDC, color);
+    }
+    void setBkColor(COLORREF color) {
+        SetBkColor(m_HDC, color);
+    }
+    void drawText(int x, int y, const GChar *str, int count, bool transparent = true) {
+        if (transparent) {
+            SetBkMode(m_HDC, TRANSPARENT);
+        }
+        TextOut(m_HDC, m_offset.x + x, m_offset.y + y, str, count);
     }
 };
 

@@ -35,7 +35,7 @@ Painter EventContext::getPainter() {
 }
 
 EventContext EventContext::enter(Element *element, int index) {
-    return EventContext(doc, element->children()->getPointer(), this);
+    return EventContext(doc, element->children()->getPointer(), this, index);
 }
 
 PaintManager *EventContext::getPaintManager() {
@@ -44,6 +44,17 @@ PaintManager *EventContext::getPaintManager() {
 
 LayoutManager *EventContext::getLayoutManager() {
     return &doc->getContext()->m_layoutManager;
+}
+
+CaretManager *EventContext::getCaretManager() {
+    return &doc->getContext()->m_caretManager;
+}
+
+void EventContext::next() {
+    if (current()->getDisplay() == Display::Block) {
+        nextLine();
+    }
+    index++;
 }
 
 Root *Root::getContain(EventContext &context, int x, int y) {

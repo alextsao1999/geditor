@@ -16,7 +16,11 @@ Offset Element::getOffset() {
 
 
 LineViewer EventContext::getLineViewer() {
-    return doc->getContext()->m_textBuffer.getLine(line);
+    if (outer) {
+        return outer->getLineViewer();
+    } else {
+        return doc->getContext()->m_textBuffer.getLine(line);
+    }
 }
 
 void EventContext::set(Root *obj, int idx = 0) {
@@ -28,6 +32,18 @@ void EventContext::set(Root *obj, int idx = 0) {
 
 Painter EventContext::getPainter() {
     return doc->getContext()->m_paintManager->getPainter(this);
+}
+
+EventContext EventContext::enter(Element *element, int index) {
+    return EventContext(doc, element->children()->getPointer(), this);
+}
+
+PaintManager *EventContext::getPaintManager() {
+    return doc->getContext()->m_paintManager;
+}
+
+LayoutManager *EventContext::getLayoutManager() {
+    return &doc->getContext()->m_layoutManager;
 }
 
 Root *Root::getContain(EventContext &context, int x, int y) {

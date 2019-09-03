@@ -29,13 +29,30 @@ struct Context {
     CommandQueue m_queue;
     TextBuffer m_textBuffer;
 };
+
 struct Element;
+using ElementIterator = std::vector<Element *>::iterator;
+using ElementIndexPtr = std::vector<Element *> *;
+class ElementIndex {
+public:
+    std::vector<Element *> m_buffer;
+public:
+    inline void append(Element *element) { m_buffer.push_back(element); }
+    inline Element *get(int index) { return m_buffer[index]; }
+    inline ElementIterator begin() { return m_buffer.begin(); }
+    inline ElementIterator end() { return m_buffer.end(); }
+    inline bool empty() { return m_buffer.empty(); }
+    inline int getCount() { return m_buffer.size(); }
+    inline ElementIndexPtr getPointer() { return &m_buffer; }
+};
+
 struct EventContext {
     Document *doc = nullptr;
-    std::vector<Element *> *buffer = nullptr;
+    ElementIndexPtr buffer = nullptr;
     EventContext *outer = nullptr;
     int index = 0;
     int line = 0;
+
     void jump(int idx) {
         if (idx >= buffer->size())
             return;
@@ -43,7 +60,13 @@ struct EventContext {
     }
     bool has() { return index < buffer->size(); }
     void next() { index++; }
-    void nextLine() { line++; }
+    void nextLine() {
+        if (outer) {
+            outer->nextLine();
+        } else {
+            line++;
+        }
+    }
     /**
      * 设置当前上下文对象
      * @param obj
@@ -54,35 +77,18 @@ struct EventContext {
         return buffer->at((unsigned int) index);
     }
     Painter getPainter();
-
+    PaintManager *getPaintManager();
+    LayoutManager *getLayoutManager();
     LineViewer getLineViewer();
     EventContext() = default;
     explicit EventContext(Document *doc) : doc(doc) {}
+    explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *outer) : doc(doc),
+                                                                                                buffer(buffer),
+                                                                                                outer(outer) {}
+
+    EventContext enter(Element *element, int index = 0);
 };
 
-using ElementIterator = std::vector<Element *>::iterator;
-class ElementIndex {
-public:
-    std::vector<Element *> m_buffer;
-public:
-    void append(Element *element) {
-        m_buffer.push_back(element);
-    }
-
-    inline ElementIterator begin() {
-        return m_buffer.begin();
-    }
-    inline ElementIterator end() {
-        return m_buffer.end();
-    }
-    inline int getCount() {
-        return m_buffer.size();
-    }
-    inline std::vector<Element *> *getPointer() {
-        return &m_buffer;
-    }
-
-};
 
 class EventContextBuilder {
 public:
@@ -188,20 +194,20 @@ public:
     };
 
     Element *getLineElement(int line) {
-        return m_elements.m_buffer[line];
+        return m_elements.get(line);
     }
 
     void flow(int index = 0) {
-        if (m_elements.m_buffer.empty())
+        if (m_elements.empty())
             return;
         EventContext context = EventContextBuilder::build(this);
         context.set(this, index);
-        m_elements.m_buffer[index]->reflow(context);
+        m_elements.get(index)->reflow(context);
     }
 
     void reflow(EventContext &context) override {
         // 这里重排 emm...
-        context.doc->getContext()->m_layoutManager.reflow(context);
+        context.getLayoutManager()->reflow(context);
     }
 
     int getChildrenNum() override {
@@ -233,7 +239,7 @@ public:
     void setLogicOffset(Offset offset) override { m_offset = offset; }
 
     void reflow(EventContext &context) override {
-        context.doc->getContext()->m_layoutManager.reflow(context);
+        context.getLayoutManager()->reflow(context);
     }
 
 };
@@ -252,20 +258,4 @@ public:
     int getLogicHeight(EventContext &context) override { return m_height; }
 };
 
-/*
-class ElementIterator {
-private:
-    ElementIndex *buffer = nullptr;
-public:
-    ElementIterator() = default;
-    inline ElementIterator &operator++() { next();return *this; }
-    inline bool operator!=(const ElementIterator &item) { return (!(item.end() && end())) || (pointer() != item.pointer()); }
-    inline Element &operator*() const { return *(pointer()); }
-    inline Element *operator->() const { return pointer(); }
-    inline bool has() { return !end(); }
-    virtual Element *pointer() const { return nullptr; }
-    virtual bool end() const { return true; }
-    virtual void next() {};
-};
-*/
 #endif //TEST_DOCUMENT_H

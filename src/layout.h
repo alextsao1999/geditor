@@ -22,8 +22,8 @@ enum class SelectionState {
 
 class LayoutManager {
 private:
-    int m_width{};
-    int m_height{};
+    int m_width{0};
+    int m_height{0};
 public:
     void reflow(EventContext context);
     int getHeight() {

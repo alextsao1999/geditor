@@ -122,7 +122,7 @@ public:
             case WM_LBUTTONUP: {
                 context.set(&data->m_document, 0);
                 Offset pos(LOWORD(lParam), HIWORD(lParam));
-
+                pos += data->m_paintManager.getViewportOffset();
                 while (context.has()) {
                     if (context.current()->contain(context, pos.x, pos.y)) {
                         Offset offset = pos - context.current()->getOffset();
@@ -156,7 +156,6 @@ public:
         }
         return 0;
     }
-
     static void handleScroll(int nBar, GEditorData *data, HWND hWnd, WPARAM wParam) {
         int prev = GetScrollPos(hWnd, nBar);
         int movement = ((int16_t) HIWORD(wParam)) / -60;
@@ -192,7 +191,6 @@ public:
         SetScrollPos(hWnd, nBar, prev, true);
         data->m_paintManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
     }
-
     static void handleChildren() {
 
     }

@@ -11,6 +11,8 @@ set(sources
         memory.cpp
         table.cpp
         utils.cpp
+        caret_manager.cpp
+
         )
 
 add_executable(geditor ${sources})

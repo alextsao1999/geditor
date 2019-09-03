@@ -151,6 +151,7 @@ public:
     }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
     virtual TextMeter getTextMeter() { return {}; }
+    inline Offset getViewportOffset() { return m_offset; }
     virtual void setViewportOffset(Offset offset) {
         m_offset = offset;
     }
@@ -160,6 +161,7 @@ public:
         offset.y = GetScrollPos(m_hWnd, SB_VERT);
         m_offset.x = (int) (layoutManager->getWidth() * ((float) offset.x / 100));
         m_offset.y = (int) (layoutManager->getHeight() * ((float) offset.y / 100));
+        refresh();
     }
     virtual Size getViewportSize() {
         RECT rect;

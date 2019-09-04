@@ -70,6 +70,15 @@ CaretManager *EventContext::getCaretManager() {
     return &doc->getContext()->m_caretManager;
 }
 
+void EventContext::prev() {
+    if (index > 0) {
+        index--;
+        if (current()->getDisplay() == Display::Line) {
+            prevLine();
+        }
+    }
+}
+
 void EventContext::next() {
     if (current()->getDisplay() == Display::Line) {
         nextLine();

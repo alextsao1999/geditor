@@ -78,7 +78,15 @@ struct EventContext {
         index = idx;
     }
     bool has() { return buffer!= nullptr && index < buffer->size(); }
+    void prev();
     void next();
+    void prevLine() {
+        if (outer) {
+            outer->prevLine();
+        } else {
+            line--;
+        }
+    }
     void nextLine() {
         if (outer) {
             outer->nextLine();

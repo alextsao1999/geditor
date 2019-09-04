@@ -20,23 +20,27 @@ struct GEditorData {
     GEditorData() : m_document(Document(&m_paintManager)) {}
 };
 class LineElement : public RelativeElement {
-    using  RelativeElement::RelativeElement;
+    using RelativeElement::RelativeElement;
 public:
     explicit LineElement(int value) : value(value) {}
+
     int value;
     int height = 25;
+
     int getLogicHeight(EventContext &context) override {
         return height;
     }
+
     Display getDisplay() override {
         return Display::Line;
     }
+
     void redraw(EventContext &context) override {
         Painter painter = context.getPainter();
         LineViewer line = context.getLineViewer();
         painter.setTextColor(RGB(0, 0, 0));
         painter.drawText(4, 4, line.getContent().c_str(), line.getContent().size());
-        painter.drawRect(2, 2, getWidth(context) - 40, getHeight(context));
+        // painter.drawRect(2, 2, getWidth(context) - 40, getHeight(context));
     }
 
     void onLeftButtonDown(EventContext &context, int x, int y) override {
@@ -55,33 +59,35 @@ public:
     }
 
     void onKeyDown(EventContext &context, int code, int status) override {
-        auto meter = context.getPaintManager()->getTextMeter();
+        auto ctx = &context;
         auto caret = context.getCaretManager();
-        auto line = context.getLineViewer();
-        int x = 0;
-        if (code == VK_RIGHT) {
-            caret->data()->index++;
-            if (caret->data()->index > line.getContent().size())
-                caret->data()->index = line.getContent().size();
-            x = meter.meterWidth(line.getContent().c_str(), caret->data()->index);
+        auto meter = context.getPaintManager()->getTextMeter();
+        LineViewer line;
+        if (code == VK_RIGHT || code == VK_LEFT) {
+            line = ctx->getLineViewer();
+            if (code == VK_RIGHT) {
+                caret->data()->index++;
+                if (caret->data()->index > line.getContent().size())
+                    caret->data()->index = line.getContent().size();
+            }
+            if (code == VK_LEFT) {
+                caret->data()->index--;
+                if (caret->data()->index < 0)
+                    caret->data()->index = 0;
+            }
         }
-        if (code == VK_LEFT) {
-            caret->data()->index--;
-            if (caret->data()->index < 0)
-                caret->data()->index = 0;
-            x = meter.meterWidth(line.getContent().c_str(), caret->data()->index);
+        if (code == VK_UP || code == VK_DOWN) {
+            ctx = caret->getEventContext();
+            int width = meter.meterWidth(ctx->getLineViewer().getContent().c_str(), caret->data()->index);
+            code == VK_UP ? ctx->prev() : ctx->next();
+            line = ctx->getLineViewer();
+            caret->data()->index = meter.getTextIndex(line.getContent().c_str(), line.getContent().size(), width);
         }
-        if (code == VK_UP) {
-
-        }
-        if (code == VK_DOWN) {
-            caret->getEventContext()->next();
-
-        }
+        int x = meter.meterWidth(line.getContent().c_str(), caret->data()->index);
         caret->set(x + 4, 4);
         caret->show();
-
     };
+};
 
 class GEditor {
 public:
@@ -155,10 +161,9 @@ public:
     }
 #define MsgCallFocus(name, ...) { \
     auto focus = data->m_document.getContext()->m_caretManager.getFocus(); \
-    if (focus) { \
+    if (focus) \
         focus->name(*data->m_document.getContext()->m_caretManager.getEventContext(), ##__VA_ARGS__); \
-    } \
-}
+    }
     /////////////////////////////////////////////////////
     static LRESULT CALLBACK proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto data = (GEditorData *) GetWindowLong(hWnd, GWL_USERDATA);
@@ -202,7 +207,6 @@ public:
             case WM_CHAR:
                 break;
             case WM_IME_CHAR:
-
                 break;
             case WM_KEYDOWN:
                 MsgCallFocus(onKeyDown, wParam, lParam);
@@ -284,6 +288,5 @@ public:
     }
 
 };
-
 
 #endif //GEDITOR_GEDITOR_H

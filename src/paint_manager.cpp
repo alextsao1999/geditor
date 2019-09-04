@@ -5,5 +5,6 @@
 #include "document.h"
 Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(context) {
     m_offset = context->current()->getOffset() - context->getPaintManager()->getViewportOffset();
+    //SetTextCharacterExtra(m_HDC, 1);
 }
 

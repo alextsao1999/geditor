@@ -107,6 +107,7 @@ Root *Root::getContain(EventContext &context, int x, int y) {
      return {};
 }
 
+/*
 EventContext Root::getChildEventContext(EventContext &context, int x, int y) {
     Offset offset = context.current()->getOffset();
     EventContext event = context.enter(this, 0);
@@ -124,3 +125,4 @@ Offset Root::getChildOffset(EventContext &context, int x, int y) {
     offset += getOffset() - context.current()->getOffset();
     return offset;
 }
+*/

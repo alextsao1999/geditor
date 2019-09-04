@@ -18,7 +18,6 @@ struct GEditorData {
     Document m_document;
     PaintManager m_paintManager;
     GEditorData() : m_document(Document(&m_paintManager)) {}
-
 };
 class LineElement : public RelativeElement {
     using  RelativeElement::RelativeElement;
@@ -42,15 +41,47 @@ public:
 
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
+        Offset textOffset = getRelOffset(x, y) - Offset(4, 4);
+        auto line = context.getLineViewer();
+        auto meter = context.getPaintManager()->getTextMeter();
         auto caret = context.getCaretManager();
-        caret->set(x, 5);
+        caret->data()->index = meter.getTextIndex(line.getContent().c_str(), line.getContent().size(), textOffset.x);
+        caret->set(textOffset.x + 4, 4);
         caret->show();
         value++;
         //height += 10;
         context.reflow();
         context.getPaintManager()->refresh();
     }
-};
+
+    void onKeyDown(EventContext &context, int code, int status) override {
+        auto meter = context.getPaintManager()->getTextMeter();
+        auto caret = context.getCaretManager();
+        auto line = context.getLineViewer();
+        int x = 0;
+        if (code == VK_RIGHT) {
+            caret->data()->index++;
+            if (caret->data()->index > line.getContent().size())
+                caret->data()->index = line.getContent().size();
+            x = meter.meterWidth(line.getContent().c_str(), caret->data()->index);
+        }
+        if (code == VK_LEFT) {
+            caret->data()->index--;
+            if (caret->data()->index < 0)
+                caret->data()->index = 0;
+            x = meter.meterWidth(line.getContent().c_str(), caret->data()->index);
+        }
+        if (code == VK_UP) {
+
+        }
+        if (code == VK_DOWN) {
+            caret->getEventContext()->next();
+
+        }
+        caret->set(x + 4, 4);
+        caret->show();
+
+    };
 
 class GEditor {
 public:
@@ -89,7 +120,7 @@ public:
         wcex.cbSize = sizeof(WNDCLASSEX);
         wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
         wcex.lpfnWndProc = proc;
-        wcex.cbClsExtra = 0;
+        wcex.cbClsExtra = 0 ;
         wcex.cbWndExtra = 0;
         wcex.hInstance = nullptr;
         wcex.hIcon = nullptr;
@@ -122,6 +153,12 @@ public:
             context.next(); \
         }  \
     }
+#define MsgCallFocus(name, ...) { \
+    auto focus = data->m_document.getContext()->m_caretManager.getFocus(); \
+    if (focus) { \
+        focus->name(*data->m_document.getContext()->m_caretManager.getEventContext(), ##__VA_ARGS__); \
+    } \
+}
     /////////////////////////////////////////////////////
     static LRESULT CALLBACK proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto data = (GEditorData *) GetWindowLong(hWnd, GWL_USERDATA);
@@ -141,9 +178,11 @@ public:
                 data->m_paintManager.resize();
                 break;
             case WM_LBUTTONUP: // 鼠标左键放开
+                ReleaseCapture();
                 MsgCallEvent(onLeftButtonUp);
                 break;
             case WM_LBUTTONDOWN: // 鼠标左键按下
+                SetCapture(hWnd);
                 SetFocus(hWnd);
                 MsgCallEvent(onLeftButtonDown);
                 break;
@@ -159,6 +198,17 @@ public:
                 break;
             case WM_RBUTTONDBLCLK:
                 MsgCallEvent(onRightDoubleClick);
+                break;
+            case WM_CHAR:
+                break;
+            case WM_IME_CHAR:
+
+                break;
+            case WM_KEYDOWN:
+                MsgCallFocus(onKeyDown, wParam, lParam);
+                break;
+            case WM_KEYUP:
+                MsgCallFocus(onKeyUp, wParam, lParam);
                 break;
             case WM_PAINT:
                 {

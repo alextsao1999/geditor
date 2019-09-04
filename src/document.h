@@ -188,11 +188,17 @@ public:
     Element() = default;
     explicit Element(Root *parent) : m_parent(parent) {}
     inline Root *parent() const { return m_parent; }
+    inline Offset getRelOffset(int x, int y) {
+        Offset offset(x, y);
+        return offset - getOffset();
+    }
     Offset getOffset() override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
     DEFINE_EVENT(onFocus);
     DEFINE_EVENT(onBlur);
+    DEFINE_EVENT(onKeyDown, int code, int status);
+    DEFINE_EVENT(onKeyUp, int code, int status);
     DEFINE_EVENT2(onMouseEnter, int x, int y);
     DEFINE_EVENT2(onMouseMove, int x, int y);
     DEFINE_EVENT2(onMouseLeave, int x, int y);

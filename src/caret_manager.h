@@ -7,23 +7,30 @@
 
 #include "paint_manager.h"
 
+struct CaretData {
+    int index = 0;
+    void *data = nullptr;
+    CaretData() = default;
+    CaretData(int index, void *data) : index(index), data(data) {}
+};
+
 class CaretManager {
     friend PaintManager;
 private:
     PaintManager *m_paintManager;
     EventContext *m_context = nullptr;
-    Element *m_focus = nullptr;
     Offset m_current;
-
+    CaretData m_data;
 public:
     explicit CaretManager(PaintManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();
-    Element *getFocus () {
-        return m_focus;
-    }
+    Element *getFocus ();
     EventContext *getEventContext() { return m_context; }
     void create() {
-        CreateCaret(m_paintManager->m_hWnd, nullptr, 2, 15);
+        CreateCaret(m_paintManager->m_hWnd, nullptr, 1, 15);
+    }
+    inline CaretData *data() {
+        return &m_data;
     }
     void focus(EventContext *context);
     void show() {
@@ -36,6 +43,7 @@ public:
         m_current = pos;
         update();
     }
+    // 设置相对的光标位置
     void set(int x, int y) {
         m_current.x = x;
         m_current.y = y;

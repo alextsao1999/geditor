@@ -58,4 +58,3 @@ int main() {
     }
     return msg.wParam;
 }
-

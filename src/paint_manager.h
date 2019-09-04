@@ -95,29 +95,38 @@ public:
         if (transparent) {
             SetBkMode(m_HDC, TRANSPARENT);
         }
-
-        SetTextCharacterExtra(m_HDC, 2);
         TextOut(m_HDC, m_offset.x + x, m_offset.y + y, str, count);
     }
 };
 
 class TextMeter {
 public:
-    int m_nCharWidth[sizeof(GChar)];
     HDC m_HDC{};
-    explicit TextMeter(HDC HDC) : m_HDC(HDC) {
-        GetCharWidth(HDC, 0, sizeof(GChar), m_nCharWidth);
-    }
-    int meterWidth(GChar *text, int length) {
+    explicit TextMeter(HDC HDC) : m_HDC(HDC) {}
+    int meterWidth(const GChar *text, int length) {
         SIZE size;
         GetTextExtentPoint32(m_HDC, text, length, &size);
         return size.cx;
     }
-
-    int meterHeight(GChar *text, int length) {
+    int meterHeight(const GChar *text, int length) {
         SIZE size;
         GetTextExtentPoint32(m_HDC, text, length, &size);
         return size.cy;
+    }
+    int meterChar(GChar ch) {
+        return meterWidth(&ch, 1);
+    }
+    int getTextIndex(const GChar *text, int length, int &x) {
+        for (int i = 0; i < length; ++i) {
+            int ch = meterChar(text[i]) / 2;
+            int width = meterWidth(text, i + 1);
+            if (x < width - ch) {
+                x = width - ch * 2;
+                return i;
+            }
+        }
+        x = meterWidth(text, length);
+        return length;
     }
 };
 

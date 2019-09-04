@@ -6,14 +6,15 @@
 #include "document.h"
 
 void CaretManager::focus(EventContext *context) {
+    Element *focus = getFocus();
     if (m_context) {
-        m_focus->onBlur(*m_context);
+        focus->onBlur(*m_context);
         m_context->free();
         delete m_context;
     }
     m_context = context->copy();
-    m_focus = context->current();
-    m_focus->onFocus(*m_context);
+    focus = context->current();
+    focus->onFocus(*m_context);
 }
 
 CaretManager::~CaretManager() {
@@ -24,8 +25,15 @@ CaretManager::~CaretManager() {
 }
 
 void CaretManager::update() {
-    if (!m_focus)
+    if (!getFocus())
         return;
-    Offset offset = m_focus->getOffset() + m_current - m_paintManager->getViewportOffset();
+    Offset offset = getFocus()->getOffset() + m_current - m_paintManager->getViewportOffset();
     SetCaretPos(offset.x, offset.y);
+}
+
+Element *CaretManager::getFocus() {
+    if (!m_context) {
+        return nullptr;
+    }
+    return m_context->current();
 }

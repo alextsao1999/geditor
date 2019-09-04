@@ -49,6 +49,8 @@ public:
         m_current.y = y;
         update();
     }
+
+    void autoSet(int x, int y);
     Offset get() { return m_current; }
     void update();
 

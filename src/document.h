@@ -72,14 +72,16 @@ struct EventContext {
         outer = nullptr;
     }
     inline bool empty() { return buffer == nullptr || doc == nullptr; }
-    void jump(int idx) {
-        if (idx >= buffer->size())
-            return;
-        index = idx;
-    }
     bool has() { return buffer!= nullptr && index < buffer->size(); }
     void prev();
     void next();
+    int getLine() {
+        if (outer) {
+            return outer->getLine();
+        } else {
+            return line;
+        }
+    }
     void prevLine() {
         if (outer) {
             outer->prevLine();
@@ -96,6 +98,8 @@ struct EventContext {
     }
     void reflow();
     void focus();
+    void combine();
+    void redraw();
     /**
      * 设置当前上下文对象
      * @param obj
@@ -110,6 +114,7 @@ struct EventContext {
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
     LineViewer getLineViewer();
+    LineViewer copyLine();
     EventContext() = default;
     explicit EventContext(Document *doc) : doc(doc) {}
     explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx) : doc(doc),
@@ -182,11 +187,6 @@ struct Root {
     DEFINE_EVENT(redraw);
     DEFINE_EVENT(reflow);
     /////////////////////////////////////////
-    /////////////////////////////////////////
-    DEFINE_EVENT(select);
-    DEFINE_EVENT(unselect);
-    DEFINE_EVENT(input, const char *string);
-    DEFINE_EVENT(undo, Command command);
 };
 
 // Element 有 父元素
@@ -216,6 +216,11 @@ public:
     DEFINE_EVENT2(onRightButtonDown, int x, int y);
     DEFINE_EVENT2(onLeftDoubleClick, int x, int y);
     DEFINE_EVENT2(onRightDoubleClick, int x, int y);
+    DEFINE_EVENT(onInputChar, int ch);
+    DEFINE_EVENT(onSelect);
+    DEFINE_EVENT(onUnselect);
+    DEFINE_EVENT(onUndo, Command command);
+    virtual Element *copy() { return nullptr; }
     int getLineNumber();
     bool contain(EventContext &context, int x, int y) override {
         Offset offset = getOffset();

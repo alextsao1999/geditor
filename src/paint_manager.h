@@ -193,6 +193,7 @@ public:
         Offset offset;
         offset.x = GetScrollPos(m_hWnd, SB_HORZ);
         offset.y = GetScrollPos(m_hWnd, SB_VERT);
+        // 根据整体画布的宽高来确定显示的偏移
         m_offset.x = (int) (layoutManager->getWidth() * ((float) offset.x / 100));
         m_offset.y = (int) (layoutManager->getHeight() * ((float) offset.y / 100));
         refresh();

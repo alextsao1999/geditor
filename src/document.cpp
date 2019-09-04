@@ -94,6 +94,39 @@ void EventContext::focus() {
     doc->m_context.m_caretManager.focus(this);
 }
 
+void EventContext::combine() {
+    int next = index + 1;
+    if (next >= buffer->size()) {
+        return;
+    }
+    auto &text = doc->getContext()->m_textBuffer;
+    auto ele = buffer->at((unsigned) next);
+    if (current()->getDisplay() == Display::Line && ele->getDisplay() == Display::Line) {
+        text.getLine(line).getContent() += text.getLine(line + 1).getContent();
+        buffer->erase(buffer->begin() + next);
+        doc->getContext()->m_textBuffer.deleteLine(line + 1);
+        delete ele;
+    }
+}
+
+void EventContext::redraw() {
+    // redraw 需要更新宽度!!!
+    doc->getContext()->m_paintManager->refresh();
+}
+
+LineViewer EventContext::copyLine() {
+    if (current()->getDisplay() == Display::Line) {
+        int next = getLine() + 1;
+        Element *element = current()->copy();
+        if (!element) {
+            return {};
+        }
+        buffer->insert(buffer->begin() + index + 1, element);
+        return doc->getContext()->m_textBuffer.insertLine(next);
+    }
+    return {};
+}
+
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
         return this;

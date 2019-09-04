@@ -84,7 +84,7 @@ private:
 public:
     int number = 0;
     TextLine *line = nullptr;
-    LineViewer() {}
+    LineViewer() = default;
     LineViewer(int number, TextLine *line) : number(number), line(line) {}
     inline bool empty() { return line == nullptr; }
     GString &getContent(int column = 0) {
@@ -100,9 +100,9 @@ private:
 public:
     TextBuffer() = default;
     inline int getLineCount() { return m_buffer.size(); }
-    LineViewer insertLine(int prev = -1) {
-        m_buffer.insert(m_buffer.begin() + prev, TextLine());
-        return {prev, &m_buffer[prev]};
+    LineViewer insertLine(int line) {
+        m_buffer.insert(m_buffer.begin() + line, TextLine());
+        return {line, &m_buffer[line]};
     }
     LineViewer appendLine() {
         m_buffer.emplace_back();

@@ -6,6 +6,7 @@
 #define GEDITOR_LAYOUT_H
 
 #include "common.h"
+
 struct Root;
 struct RelativeElement;
 struct Document;

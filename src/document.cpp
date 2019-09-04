@@ -34,7 +34,7 @@ Painter EventContext::getPainter() {
     return doc->getContext()->m_paintManager->getPainter(this);
 }
 
-EventContext EventContext::enter(Element *element, int index) {
+EventContext EventContext::enter(Root *element, int index) {
     return EventContext(doc, element->children()->getPointer(), this, index);
 }
 
@@ -67,4 +67,32 @@ Root *Root::getContain(EventContext &context, int x, int y) {
         }
     }
     return nullptr;
+}
+ EventContext Root::getContainEventContext(EventContext &context, int x, int y) {
+     EventContext event = context.enter(this, 0);
+     while (event.has()) {
+         if (event.current()->contain(event, x, y)) {
+             return event;
+         }
+         event.next();
+     }
+     return {};
+}
+
+EventContext Root::getChildEventContext(EventContext &context, int x, int y) {
+    Offset offset = context.current()->getOffset();
+    EventContext event = context.enter(this, 0);
+    while (event.has()) {
+        if (event.current()->contain(event, offset.x + x, offset.y + y)) {
+            return event;
+        }
+        event.next();
+    }
+    return {};
+}
+
+Offset Root::getChildOffset(EventContext &context, int x, int y) {
+    Offset offset(x, y);
+    offset += getOffset() - context.current()->getOffset();
+    return offset;
 }

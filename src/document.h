@@ -13,11 +13,14 @@
 #include "text_buffer.h"
 #include "caret_manager.h"
 
-#define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
-#define DECLARE_ACTION() friend LayoutManager; \
-    void reflow(EventContext context) override { \
-        context.doc->getContext()->m_layoutManager->reflow(context); \
+#define CallChildEvent(name) { \
+        EventContext event = getContainEventContext(context, x, y); \
+        if (!event.empty()) \
+            event.current()->leftClick(event, x, y); \
     }
+
+#define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
+#define DEFINE_EVENT2(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {CallChildEvent(event);}
 
 enum class Display {
     None,
@@ -67,12 +70,13 @@ struct EventContext {
         delete outer;
         outer = nullptr;
     }
+    inline bool empty() { return buffer == nullptr || doc == nullptr; }
     void jump(int idx) {
         if (idx >= buffer->size())
             return;
         index = idx;
     }
-    bool has() { return index < buffer->size(); }
+    bool has() { return buffer!= nullptr && index < buffer->size(); }
     void next();
     void nextLine() {
         if (outer) {
@@ -110,7 +114,7 @@ struct EventContext {
      * @param index
      * @return
      */
-    EventContext enter(Element *element, int index = 0);
+    EventContext enter(Root *element, int index = 0);
 };
 
 
@@ -140,23 +144,35 @@ struct Root {
     virtual int getHeight(EventContext &context) { return getLogicHeight(context); };
     virtual int getLogicWidth(EventContext &context) { return 0; };
     virtual int getLogicHeight(EventContext &context) { return 0; };
+    /**
+     * 绝对坐标是否包含在元素中
+     * @return bool
+     */
     virtual bool contain(EventContext &context, int x, int y) {
         Offset offset = getOffset();
         return (offset.x < x) && (offset.x + getWidth(context) > x) && (offset.y < y) &&
                (offset.y + getHeight(context) > y);
     };
+    /**
+     * 获取绝对坐标所包含的最底层的元素
+     * @return Root *
+     */
     Root *getContain(EventContext &context, int x, int y);
+    /**
+     * 获取绝对坐标所在的子元素
+     * @return EventContext
+     */
+    EventContext getContainEventContext(EventContext &context, int x, int y);
+    /**
+     * 获取相对坐标所在的子元素
+     * @return EventContext
+     */
+    EventContext getChildEventContext(EventContext &context, int x, int y);
+    Offset getChildOffset(EventContext &context, int x, int y);
     /////////////////////////////////////////
     DEFINE_EVENT(redraw);
     DEFINE_EVENT(reflow);
     /////////////////////////////////////////
-    DEFINE_EVENT(mouseEnter);
-    DEFINE_EVENT(mouseMove);
-    DEFINE_EVENT(mouseLeave);
-    DEFINE_EVENT(leftClick, int x, int y);
-    DEFINE_EVENT(leftDoubleClick, int x, int y);
-    DEFINE_EVENT(rightClick, int x, int y);
-    DEFINE_EVENT(rightDoubleClick, int x, int y);
     /////////////////////////////////////////
     DEFINE_EVENT(select);
     DEFINE_EVENT(unselect);
@@ -175,6 +191,14 @@ public:
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
 
+    DEFINE_EVENT2(mouseEnter, int x, int y)
+    DEFINE_EVENT2(mouseMove, int x, int y);
+    DEFINE_EVENT2(mouseLeave, int x, int y);
+    DEFINE_EVENT2(leftClick, int x, int y);
+    DEFINE_EVENT2(leftDoubleClick, int x, int y);
+    DEFINE_EVENT2(rightClick, int x, int y);
+    DEFINE_EVENT2(rightDoubleClick, int x, int y);
+
     bool contain(EventContext &context, int x, int y) override {
         Offset offset = getOffset();
         if (getDisplay() == Display::Block) {
@@ -184,7 +208,6 @@ public:
         return (offset.x < x) && (offset.x + getWidth(context) > x) && (offset.y < y) &&
                (offset.y + getHeight(context) > y);
     }
-
     int getWidth(EventContext &context) override {
         if (getDisplay() == Display::Block) {
             return parent()->getWidth(context) - (getOffset().x - parent()->getOffset().x);

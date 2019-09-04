@@ -8,6 +8,7 @@
 void LayoutManager::reflow(EventContext context) {
     // 先把同级别的元素都安排一下
     Offset offset = context.current()->getLogicOffset();
+    int value;
     while (context.has()) {
         Element *current = context.current();
         current->setLogicOffset(offset);
@@ -15,17 +16,28 @@ void LayoutManager::reflow(EventContext context) {
             case Display::None:
                 break;
             case Display::Inline:
-                offset.x += current->getWidth(context);
+                value = current->getWidth(context);
+                offset.x += value;
                 if (offset.x > m_width) {
                     m_width = offset.x;
                 }
+                if (m_minWidth > value || !m_minWidth)
+                    m_minWidth = value;
+                value = current->getHeight(context);
+                if (m_minHeight > value  || !m_minHeight)
+                    m_minHeight = value;
                 break;
             case Display::Block:
-                if (offset.x + current->getWidth(context) > m_width) {
-                    m_width = offset.x + current->getWidth(context);
-                }
+                value = current->getWidth(context);
+                if (offset.x +  value> m_width)
+                    m_width = offset.x + value;
+                if (m_minWidth > value  || !m_minWidth)
+                    m_minWidth = value;
+                value = current->getHeight(context);
+                if (m_minHeight > value  || !m_minHeight)
+                    m_minHeight = value;
                 offset.x = 0;
-                offset.y += current->getHeight(context);
+                offset.y += value;
                 break;
         }
         context.next();

@@ -24,6 +24,9 @@ class LayoutManager {
 private:
     int m_width{0};
     int m_height{0};
+    int m_minWidth{0};
+    int m_minHeight{0};
+    int m_maxHeight{0};
 public:
     void reflow(EventContext context);
     int getHeight() {
@@ -31,6 +34,12 @@ public:
     }
     int getWidth() {
         return m_width;
+    }
+    int getMinWidth() {
+        return m_minWidth;
+    }
+    int getMinHeight() {
+        return m_minHeight;
     }
 };
 

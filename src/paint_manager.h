@@ -95,12 +95,30 @@ public:
         if (transparent) {
             SetBkMode(m_HDC, TRANSPARENT);
         }
+
+        SetTextCharacterExtra(m_HDC, 2);
         TextOut(m_HDC, m_offset.x + x, m_offset.y + y, str, count);
     }
 };
 
 class TextMeter {
-    virtual int meter(GChar *text, int length) { return 0; }
+public:
+    int m_nCharWidth[sizeof(GChar)];
+    HDC m_HDC{};
+    explicit TextMeter(HDC HDC) : m_HDC(HDC) {
+        GetCharWidth(HDC, 0, sizeof(GChar), m_nCharWidth);
+    }
+    int meterWidth(GChar *text, int length) {
+        SIZE size;
+        GetTextExtentPoint32(m_HDC, text, length, &size);
+        return size.cx;
+    }
+
+    int meterHeight(GChar *text, int length) {
+        SIZE size;
+        GetTextExtentPoint32(m_HDC, text, length, &size);
+        return size.cy;
+    }
 };
 
 class PaintManager {
@@ -157,7 +175,7 @@ public:
         SelectObject(m_hMemDC, m_hBitmap);
     }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
-    virtual TextMeter getTextMeter() { return {}; }
+    virtual TextMeter getTextMeter() { return TextMeter(m_hMemDC); }
     inline Offset getViewportOffset() { return m_offset; }
     virtual void setViewportOffset(Offset offset) {
         m_offset = offset;

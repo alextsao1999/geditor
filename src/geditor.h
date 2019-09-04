@@ -9,6 +9,7 @@
 #include "string.h"
 #include "paint_manager.h"
 #include "document.h"
+
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
@@ -40,13 +41,15 @@ public:
         painter.drawText(4, 4, line.getContent().c_str(), line.getContent().size());
         painter.drawRect(2, 2, getWidth(context) - 40, getHeight(context));
     }
-    void leftClick(EventContext &context, int x, int y) override {
-        context.getCaretManager()->focus(&context);
 
+    void leftClick(EventContext &context, int x, int y) override {
+        CallChildEvent(leftClick);
+        context.getCaretManager()->focus(&context);
         auto caret = context.getCaretManager();
         caret->set(x, 5);
         caret->show();
         value++;
+        // height += 10;
         context.doc->reflow(context);
         context.getPaintManager()->refresh();
         m_x = x;
@@ -70,7 +73,7 @@ public:
         }
         SetWindowLong(m_data->m_hwnd, GWL_USERDATA, (LONG) m_data);
         m_data->m_paintManager = PaintManager::FromWindow(m_data->m_hwnd);
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 1000; ++i) {
             GChar str[255];
             auto line = m_data->m_document.append(new LineElement(i));
             wsprintf(str, _GT("this is test string %d\0"), line.number);
@@ -111,10 +114,26 @@ public:
         }
         return {};
     }
+    ////////////////////////////////////////////////////
+#define MsgCallEvent(name) { \
+        Offset pos(LOWORD(lParam), HIWORD(lParam)); \
+        pos += data->m_paintManager.getViewportOffset(); \
+        context.set(&data->m_document, 0); \
+        while (context.has()) { \
+            if (context.current()->contain(context, pos.x, pos.y)) { \
+                context.current()->name(context, pos.x, pos.y); \
+                break; \
+            } \
+            context.next(); \
+        }  \
+    }
+    /////////////////////////////////////////////////////
     static LRESULT CALLBACK proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto data = (GEditorData *) GetWindowLong(hWnd, GWL_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
         EventContext context = EventContextBuilder::build(&data->m_document);
+        // int idx = (pos.y / data->m_document.getContext()->m_layoutManager.getMinHeight()); \
+        // std::cout << "predict : " << idx << std::endl;
         switch (message) {
             case WM_MOUSEWHEEL:
             case WM_VSCROLL:
@@ -126,19 +145,8 @@ public:
             case WM_SIZE:
                 data->m_paintManager.resize();
                 break;
-            case WM_LBUTTONUP: {
-                context.set(&data->m_document, 0);
-                Offset pos(LOWORD(lParam), HIWORD(lParam));
-                pos += data->m_paintManager.getViewportOffset();
-                while (context.has()) {
-                    if (context.current()->contain(context, pos.x, pos.y)) {
-                        Offset offset = pos - context.current()->getOffset();
-                        context.current()->leftClick(context, offset.x, offset.y);
-                        break;
-                    }
-                    context.next();
-                }
-            }
+            case WM_LBUTTONUP:
+                MsgCallEvent(leftClick);
                 break;
             case WM_PAINT:
                 {

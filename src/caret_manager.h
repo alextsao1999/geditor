@@ -21,6 +21,7 @@ public:
     Element *getFocus () {
         return m_focus;
     }
+    EventContext *getEventContext() { return m_context; }
     void create() {
         CreateCaret(m_paintManager->m_hWnd, nullptr, 2, 15);
     }

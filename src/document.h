@@ -16,7 +16,7 @@
 #define CallChildEvent(name) { \
         EventContext event = getContainEventContext(context, x, y); \
         if (!event.empty()) \
-            event.current()->leftClick(event, x, y); \
+            event.current()->name(event, x, y); \
     }
 
 #define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
@@ -26,6 +26,7 @@ enum class Display {
     None,
     Inline,
     Block,
+    Line,
 };
 
 struct Context {
@@ -85,6 +86,8 @@ struct EventContext {
             line++;
         }
     }
+    void reflow();
+    void focus();
     /**
      * 设置当前上下文对象
      * @param obj
@@ -128,10 +131,10 @@ public:
 // Root 无 父元素
 struct Root {
     ///////////////////////////////////////////////////////////////////
-    virtual int getChildrenNum() { return 0; };
+    virtual bool hasChild() { return false; };
     virtual ElementIndex *children() { return nullptr; }
-    inline ElementIterator begin() { if(getChildrenNum()) return children()->begin();return {}; }
-    inline ElementIterator end() {  if(getChildrenNum()) return children()->end(); return {}; }
+    inline ElementIterator begin() { if(hasChild()) return children()->begin();return {}; }
+    inline ElementIterator end() {  if(hasChild()) return children()->end(); return {}; }
     ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
     // 获取实际的偏移
@@ -167,8 +170,6 @@ struct Root {
      * 获取相对坐标所在的子元素
      * @return EventContext
      */
-    EventContext getChildEventContext(EventContext &context, int x, int y);
-    Offset getChildOffset(EventContext &context, int x, int y);
     /////////////////////////////////////////
     DEFINE_EVENT(redraw);
     DEFINE_EVENT(reflow);
@@ -190,18 +191,21 @@ public:
     Offset getOffset() override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
-
-    DEFINE_EVENT2(mouseEnter, int x, int y)
-    DEFINE_EVENT2(mouseMove, int x, int y);
-    DEFINE_EVENT2(mouseLeave, int x, int y);
-    DEFINE_EVENT2(leftClick, int x, int y);
-    DEFINE_EVENT2(leftDoubleClick, int x, int y);
-    DEFINE_EVENT2(rightClick, int x, int y);
-    DEFINE_EVENT2(rightDoubleClick, int x, int y);
-
+    DEFINE_EVENT(onFocus);
+    DEFINE_EVENT(onBlur);
+    DEFINE_EVENT2(onMouseEnter, int x, int y);
+    DEFINE_EVENT2(onMouseMove, int x, int y);
+    DEFINE_EVENT2(onMouseLeave, int x, int y);
+    DEFINE_EVENT2(onLeftButtonUp, int x, int y);
+    DEFINE_EVENT2(onLeftButtonDown, int x, int y);
+    DEFINE_EVENT2(onRightButtonUp, int x, int y);
+    DEFINE_EVENT2(onRightButtonDown, int x, int y);
+    DEFINE_EVENT2(onLeftDoubleClick, int x, int y);
+    DEFINE_EVENT2(onRightDoubleClick, int x, int y);
+    int getLineNumber();
     bool contain(EventContext &context, int x, int y) override {
         Offset offset = getOffset();
-        if (getDisplay() == Display::Block) {
+        if (getDisplay() == Display::Block || getDisplay() == Display::Line) {
             return (offset.x < x) && (m_parent->getOffset().x + m_parent->getWidth(context) > x) && (offset.y < y) &&
                    (offset.y + getHeight(context) > y);
         }
@@ -209,7 +213,7 @@ public:
                (offset.y + getHeight(context) > y);
     }
     int getWidth(EventContext &context) override {
-        if (getDisplay() == Display::Block) {
+        if (getDisplay() == Display::Block || getDisplay() == Display::Line) {
             return parent()->getWidth(context) - (getOffset().x - parent()->getOffset().x);
         }
         return Root::getWidth(context);
@@ -234,10 +238,21 @@ public:
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
 
-    LineViewer append(Element *element) {
+    LineViewer appendLine(Element *element) {
+        if (element->getDisplay() != Display::Line) {
+            return {};
+        }
         m_elements.append(element);
         element->m_parent = this;
         return m_context.m_textBuffer.appendLine();
+    };
+
+    void append(Element *element) {
+        m_elements.append(element);
+        element->m_parent = this;
+        for (int i = 0; i < element->getLineNumber(); ++i) {
+            m_context.m_textBuffer.appendLine();
+        }
     };
 
     Element *getLineElement(int line) {
@@ -257,8 +272,8 @@ public:
         context.getLayoutManager()->reflow(context);
     }
 
-    int getChildrenNum() override {
-        return m_elements.getCount();
+    bool hasChild() override {
+        return !m_elements.empty();
     }
 
     ElementIndex *children() override {

@@ -26,13 +26,11 @@ public:
     explicit LineElement(int value) : value(value) {}
     int value;
     int height = 25;
-    int m_x = 0;
-    int m_y = 0;
     int getLogicHeight(EventContext &context) override {
         return height;
     }
     Display getDisplay() override {
-        return Display::Block;
+        return Display::Line;
     }
     void redraw(EventContext &context) override {
         Painter painter = context.getPainter();
@@ -42,18 +40,15 @@ public:
         painter.drawRect(2, 2, getWidth(context) - 40, getHeight(context));
     }
 
-    void leftClick(EventContext &context, int x, int y) override {
-        CallChildEvent(leftClick);
-        context.getCaretManager()->focus(&context);
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        context.focus();
         auto caret = context.getCaretManager();
         caret->set(x, 5);
         caret->show();
         value++;
-        // height += 10;
-        context.doc->reflow(context);
+        //height += 10;
+        context.reflow();
         context.getPaintManager()->refresh();
-        m_x = x;
-        m_y = y;
     }
 };
 
@@ -75,7 +70,7 @@ public:
         m_data->m_paintManager = PaintManager::FromWindow(m_data->m_hwnd);
         for (int i = 0; i < 1000; ++i) {
             GChar str[255];
-            auto line = m_data->m_document.append(new LineElement(i));
+            auto line = m_data->m_document.appendLine(new LineElement(i));
             wsprintf(str, _GT("this is test string %d\0"), line.number);
             line.getContent().append(str);
         }
@@ -145,8 +140,25 @@ public:
             case WM_SIZE:
                 data->m_paintManager.resize();
                 break;
-            case WM_LBUTTONUP:
-                MsgCallEvent(leftClick);
+            case WM_LBUTTONUP: // 鼠标左键放开
+                MsgCallEvent(onLeftButtonUp);
+                break;
+            case WM_LBUTTONDOWN: // 鼠标左键按下
+                SetFocus(hWnd);
+                MsgCallEvent(onLeftButtonDown);
+                break;
+            case WM_LBUTTONDBLCLK: // 鼠标左键双击
+                MsgCallEvent(onLeftDoubleClick);
+                break;
+            case WM_RBUTTONUP:
+                MsgCallEvent(onRightButtonUp);
+                break;
+            case WM_RBUTTONDOWN:
+                SetFocus(hWnd);
+                MsgCallEvent(onRightButtonDown);
+                break;
+            case WM_RBUTTONDBLCLK:
+                MsgCallEvent(onRightDoubleClick);
                 break;
             case WM_PAINT:
                 {
@@ -155,8 +167,10 @@ public:
                     data->m_paintManager.update();
                     context.set(&data->m_document, 0);
                     while (context.has()) {
-                        context.current()->redraw(context);
-                        context.next();
+                        if (context.current()->getDisplay() != Display::None) {
+                            context.current()->redraw(context);
+                            context.next();
+                        }
                     }
                     RECT rect;
                     GetWindowRect(hWnd, &rect);
@@ -166,12 +180,6 @@ public:
                 break;
             case WM_DESTROY:
                 PostQuitMessage(0);
-                break;
-            case WM_LBUTTONDOWN:
-                SetFocus(hWnd);
-                break;
-            case WM_RBUTTONDOWN:
-                SetFocus(hWnd);
                 break;
             case WM_SETFOCUS:
                 data->m_document.getContext()->m_caretManager.create();

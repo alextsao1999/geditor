@@ -7,11 +7,13 @@
 
 void CaretManager::focus(EventContext *context) {
     if (m_context) {
+        m_focus->onBlur(*m_context);
         m_context->free();
         delete m_context;
     }
     m_context = context->copy();
     m_focus = context->current();
+    m_focus->onFocus(*m_context);
 }
 
 CaretManager::~CaretManager() {

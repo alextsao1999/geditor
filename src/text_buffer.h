@@ -82,8 +82,9 @@ struct TextLine {
 class LineViewer {
 private:
 public:
-    int number;
-    TextLine *line;
+    int number = 0;
+    TextLine *line = nullptr;
+    LineViewer() {}
     LineViewer(int number, TextLine *line) : number(number), line(line) {}
     inline bool empty() { return line == nullptr; }
     GString &getContent(int column = 0) {

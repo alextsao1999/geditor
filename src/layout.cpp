@@ -27,6 +27,7 @@ void LayoutManager::reflow(EventContext context) {
                 if (m_minHeight > value  || !m_minHeight)
                     m_minHeight = value;
                 break;
+            case Display::Line:
             case Display::Block:
                 value = current->getWidth(context);
                 if (offset.x +  value> m_width)

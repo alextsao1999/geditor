@@ -14,6 +14,26 @@ Offset Element::getOffset() {
     return offset;
 }
 
+int Element::getLineNumber() {
+    if (!hasChild())
+        return 0;
+    if (getDisplay() == Display::Line)
+        return 1;
+    int line = 0;
+    for (auto ele : *children()) {
+        switch (ele->getDisplay()) {
+            case Display::Line:
+                line++;
+                break;
+            case Display::Block:
+                line += ele->getLineNumber();
+            default:
+                break;
+        }
+    }
+    return line;
+}
+
 
 LineViewer EventContext::getLineViewer() {
     if (outer) {
@@ -24,7 +44,7 @@ LineViewer EventContext::getLineViewer() {
 }
 
 void EventContext::set(Root *obj, int idx = 0) {
-    if (obj->getChildrenNum()) {
+    if (obj->hasChild()) {
         buffer = obj->children()->getPointer();
         index = idx;
     }
@@ -51,14 +71,22 @@ CaretManager *EventContext::getCaretManager() {
 }
 
 void EventContext::next() {
-    if (current()->getDisplay() == Display::Block) {
+    if (current()->getDisplay() == Display::Line) {
         nextLine();
     }
     index++;
 }
 
+void EventContext::reflow() {
+    doc->m_context.m_layoutManager.reflow(*this);
+}
+
+void EventContext::focus() {
+    doc->m_context.m_caretManager.focus(this);
+}
+
 Root *Root::getContain(EventContext &context, int x, int y) {
-    if (!getChildrenNum()) {
+    if (!hasChild()) {
         return this;
     }
     for (auto ele : *children()) {

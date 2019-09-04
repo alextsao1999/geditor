@@ -110,12 +110,12 @@ public:
                 break;
             case VK_RETURN:
             {
-                int idx = caret->data()->index;
-                auto &last = context.getLineViewer().getContent();
-                auto temp = last.substr((unsigned) idx, last.length() - 1);
-                last.erase(last.begin() + idx, last.end());
                 context.copyLine();
                 context.reflow();
+                int idx = caret->data()->index;
+                auto &last = context.getLineViewer().getContent();
+                auto temp = last.substr((unsigned) idx, last.length());
+                last.erase(last.begin() + idx, last.end());
                 context.next();
                 context.getLineViewer().getContent() = temp;
                 caret->data()->index = 0;
@@ -325,7 +325,6 @@ public:
         data->m_document.getContext()->m_caretManager.update();
 
     }
-
 };
 
 #endif //GEDITOR_GEDITOR_H

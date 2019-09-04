@@ -56,13 +56,57 @@ struct Size {
     Size(int width, int height) : width(width), height(height) {}
 };
 class EventContext;
+
+class ObjectManger {
+public:
+    HFONT m_fonts[1] = {
+            CreateFont(18, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                       DEFAULT_PITCH | FF_SWISS, _GT("宋体"))
+    };
+    enum Font {
+        FontDefault
+    };
+
+    HBRUSH m_brushes[1] = {
+            CreateSolidBrush(RGB (255, 255, 255))
+    };
+    enum Brush {
+        BrushBackground
+    };
+
+    ~ObjectManger() {
+        for (auto font : m_fonts) {
+            DeleteObject(font);
+        }
+        for (auto brush : m_brushes) {
+            DeleteObject(brush);
+        }
+
+    }
+
+
+    void setFont(int nFont, HFONT hFont) {
+        DeleteObject(m_fonts[nFont]);
+        m_fonts[nFont] = hFont;
+    }
+
+    HFONT getFont(int nFont) {
+        return m_fonts[nFont];
+    }
+    HBRUSH getBrush(int nBrush) {
+        return m_brushes[nBrush];
+    }
+
+};
+
 class Painter {
 private:
     HDC m_HDC{};
     EventContext *m_context;
     Offset m_offset;
+    ObjectManger *m_object;
 public:
-    explicit Painter(HDC m_HDC, EventContext *context);
+    explicit Painter(HDC m_HDC, EventContext *context, ObjectManger *obj);
     ~Painter() = default;
     void drawLine(int x1, int y1, int x2, int y2) {
         MoveToEx(m_HDC, x1 + m_offset.x, y1 + m_offset.y, nullptr);
@@ -132,17 +176,12 @@ public:
 
 class PaintManager {
 public:
+    ObjectManger m_object;
     HWND m_hWnd = nullptr;
     HDC m_hMemDC = nullptr;
     HDC m_hWndDC = nullptr;
     HBITMAP m_hBitmap = nullptr;
     Offset m_offset;
-    HBRUSH hBrushes[1] = {
-            CreateSolidBrush(RGB (255, 255, 255))
-    };
-    enum {
-        BrushBackground,
-    };
 public:
     PaintManager() = default;
     explicit PaintManager(HWND hwnd)  {
@@ -155,9 +194,6 @@ public:
         if (m_hBitmap)
             DeleteObject(m_hBitmap);
         ////////////////////////////////
-        for (auto brush : hBrushes) {
-            DeleteObject(brush);
-        }
     }
     static PaintManager FromWindow(HWND hwnd) {
         return PaintManager(hwnd);
@@ -173,7 +209,8 @@ public:
         rt.top = 0;
         rt.right = rect.right - rect.left;
         rt.bottom = rect.bottom - rect.top;
-        FillRect(m_hMemDC, &rt, hBrushes[BrushBackground]);
+        FillRect(m_hMemDC, &rt, m_object.getBrush(ObjectManger::BrushBackground));
+
     }
     virtual void resize() {
         if (m_hBitmap)
@@ -183,7 +220,7 @@ public:
         m_hBitmap = CreateCompatibleBitmap(m_hWndDC, rect.right - rect.left, rect.bottom - rect.top);
         SelectObject(m_hMemDC, m_hBitmap);
     }
-    virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
+    virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx, &m_object); }
     virtual TextMeter getTextMeter() { return TextMeter(m_hMemDC); }
     inline Offset getViewportOffset() { return m_offset; }
     virtual void setViewportOffset(Offset offset) {

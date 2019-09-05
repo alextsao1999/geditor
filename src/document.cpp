@@ -70,20 +70,23 @@ CaretManager *EventContext::getCaretManager() {
     return &doc->getContext()->m_caretManager;
 }
 
-void EventContext::prev() {
+bool EventContext::prev() {
     if (index > 0) {
         index--;
         if (current()->getDisplay() == Display::Line) {
             prevLine();
         }
+        return true;
     }
+    return false;
 }
 
-void EventContext::next() {
+bool EventContext::next() {
     if (current()->getDisplay() == Display::Line) {
         nextLine();
     }
     index++;
+    return index < buffer->size();
 }
 
 void EventContext::reflow() {

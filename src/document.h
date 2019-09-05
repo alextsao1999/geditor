@@ -73,8 +73,8 @@ struct EventContext {
     }
     inline bool empty() { return buffer == nullptr || doc == nullptr; }
     bool has() { return buffer!= nullptr && index < buffer->size(); }
-    void prev();
-    void next();
+    bool prev();
+    bool next();
     int getLine() {
         if (outer) {
             return outer->getLine();
@@ -232,7 +232,7 @@ public:
                (offset.y + getHeight(context) > y);
     }
     int getWidth(EventContext &context) override {
-        if (getDisplay() == Display::Block || getDisplay() == Display::Line) {
+        if (getDisplay() == Display::Block) {
             return parent()->getWidth(context) - (getOffset().x - parent()->getOffset().x);
         }
         return Root::getWidth(context);

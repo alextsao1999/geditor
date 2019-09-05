@@ -47,6 +47,7 @@ int main() {
         MessageBox(nullptr, _GT("注册窗口类名失败"), _GT("错误"), 0);
         exit(1);
     }
+
     HWND hwnd = CreateMyWindow();
     auto g = GEditorBuilder::build(hwnd);
     MSG msg;

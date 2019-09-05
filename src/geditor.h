@@ -9,7 +9,8 @@
 #include "string.h"
 #include "paint_manager.h"
 #include "document.h"
-
+#include "gdiplus.h"
+using namespace Gdiplus;
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
@@ -17,7 +18,8 @@ struct GEditorData {
     HWND m_hwnd{};
     Document m_document;
     PaintManager m_paintManager;
-    GEditorData() : m_document(Document(&m_paintManager)) {}
+
+    explicit GEditorData(HWND hwnd) : m_hwnd(hwnd), m_document(Document(&m_paintManager)), m_paintManager(hwnd) {}
 };
 class LineElement : public RelativeElement {
     using RelativeElement::RelativeElement;
@@ -25,7 +27,7 @@ public:
     explicit LineElement(int value) : value(value) {}
 
     int value{0};
-    int height = 25;
+    int height = 23;
 
     int getLogicHeight(EventContext &context) override {
         return height;
@@ -47,7 +49,7 @@ public:
         LineViewer line = context.getLineViewer();
         painter.setTextColor(RGB(0, 0, 0));
         painter.drawText(4, 4, line.getContent().c_str(), line.getContent().size());
-        painter.drawRect(2, 2, getWidth(context), getHeight(context));
+        //painter.drawRect(2, 2, getWidth(context) + 6, getHeight(context));
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
@@ -81,7 +83,15 @@ public:
         }
         if (code == VK_UP || code == VK_DOWN) {
             int width = meter.meterWidth(ctx->getLineViewer().getContent().c_str(), caret->data()->index);
-            code == VK_UP ? ctx->prev() : ctx->next();
+            if (code == VK_UP){
+                if (!ctx->prev())
+                    return;
+            } else {
+                if (!ctx->next()) {
+                    ctx->prev();
+                    return;
+                }
+            }
             line = ctx->getLineViewer();
             caret->data()->index = meter.getTextIndex(line.getContent().c_str(), line.getContent().size(), width);
         }
@@ -102,7 +112,9 @@ public:
                         str.erase(str.begin() + index);
                     }
                 } else {
-                    context.prev();
+                    if (!context.prev()) {
+                        return;
+                    }
                     caret->data()->index = context.getLineViewer().getContent().size();
                     context.combine();
                     context.reflow();
@@ -137,16 +149,15 @@ public:
 public:
     GEditor() : m_data(nullptr) {}
     explicit GEditor(HWND parent, int x, int y, int nWidth, int nHeight) {
-        m_data = new GEditorData();
-        m_data->m_hwnd = CreateWindowEx(0, GEDITOR_CLASSNAME, _GT("GEditor"),
-                                        WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL,
-                                        x, y, nWidth, nHeight, parent,
-                                        nullptr, nullptr, nullptr);
-        if (!m_data->m_hwnd) {
+        HWND hwnd = CreateWindowEx(0, GEDITOR_CLASSNAME, _GT("GEditor"),
+                                   WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL,
+                                   x, y, nWidth, nHeight, parent,
+                                   nullptr, nullptr, nullptr);
+        if (!hwnd) {
             return;
         }
+        m_data = new GEditorData(hwnd);
         SetWindowLong(m_data->m_hwnd, GWL_USERDATA, (LONG) m_data);
-        m_data->m_paintManager = PaintManager::FromWindow(m_data->m_hwnd);
         for (int i = 0; i < 1; ++i) {
             GChar str[255];
             auto line = m_data->m_document.appendLine(new LineElement(i));
@@ -167,7 +178,7 @@ public:
         WNDCLASSEX wcex;
         wcex.cbSize = sizeof(WNDCLASSEX);
         wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
-        wcex.lpfnWndProc = proc;
+        wcex.lpfnWndProc = onWndProc;
         wcex.cbClsExtra = 0 ;
         wcex.cbWndExtra = 0;
         wcex.hInstance = nullptr;
@@ -207,7 +218,7 @@ public:
         focus->name(*data->m_document.getContext()->m_caretManager.getEventContext(), ##__VA_ARGS__); \
     }
     /////////////////////////////////////////////////////
-    static LRESULT CALLBACK proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto data = (GEditorData *) GetWindowLong(hWnd, GWL_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
         EventContext context = EventContextBuilder::build(&data->m_document);
@@ -216,10 +227,10 @@ public:
         switch (message) {
             case WM_MOUSEWHEEL:
             case WM_VSCROLL:
-                handleScroll(SB_VERT, data, hWnd, wParam);
+                onHandleScroll(SB_VERT, data, hWnd, wParam);
                 break;
             case WM_HSCROLL:
-                handleScroll(SB_HORZ, data, hWnd, wParam);
+                onHandleScroll(SB_HORZ, data, hWnd, wParam);
                 break;
             case WM_SIZE:
                 data->m_paintManager.resize();
@@ -260,17 +271,7 @@ public:
                 {
                     PAINTSTRUCT ps;
                     HDC hdc = BeginPaint(hWnd, &ps);
-                    data->m_paintManager.update();
-                    context.set(&data->m_document, 0);
-                    while (context.has()) {
-                        if (context.current()->getDisplay() != Display::None) {
-                            context.current()->redraw(context);
-                            context.next();
-                        }
-                    }
-                    RECT rect;
-                    GetWindowRect(hWnd, &rect);
-                    data->m_paintManager.copy(hdc, rect.right - rect.left, rect.bottom - rect.top);
+                    onPaint(hWnd, hdc, data, context);
                     EndPaint(hWnd, &ps);
                 }
                 break;
@@ -288,7 +289,7 @@ public:
         }
         return 0;
     }
-    static void handleScroll(int nBar, GEditorData *data, HWND hWnd, WPARAM wParam) {
+    inline static void onHandleScroll(int nBar, GEditorData *data, HWND hWnd, WPARAM wParam) {
         int prev = GetScrollPos(hWnd, nBar);
         int movement = ((int16_t) HIWORD(wParam)) / -60;
         prev += movement;
@@ -324,6 +325,20 @@ public:
         data->m_paintManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
         data->m_document.getContext()->m_caretManager.update();
 
+    }
+
+    inline static void onPaint(HWND hWnd, HDC hdc, GEditorData *data, EventContext &context) {
+        data->m_paintManager.update();
+        context.set(&data->m_document, 0);
+        while (context.has()) {
+            if (context.current()->getDisplay() != Display::None) {
+                context.current()->redraw(context);
+                context.next();
+            }
+        }
+        RECT rect;
+        GetWindowRect(hWnd, &rect);
+        data->m_paintManager.copy(hdc, rect.right - rect.left, rect.bottom - rect.top);
     }
 };
 

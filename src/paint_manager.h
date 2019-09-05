@@ -58,13 +58,19 @@ struct Size {
 class EventContext;
 
 class ObjectManger {
+private:
+    HDC m_HDC{nullptr};
 public:
+    ObjectManger() = default;
+    void set(HDC hdc) {
+        m_HDC = hdc;
+    }
     HFONT m_fonts[1] = {
-            CreateFont(18, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+            CreateFont(15, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
                        DEFAULT_PITCH | FF_SWISS, _GT("宋体"))
     };
     enum Font {
-        FontDefault
+        FontDefault,
     };
 
     HBRUSH m_brushes[1] = {
@@ -81,17 +87,42 @@ public:
         for (auto brush : m_brushes) {
             DeleteObject(brush);
         }
-
     }
-
 
     void setFont(int nFont, HFONT hFont) {
         DeleteObject(m_fonts[nFont]);
         m_fonts[nFont] = hFont;
     }
 
-    HFONT getFont(int nFont) {
-        return m_fonts[nFont];
+    void setFont(int nFont, LPCWSTR name, int cHeight, int iQuality = DEFAULT_QUALITY, int cWidth = 0, int cWeight = 0,
+                 int cEscapement = 0,
+                 int cOrientation = 0) {
+        DeleteObject(m_fonts[nFont]);
+        //int cHeight,int cWidth,int cEscapement,int cOrientation,int cWeight,
+        // DWORD bItalic,DWORD bUnderline,DWORD bStrikeOut,
+        // DWORD iCharSet,DWORD iOutPrecision,DWORD iClipPrecision,
+        // DWORD iQuality,
+        // DWORD iPitchAndFamily,LPCWSTR pszFaceName
+        m_fonts[nFont] = CreateFont(cHeight, cWidth, cEscapement, cOrientation, cWeight, 0, 0, 0, ANSI_CHARSET,
+                                    OUT_DEFAULT_PRECIS,
+                                    CLIP_DEFAULT_PRECIS,
+                                    DEFAULT_QUALITY,
+                                    DEFAULT_PITCH | FF_SWISS, name);
+    }
+
+    void useFont(int nFont) {
+        SelectObject(m_HDC, m_fonts[nFont]);
+    }
+
+    void setBrush(int nBrush, COLORREF color) {
+        if (m_brushes[nBrush]) {
+            DeleteObject(m_brushes[nBrush]);
+        }
+        m_brushes[nBrush] = CreateSolidBrush(color);
+
+    }
+    void useBrush(int nBrush) {
+        SelectObject(m_HDC, m_brushes[nBrush]);
     }
     HBRUSH getBrush(int nBrush) {
         return m_brushes[nBrush];
@@ -141,6 +172,8 @@ public:
         }
         TextOut(m_HDC, m_offset.x + x, m_offset.y + y, str, count);
     }
+    inline ObjectManger *getObjectManager() { return m_object; }
+
 };
 
 class TextMeter {
@@ -188,6 +221,8 @@ public:
         m_hWnd = hwnd;
         m_hWndDC = GetDC(hwnd);
         m_hMemDC = CreateCompatibleDC(m_hWndDC);
+        m_object.set(m_hMemDC);
+        m_object.useFont(ObjectManger::FontDefault);
         resize();
     }
     ~PaintManager() {
@@ -209,17 +244,16 @@ public:
         rt.top = 0;
         rt.right = rect.right - rect.left;
         rt.bottom = rect.bottom - rect.top;
-        FillRect(m_hMemDC, &rt, m_object.getBrush(ObjectManger::BrushBackground));
-
+        FillRect(m_hMemDC, &rt, m_object.getBrush(0));
     }
     virtual void resize() {
-        if (m_hBitmap)
-            DeleteObject(m_hBitmap);
         RECT rect;
         GetWindowRect(m_hWnd, &rect);
         m_hBitmap = CreateCompatibleBitmap(m_hWndDC, rect.right - rect.left, rect.bottom - rect.top);
-        SelectObject(m_hMemDC, m_hBitmap);
+        HGDIOBJ hOldBitmap = SelectObject(m_hMemDC, m_hBitmap);
+        DeleteObject(hOldBitmap);
     }
+    virtual ObjectManger *getObjectManager() { return &m_object; }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx, &m_object); }
     virtual TextMeter getTextMeter() { return TextMeter(m_hMemDC); }
     inline Offset getViewportOffset() { return m_offset; }

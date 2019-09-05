@@ -6,7 +6,10 @@
 #define _COMMAND_QUEUE_H
 
 #include <queue>
+#include "common.h"
+
 struct Element;
+struct EventContext;
 
 enum class CommandType {
     None,
@@ -14,24 +17,29 @@ enum class CommandType {
     Add,
     Delete,
 };
-struct Command {
-    Element *element;
-    CommandType type;
-    union {
-        struct {
-            int pos;
-            const char *string;
-        };
-        struct {
 
-        };
+union CommandData {
+    CommandData(int pos, int ch) : data(Data(pos, ch)) {
+
+    }
+    struct Data {
+        int pos;
+        int ch;
+        Data(int pos, int ch) : pos(pos), ch(ch) {}
     } data;
+
+};
+
+struct Command {
+    EventContext *element;
+    CommandType type;
+    CommandData data;
 };
 
 class CommandQueue {
     std::queue<Command> queue;
 public:
-    void push(Command &&cmd) {
+    void push(Command cmd) {
         queue.push(cmd);
     };
     Command pop() {

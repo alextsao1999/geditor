@@ -100,6 +100,9 @@ struct EventContext {
     void focus();
     void combine();
     void redraw();
+
+    void push(CommandType type, CommandData data);
+
     /**
      * 设置当前上下文对象
      * @param obj
@@ -132,7 +135,6 @@ struct EventContext {
      */
     EventContext enter(Root *element, int index = 0);
 };
-
 
 class EventContextBuilder {
 public:

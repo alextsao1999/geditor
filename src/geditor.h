@@ -9,8 +9,6 @@
 #include "string.h"
 #include "paint_manager.h"
 #include "document.h"
-#include "gdiplus.h"
-using namespace Gdiplus;
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
@@ -134,6 +132,7 @@ public:
             }
                 break;
             default:
+                context.push(CommandType::Add, CommandData(caret->data()->index, ch));
                 str.insert(str.begin() + caret->data()->index++, (GChar) ch);
                 break;
         }

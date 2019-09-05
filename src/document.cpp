@@ -130,6 +130,10 @@ LineViewer EventContext::copyLine() {
     return {};
 }
 
+void EventContext::push(CommandType type, CommandData data) {
+    doc->getContext()->m_queue.push({copy(), type, data});
+}
+
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
         return this;

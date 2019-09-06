@@ -39,20 +39,22 @@ struct Context {
                                                      m_caretManager(CaretManager(paintManager)) {}
 };
 
-struct Element;
+class Element;
+class ElementIndex;
 using ElementIterator = std::vector<Element *>::iterator;
-using ElementIndexPtr = std::vector<Element *> *;
+using ElementIndexPtr = ElementIndex *;
 class ElementIndex {
 public:
     std::vector<Element *> m_buffer;
 public:
-    inline void append(Element *element) { m_buffer.push_back(element); }
-    inline Element *get(int index) { return m_buffer[index]; }
-    inline ElementIterator begin() { return m_buffer.begin(); }
-    inline ElementIterator end() { return m_buffer.end(); }
-    inline bool empty() { return m_buffer.empty(); }
-    inline int getCount() { return m_buffer.size(); }
-    inline ElementIndexPtr getPointer() { return &m_buffer; }
+    virtual void append(Element *element) { m_buffer.push_back(element); }
+    virtual Element *at(int index) { return m_buffer[index]; }
+    virtual ElementIterator begin() { return m_buffer.begin(); }
+    virtual ElementIterator end() { return m_buffer.end(); }
+    virtual void insert(int index, Element *element) { m_buffer.insert(m_buffer.begin() + index, element); }
+    virtual void erase(int index) { m_buffer.erase(m_buffer.begin() + index); }
+    virtual bool empty() { return m_buffer.empty(); }
+    virtual int size() { return m_buffer.size(); }
 };
 
 struct EventContext {
@@ -96,11 +98,11 @@ struct EventContext {
             line++;
         }
     }
+    void reflowBrother();
     void reflow();
+    void redraw();
     void focus();
     void combine();
-    void redraw();
-
     void push(CommandType type, CommandData data);
 
     /**
@@ -134,6 +136,8 @@ struct EventContext {
      * @return
      */
     EventContext enter(Root *element, int index = 0);
+    EventContext enter();
+
 };
 
 class EventContextBuilder {
@@ -186,8 +190,8 @@ struct Root {
      * @return EventContext
      */
     /////////////////////////////////////////
-    DEFINE_EVENT(redraw);
-    DEFINE_EVENT(reflow);
+    virtual void redraw(EventContext &context);
+    virtual void reflow(EventContext &context);
     /////////////////////////////////////////
 };
 
@@ -277,15 +281,11 @@ public:
     };
 
     Element *getLineElement(int line) {
-        return m_elements.get(line);
+        return m_elements.at(line);
     }
 
-    void flow(int index = 0) {
-        if (m_elements.empty())
-            return;
-        EventContext context = EventContextBuilder::build(this);
-        context.set(this, index);
-        m_elements.get(index)->reflow(context);
+    void flow() {
+        m_context.m_layoutManager.reflowAll(this);
     }
 
     void reflow(EventContext &context) override {
@@ -302,6 +302,9 @@ public:
     }
 
     int getLogicWidth(EventContext &context) override {
+        // FIXME:
+        //  Width is not the size of viewport
+        //  it should be the real width
         return m_context.m_paintManager->getViewportSize().width;
     }
 

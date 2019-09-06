@@ -62,13 +62,17 @@ struct TextLine {
             node = &(*node)->next;
         return node;
     }
+
     inline ColumnNode **findNode(int column) {
-        ASSERT(column > 0, "column must greater than 0!");
-        ColumnNode **node = &header.next;
-        while (--column) {
-            if (*node == nullptr)
+        ColumnNode **node = &(header.next);
+        while (column--) {
+            if (*node == nullptr) {
                 *node = new ColumnNode();
-            node = &(*node)->next;
+            }
+            if (column == 0) {
+                break;
+            }
+            node = &((*node)->next);
         }
         return node;
     }

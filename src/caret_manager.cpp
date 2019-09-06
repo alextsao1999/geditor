@@ -38,9 +38,9 @@ Element *CaretManager::getFocus() {
     return m_context->current();
 }
 
-void CaretManager::autoSet(int x, int y) {
+void CaretManager::autoSet(int x, int y, int column) {
     auto meter = m_context->getPaintManager()->getTextMeter();
-    auto &line = m_context->getLineViewer().getContent();
+    auto &line = m_context->getLineViewer().getContent(column);
     int width = meter.meterWidth(line.c_str(), m_data.index);
     set(x + width, y);
 }

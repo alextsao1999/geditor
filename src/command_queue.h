@@ -31,7 +31,7 @@ union CommandData {
 };
 
 struct Command {
-    EventContext *element;
+    EventContext *context;
     CommandType type;
     CommandData data;
 };

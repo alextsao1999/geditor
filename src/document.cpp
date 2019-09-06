@@ -34,7 +34,6 @@ int Element::getLineNumber() {
     return line;
 }
 
-
 LineViewer EventContext::getLineViewer() {
     if (outer) {
         return outer->getLineViewer();
@@ -45,7 +44,7 @@ LineViewer EventContext::getLineViewer() {
 
 void EventContext::set(Root *obj, int idx = 0) {
     if (obj->hasChild()) {
-        buffer = obj->children()->getPointer();
+        buffer = obj->children();
         index = idx;
     }
 }
@@ -54,8 +53,12 @@ Painter EventContext::getPainter() {
     return doc->getContext()->m_paintManager->getPainter(this);
 }
 
-EventContext EventContext::enter(Root *element, int index) {
-    return EventContext(doc, element->children()->getPointer(), this, index);
+EventContext EventContext::enter(Root *element, int idx) {
+    return EventContext(doc, element->children(), this, idx);
+}
+
+EventContext EventContext::enter() {
+    return EventContext(doc, current()->children(), this, 0);
 }
 
 PaintManager *EventContext::getPaintManager() {
@@ -103,10 +106,10 @@ void EventContext::combine() {
         return;
     }
     auto &text = doc->getContext()->m_textBuffer;
-    auto ele = buffer->at((unsigned) next);
+    auto ele = buffer->at(next);
     if (current()->getDisplay() == Display::Line && ele->getDisplay() == Display::Line) {
         text.getLine(line).getContent() += text.getLine(line + 1).getContent();
-        buffer->erase(buffer->begin() + next);
+        buffer->erase(next);
         doc->getContext()->m_textBuffer.deleteLine(line + 1);
         delete ele;
     }
@@ -116,7 +119,6 @@ void EventContext::redraw() {
     // redraw 需要更新宽度!!!
     doc->getContext()->m_paintManager->refresh();
 }
-
 LineViewer EventContext::copyLine() {
     if (current()->getDisplay() == Display::Line) {
         int next = getLine() + 1;
@@ -124,14 +126,16 @@ LineViewer EventContext::copyLine() {
         if (!element) {
             return {};
         }
-        buffer->insert(buffer->begin() + index + 1, element);
+        buffer->insert(index + 1, element);
         return doc->getContext()->m_textBuffer.insertLine(next);
     }
     return {};
 }
-
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), type, data});
+}
+void EventContext::reflowBrother() {
+    doc->getContext()->m_layoutManager.reflowEnter(*this);
 }
 
 Root *Root::getContain(EventContext &context, int x, int y) {
@@ -154,6 +158,16 @@ Root *Root::getContain(EventContext &context, int x, int y) {
          event.next();
      }
      return {};
+}
+void Root::redraw(EventContext &context) {
+    EventContext ctx = context.enter();
+    while (ctx.has()) {
+        ctx.current()->redraw(ctx);
+        ctx.next();
+    }
+}
+void Root::reflow(EventContext &context) {
+    context.reflow();
 }
 
 /*

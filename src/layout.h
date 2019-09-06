@@ -20,7 +20,6 @@ enum class SelectionState {
     SelectionEnd,
     SelectionBoth
 };
-
 class LayoutManager {
 private:
     int m_width{0};
@@ -30,6 +29,8 @@ private:
     int m_maxHeight{0};
 public:
     void reflow(EventContext context);
+    void reflowAll(Document *doc);
+    void reflowEnter(EventContext context);
     int getHeight() {
         return m_height;
     }

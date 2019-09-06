@@ -50,7 +50,7 @@ public:
         update();
     }
 
-    void autoSet(int x, int y);
+    void autoSet(int x, int y, int column = 0);
     Offset get() { return m_current; }
     void update();
 

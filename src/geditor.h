@@ -8,7 +8,7 @@
 #include "utils.h"
 #include "string.h"
 #include "paint_manager.h"
-#include "document.h"
+#include "table.h"
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
@@ -19,129 +19,6 @@ struct GEditorData {
 
     explicit GEditorData(HWND hwnd) : m_hwnd(hwnd), m_document(Document(&m_paintManager)), m_paintManager(hwnd) {}
 };
-class LineElement : public RelativeElement {
-    using RelativeElement::RelativeElement;
-public:
-    explicit LineElement(int value) : value(value) {}
-
-    int value{0};
-    int height = 23;
-
-    int getLogicHeight(EventContext &context) override {
-        return height;
-    }
-
-    int getLogicWidth(EventContext &context) override {
-        auto &str = context.getLineViewer().getContent();
-        return context.getPaintManager()->getTextMeter().meterWidth(str.c_str(), str.length());
-    }
-
-    Display getDisplay() override {
-        return Display::Line;
-    }
-    Element *copy() override {
-        return new LineElement(m_parent);
-    }
-    void redraw(EventContext &context) override {
-        Painter painter = context.getPainter();
-        LineViewer line = context.getLineViewer();
-        painter.setTextColor(RGB(0, 0, 0));
-        painter.drawText(4, 4, line.getContent().c_str(), line.getContent().size());
-        //painter.drawRect(2, 2, getWidth(context) + 6, getHeight(context));
-    }
-    void onLeftButtonDown(EventContext &context, int x, int y) override {
-        context.focus();
-        Offset textOffset = getRelOffset(x, y) - Offset(4, 4);
-        auto line = context.getLineViewer();
-        auto meter = context.getPaintManager()->getTextMeter();
-        auto caret = context.getCaretManager();
-        caret->data()->index = meter.getTextIndex(line.getContent().c_str(), line.getContent().size(), textOffset.x);
-        caret->set(textOffset.x + 4, 4);
-        caret->show();
-        context.reflow();
-        context.getPaintManager()->refresh();
-    }
-    void onKeyDown(EventContext &context, int code, int status) override {
-        auto caret = context.getCaretManager();
-        auto ctx = caret->getEventContext();
-        auto meter = context.getPaintManager()->getTextMeter();
-        LineViewer line;
-        if (code == VK_RIGHT || code == VK_LEFT) {
-            line = ctx->getLineViewer();
-            if (code == VK_RIGHT) {
-                caret->data()->index++;
-                if (caret->data()->index > line.getContent().size())
-                    caret->data()->index = line.getContent().size();
-            }
-            if (code == VK_LEFT) {
-                caret->data()->index--;
-                if (caret->data()->index < 0)
-                    caret->data()->index = 0;
-            }
-        }
-        if (code == VK_UP || code == VK_DOWN) {
-            int width = meter.meterWidth(ctx->getLineViewer().getContent().c_str(), caret->data()->index);
-            if (code == VK_UP){
-                if (!ctx->prev())
-                    return;
-            } else {
-                if (!ctx->next()) {
-                    ctx->prev();
-                    return;
-                }
-            }
-            line = ctx->getLineViewer();
-            caret->data()->index = meter.getTextIndex(line.getContent().c_str(), line.getContent().size(), width);
-        }
-        if (line.empty())
-            return;
-        int x = meter.meterWidth(line.getContent().c_str(), caret->data()->index);
-        caret->set(x + 4, 4);
-        caret->show();
-    };
-    void onInputChar(EventContext &context, int ch) override {
-        auto caret = context.getCaretManager();
-        auto &str = context.getLineViewer().getContent();
-        switch (ch) {
-            case VK_BACK:
-                if (caret->data()->index > 0) {
-                    int index = --caret->data()->index;
-                    if (index >= 0) {
-                        str.erase(str.begin() + index);
-                    }
-                } else {
-                    if (!context.prev()) {
-                        return;
-                    }
-                    caret->data()->index = context.getLineViewer().getContent().size();
-                    context.combine();
-                    context.reflow();
-                }
-                break;
-            case VK_RETURN:
-            {
-                context.copyLine();
-                context.reflow();
-                int idx = caret->data()->index;
-                auto &last = context.getLineViewer().getContent();
-                auto temp = last.substr((unsigned) idx, last.length());
-                last.erase(last.begin() + idx, last.end());
-                context.next();
-                context.getLineViewer().getContent() = temp;
-                caret->data()->index = 0;
-            }
-                break;
-            default:
-                context.push(CommandType::Add, CommandData(caret->data()->index, ch));
-                str.insert(str.begin() + caret->data()->index++, (GChar) ch);
-                break;
-        }
-
-        context.redraw();
-        caret->autoSet(4, 4);
-    }
-};
-
 class GEditor {
 public:
     GEditorData *m_data;
@@ -157,13 +34,20 @@ public:
         }
         m_data = new GEditorData(hwnd);
         SetWindowLong(m_data->m_hwnd, GWL_USERDATA, (LONG) m_data);
-        for (int i = 0; i < 1; ++i) {
+
+        auto row = new RowElement();
+        row->append(new ColumnTextElement(0));
+        row->append(new ColumnTextElement(1));
+        row->append(new ColumnTextElement(3));
+        m_data->m_document.append(row);
+        for (int i = 0; i < 10; ++i) {
             GChar str[255];
-            auto line = m_data->m_document.appendLine(new LineElement(i));
+            auto line = m_data->m_document.appendLine(new TextElement());
             wsprintf(str, _GT("this is test string %d\0"), line.number);
             line.getContent().append(str);
         }
         m_data->m_document.flow();
+
     }
     ~GEditor() {
         delete m_data;

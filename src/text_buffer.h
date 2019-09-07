@@ -8,14 +8,51 @@
 #define GEDITOR_TEXT_BUFFER_H
 
 #include "common.h"
+#include "memory.h"
 #include <string>
 #include <vector>
+#include <list>
+/*
+class GString {
+public:
+    GChar *string = nullptr;
+    uint32_t length = 0;
+    GString() = default;
+    ~GString() = default;
+
+    const GChar *c_str() {
+        return string;
+    }
+    inline uint32_t size() { return length; }
+    void append(const GChar *str) {
+
+    }
+
+    void append(const GString &str) {
+
+    }
+    void erase(int index) {
+
+    }
+    void erase(int index, int n) {
+
+    }
+    void insert(int index, GChar ch) {
+
+    }
+
+    GString substr(int pos, int n) {
+        return {};
+
+    }
+};
+*/
 
 struct ColumnNode {
     GString content;
     ColumnNode *next = nullptr;
     ColumnNode() = default;
-    explicit ColumnNode(GString content) : content(std::move(content)) {}
+    explicit ColumnNode(const GString &content) : content(content) {}
 };
 
 struct TextLine {
@@ -27,74 +64,34 @@ struct TextLine {
     };
     ColumnNode header;
     ~TextLine() { FreeAll(header.next); }
-    void insertColumn(ColumnNode *col, int column = -1) {
-        if (column == 0)
-            return;
-        ColumnNode **node;
-        ColumnNode *next = nullptr;
-        if (column < 0) {
-            node = findLastNode();
-        } else {
-            node = findNode(column);
-            next = *node;
-        }
-        col->next = next;
-        *node = col;
-    }
-    void deleteColumn(int column = -1) {
-        if (column == 0)
-            return;
-        ColumnNode **node;
-        if (column < 0)
-            node = findLastNode();
-        else
-            node = findNode(column);
-        if (*node == nullptr) {
-            return;
-        }
-        ColumnNode *next = (*node)->next;
-        delete *node;
-        *node = next;
-    }
-    inline ColumnNode **findLastNode() {
-        ColumnNode **node = &header.next;
-        while (*node != nullptr)
-            node = &(*node)->next;
-        return node;
-    }
-
-    inline ColumnNode **findNode(int column) {
-        ColumnNode **node = &(header.next);
+    inline ColumnNode *findNode(int column) {
+        ColumnNode *node = &header;
         while (column--) {
-            if (*node == nullptr) {
-                *node = new ColumnNode();
-            }
-            if (column == 0) {
-                break;
-            }
-            node = &((*node)->next);
+            if (node->next == nullptr)
+                node->next = new ColumnNode();
+            node = node->next;
         }
         return node;
     }
     ColumnNode *getNode(int column) {
         if (!column)
             return &header;
-        return *findNode(column);
+        return findNode(column);
     }
 };
 
 class LineViewer {
 private:
 public:
-    int number = 0;
-    TextLine *line = nullptr;
+    int m_line = 0;
+    std::vector<TextLine> *m_buffer = nullptr;
     LineViewer() = default;
-    LineViewer(int number, TextLine *line) : number(number), line(line) {}
-    inline bool empty() { return line == nullptr; }
-    GString &getContent(int column = 0) {
-        return line->getNode(column)->content;
+    LineViewer(int number, std::vector<TextLine> * buffer) : m_line(number), m_buffer(buffer) {}
+    inline int getLineNumber() { return m_line; }
+    inline bool empty() { return m_buffer == nullptr; }
+    GString &content(int column = 0) {
+        return m_buffer->at((unsigned) (m_line)).getNode(column)->content;
     }
-    inline int getLineNumber() { return number; }
 
 };
 
@@ -105,31 +102,29 @@ public:
     TextBuffer() = default;
     inline int getLineCount() { return m_buffer.size(); }
     LineViewer insertLine(int line) {
+        if (line >= m_buffer.size()) {
+            return getLine(line);
+        }
         m_buffer.insert(m_buffer.begin() + line, TextLine());
-        return {line, &m_buffer[line]};
+        return {line, &m_buffer};
     }
     LineViewer appendLine() {
         m_buffer.emplace_back();
-        return {(int) (m_buffer.size() - 1), &m_buffer.back()};
+        return {(int) m_buffer.size() - 1, &m_buffer};
     }
-
-    void insertColumn(int line, int prev = -1) {
-        m_buffer[line].insertColumn(new ColumnNode(), prev);
-    }
-
     void deleteLine(int line) {
         if (m_buffer.size() == 1) { return; }
         m_buffer.erase(m_buffer.begin() + line);
     }
-
-    void deleteColumn(int line, int column = -1) {
-        m_buffer[line].deleteColumn(column);
-    }
-
     LineViewer getLine(int line) {
-        return {line, &m_buffer[line]};
+        if (line >= m_buffer.size()) {
+            int rm = line - m_buffer.size() + 1;
+            while (rm--) {
+                m_buffer.emplace_back();
+            }
+        }
+        return {line, &m_buffer};
     }
-
 };
 
 #endif //GEDITOR_TEXT_BUFFER_H

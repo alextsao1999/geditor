@@ -14,8 +14,8 @@ public:
         return 23;
     }
     int getLogicWidth(EventContext &context) override {
-        auto &str = context.getLineViewer().getContent();
-        return context.getPaintManager()->getTextMeter().meterWidth(str.c_str(), str.length());
+        auto &str = context.getLineViewer().content();
+        return context.getPaintManager()->getTextMeter().meterWidth(str.c_str(), str.size());
     }
     Display getDisplay() override {
         return Display::Line;
@@ -27,7 +27,10 @@ public:
         Painter painter = context.getPainter();
         LineViewer line = context.getLineViewer();
         painter.setTextColor(RGB(0, 0, 0));
-        painter.drawText(4, 4, line.getContent().c_str(), line.getContent().size());
+        auto str = &line.content();
+        if (str != nullptr) {
+            painter.drawText(4, 4, str->c_str(), str->size());
+        }
         //painter.drawRect(2, 2, getWidth(context) + 6, getHeight(context));
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
@@ -36,7 +39,7 @@ public:
         auto line = context.getLineViewer();
         auto meter = context.getPaintManager()->getTextMeter();
         auto caret = context.getCaretManager();
-        caret->data()->index = meter.getTextIndex(line.getContent().c_str(), line.getContent().size(), textOffset.x);
+        caret->data()->index = meter.getTextIndex(line.content().c_str(), line.content().size(), textOffset.x);
         caret->set(textOffset.x + 4, 4);
         caret->show();
         context.reflow();
@@ -51,8 +54,8 @@ public:
             line = ctx->getLineViewer();
             if (code == VK_RIGHT) {
                 caret->data()->index++;
-                if (caret->data()->index > line.getContent().size())
-                    caret->data()->index = line.getContent().size();
+                if (caret->data()->index > line.content().size())
+                    caret->data()->index = line.content().size();
             }
             if (code == VK_LEFT) {
                 caret->data()->index--;
@@ -61,7 +64,7 @@ public:
             }
         }
         if (code == VK_UP || code == VK_DOWN) {
-            int width = meter.meterWidth(ctx->getLineViewer().getContent().c_str(), caret->data()->index);
+            int width = meter.meterWidth(ctx->getLineViewer().content().c_str(), caret->data()->index);
             if (code == VK_UP){
                 if (!ctx->prev())
                     return;
@@ -71,30 +74,33 @@ public:
                     return;
                 }
             }
+            while (caret->enter()) {
+                ctx = caret->getEventContext();
+            }
             line = ctx->getLineViewer();
-            caret->data()->index = meter.getTextIndex(line.getContent().c_str(), line.getContent().size(), width);
+            caret->data()->index = meter.getTextIndex(line.content().c_str(), line.content().size(), width);
         }
         if (line.empty())
             return;
-        int x = meter.meterWidth(line.getContent().c_str(), caret->data()->index);
+        int x = meter.meterWidth(line.content().c_str(), caret->data()->index);
         caret->set(x + 4, 4);
         caret->show();
     };
     void onInputChar(EventContext &context, int ch) override {
         auto caret = context.getCaretManager();
-        auto &str = context.getLineViewer().getContent();
+        auto &str = context.getLineViewer().content();
         switch (ch) {
             case VK_BACK:
                 if (caret->data()->index > 0) {
                     int index = --caret->data()->index;
                     if (index >= 0) {
-                        str.erase(str.begin() + index);
+                        str.erase((unsigned) index);
                     }
                 } else {
                     if (!context.prev()) {
                         return;
                     }
-                    caret->data()->index = context.getLineViewer().getContent().size();
+                    caret->data()->index = context.getLineViewer().content().size();
                     context.combine();
                     context.reflow();
                 }
@@ -104,11 +110,11 @@ public:
                 context.copyLine();
                 context.reflow();
                 int idx = caret->data()->index;
-                auto &last = context.getLineViewer().getContent();
-                auto temp = last.substr((unsigned) idx, last.length());
-                last.erase(last.begin() + idx, last.end());
+                auto &last = context.getLineViewer().content();
+                auto temp = last.substr((unsigned) idx, last.size());
+                last.erase((unsigned) idx, last.length());
                 context.next();
-                context.getLineViewer().getContent() = temp;
+                context.getLineViewer().content() = temp;
                 caret->data()->index = 0;
             }
                 break;
@@ -117,7 +123,6 @@ public:
                 str.insert(str.begin() + caret->data()->index++, (GChar) ch);
                 break;
         }
-
         context.redraw();
         caret->autoSet(4, 4);
     }
@@ -125,30 +130,30 @@ public:
 
 class ColumnTextElement : public RelativeElement {
 private:
-    int column = 0;
+    int m_column = 0;
 public:
-    explicit ColumnTextElement(Root *parent, int column) : RelativeElement(parent), column(column) {}
-    explicit ColumnTextElement(int column) : column(column) {}
+    explicit ColumnTextElement(Root *parent, int column) : RelativeElement(parent), m_column(column) {}
+    explicit ColumnTextElement(int column) : m_column(column) {}
     int getLogicHeight(EventContext &context) override {
         return 23;
     }
     int getLogicWidth(EventContext &context) override {
-        auto &str = context.getLineViewer().getContent(column);
-        int width = context.getPaintManager()->getTextMeter().meterWidth(str.c_str(), str.length());
+        auto &str = context.getLineViewer().content(m_column);
+        int width = context.getPaintManager()->getTextMeter().meterWidth(str.c_str(), str.size());
         return width + 20;
     }
     Display getDisplay() override {
         return Display::Inline;
     }
-    Element *copy() override {
-        return nullptr;
-    }
     void redraw(EventContext &context) override {
         Painter painter = context.getPainter();
         LineViewer line = context.getLineViewer();
+        auto str = &line.content(m_column);
         painter.setTextColor(RGB(0, 0, 0));
-        painter.drawText(4, 4, line.getContent(column).c_str(), line.getContent(column).size());
         painter.drawRect(2, 2, getWidth(context) - 2, getHeight(context));
+        if (str != nullptr) {
+            painter.drawText(4, 4, str->c_str(), str->size());
+        }
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
@@ -156,7 +161,7 @@ public:
         auto line = context.getLineViewer();
         auto meter = context.getPaintManager()->getTextMeter();
         auto caret = context.getCaretManager();
-        caret->data()->index = meter.getTextIndex(line.getContent(column).c_str(), line.getContent(column).size(), textOffset.x);
+        caret->data()->index = meter.getTextIndex(line.content(m_column).c_str(), line.content(m_column).size(), textOffset.x);
         caret->set(textOffset.x + 4, 4);
         caret->show();
         context.reflow();
@@ -171,8 +176,8 @@ public:
             line = ctx->getLineViewer();
             if (code == VK_RIGHT) {
                 caret->data()->index++;
-                if (caret->data()->index > line.getContent(column).size())
-                    caret->data()->index = line.getContent(column).size();
+                if (caret->data()->index > line.content(m_column).size())
+                    caret->data()->index = line.content(m_column).size();
             }
             if (code == VK_LEFT) {
                 caret->data()->index--;
@@ -185,19 +190,19 @@ public:
         }
         if (line.empty())
             return;
-        int x = meter.meterWidth(line.getContent(column).c_str(), caret->data()->index);
+        int x = meter.meterWidth(line.content(m_column).c_str(), caret->data()->index);
         caret->set(x + 4, 4);
         caret->show();
     };
     void onInputChar(EventContext &context, int ch) override {
         auto caret = context.getCaretManager();
-        auto &str = context.getLineViewer().getContent(column);
+        auto &str = context.getLineViewer().content(m_column);
         switch (ch) {
             case VK_BACK:
                 if (caret->data()->index > 0) {
                     int index = --caret->data()->index;
                     if (index >= 0) {
-                        str.erase(str.begin() + index);
+                        str.erase(index);
                     }
                 }
                 break;
@@ -210,7 +215,7 @@ public:
         }
         context.reflowBrother();
         context.redraw();
-        caret->autoSet(4, 4, column);
+        caret->autoSet(4, 4, m_column);
     }
 
 };
@@ -233,6 +238,7 @@ public:
     }
     void append(Element *element) {
         m_index.append(element);
+        element->m_parent = this;
     }
 
 };

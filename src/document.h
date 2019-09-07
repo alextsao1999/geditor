@@ -66,6 +66,7 @@ struct EventContext {
     EventContext *copy() {
         return new EventContext(this, outer ? outer->copy() : nullptr);
     }
+    // free outer
     void free() {
         if (!outer)
             return;
@@ -105,6 +106,9 @@ struct EventContext {
     void combine();
     void push(CommandType type, CommandData data);
 
+    void insert(int idx, Element *ele) {
+        buffer->insert(idx, ele);
+    }
     /**
      * 设置当前上下文对象
      * @param obj
@@ -243,8 +247,28 @@ public:
         }
         return Root::getWidth(context);
     }
+    void dump() override {
+        std::cout << "Display : ";
+        switch (getDisplay()) {
+            case Display::None:
+                std::cout << "None";
+                break;
+            case Display::Inline:
+                std::cout << "Inline";
+                break;
+            case Display::Block:
+                std::cout << "Block";
+                break;
+            case Display::Line:
+                std::cout << "Line";
+                break;
+        }
+        std::cout << std::endl;
 
-protected:
+    }
+
+
+public:
     Root *m_parent{};
 };
 
@@ -275,7 +299,8 @@ public:
     void append(Element *element) {
         m_elements.append(element);
         element->m_parent = this;
-        for (int i = 0; i < element->getLineNumber(); ++i) {
+        int count = element->getLineNumber();
+        for (int i = 0; i < count; ++i) {
             m_context.m_textBuffer.appendLine();
         }
     };

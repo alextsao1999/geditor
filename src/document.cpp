@@ -15,10 +15,10 @@ Offset Element::getOffset() {
 }
 
 int Element::getLineNumber() {
-    if (!hasChild())
-        return 0;
     if (getDisplay() == Display::Line)
         return 1;
+    if (!hasChild())
+        return 0;
     int line = 0;
     for (auto ele : *children()) {
         switch (ele->getDisplay()) {
@@ -35,11 +35,7 @@ int Element::getLineNumber() {
 }
 
 LineViewer EventContext::getLineViewer() {
-    if (outer) {
-        return outer->getLineViewer();
-    } else {
-        return doc->getContext()->m_textBuffer.getLine(line);
-    }
+    return doc->getContext()->m_textBuffer.getLine(getLine());
 }
 
 void EventContext::set(Root *obj, int idx = 0) {
@@ -107,10 +103,11 @@ void EventContext::combine() {
     }
     auto &text = doc->getContext()->m_textBuffer;
     auto ele = buffer->at(next);
+    int cur = getLine();
     if (current()->getDisplay() == Display::Line && ele->getDisplay() == Display::Line) {
-        text.getLine(line).getContent() += text.getLine(line + 1).getContent();
+        text.getLine(cur).content().append(text.getLine(cur + 1).content());
         buffer->erase(next);
-        doc->getContext()->m_textBuffer.deleteLine(line + 1);
+        doc->getContext()->m_textBuffer.deleteLine(cur + 1);
         delete ele;
     }
 }
@@ -137,7 +134,6 @@ void EventContext::push(CommandType type, CommandData data) {
 void EventContext::reflowBrother() {
     doc->getContext()->m_layoutManager.reflowEnter(*this);
 }
-
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
         return this;

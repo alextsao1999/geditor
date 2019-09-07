@@ -41,6 +41,21 @@ auto CreateMyWindow() {
     UpdateWindow(hWnd);
     return hWnd;
 }
+void test() {
+    TextBuffer buffer;
+    LineViewer line = buffer.appendLine();
+    buffer.getLine(20);
+    auto &str = line.content(0);
+    str.append(_GT("测试"));
+    buffer.getLine(20);
+    str.append(_GT("测试"));
+    str.append(_GT("测试"));
+
+    std::cout << line.content().length();
+    system("pause");
+
+    exit(0);
+}
 
 int main() {
     if (MyRegisterClass(nullptr) == 0) {

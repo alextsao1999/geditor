@@ -49,11 +49,11 @@ public:
         m_current.y = y;
         update();
     }
-
     void autoSet(int x, int y, int column = 0);
     Offset get() { return m_current; }
     void update();
 
+    bool enter(int index = 0);
 };
 
 

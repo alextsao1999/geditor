@@ -40,7 +40,15 @@ Element *CaretManager::getFocus() {
 
 void CaretManager::autoSet(int x, int y, int column) {
     auto meter = m_context->getPaintManager()->getTextMeter();
-    auto &line = m_context->getLineViewer().getContent(column);
+    auto &line = m_context->getLineViewer().content(column);
     int width = meter.meterWidth(line.c_str(), m_data.index);
     set(x + width, y);
+}
+
+bool CaretManager::enter(int index) {
+    if (m_context && m_context->current()->hasChild()) {
+        m_context = new EventContext(m_context->doc, m_context->current()->children(), m_context, index);
+        return true;
+    }
+    return false;
 }

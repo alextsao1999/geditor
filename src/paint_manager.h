@@ -94,7 +94,7 @@ public:
         m_fonts[nFont] = hFont;
     }
 
-    void setFont(int nFont, LPCWSTR name, int cHeight, int iQuality = DEFAULT_QUALITY, int cWidth = 0, int cWeight = 0,
+    void setFont(int nFont, const GChar *name, int cHeight, int iQuality = DEFAULT_QUALITY, int cWidth = 0, int cWeight = 0,
                  int cEscapement = 0,
                  int cOrientation = 0) {
         DeleteObject(m_fonts[nFont]);

@@ -112,7 +112,7 @@ public:
                 int idx = caret->data()->index;
                 auto &last = context.getLineViewer().content();
                 auto temp = last.substr((unsigned) idx, last.size());
-                last.erase((unsigned) idx, last.length());
+                last.erase((unsigned) idx, last.size());
                 context.next();
                 context.getLineViewer().content() = temp;
                 caret->data()->index = 0;
@@ -202,7 +202,7 @@ public:
                 if (caret->data()->index > 0) {
                     int index = --caret->data()->index;
                     if (index >= 0) {
-                        str.erase(index);
+                        str.erase((unsigned) index);
                     }
                 }
                 break;

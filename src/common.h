@@ -5,17 +5,25 @@
 #ifndef GEDITOR_COMMON_H
 #define GEDITOR_COMMON_H
 
-#define _UNICODE
-#define UNICODE
+//#define _UNICODE
+//#define UNICODE
 
 #include <windows.h>
 #include <wingdi.h>
 #include <tchar.h>
 #include <string>
 #include "memory.h"
+
+#define ANSI
+
+#ifdef UNICODE
 #define GChar _TCHAR
 #define _GT(t) _T(t)
-#define GString std::wstring
+#elif (defined(ANSI))
+#define GChar char
+#define _GT(t) t
+#endif
+
 #include "stdio.h"
 #define NOT_REACHED() do { \
     fprintf(stderr, "shouldn't be reached! %s:%d", __FILE__, __LINE__); \

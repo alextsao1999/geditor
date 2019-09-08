@@ -10,4 +10,6 @@
 #define ge_free free
 #define ge_realloc realloc
 
+int CeilToPowerOf2(int v);
+
 #endif //GEDITOR_MEMORY_H

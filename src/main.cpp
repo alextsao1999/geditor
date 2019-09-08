@@ -42,22 +42,33 @@ auto CreateMyWindow() {
     return hWnd;
 }
 void test() {
-    TextBuffer buffer;
-    LineViewer line = buffer.appendLine();
-    buffer.getLine(20);
-    auto &str = line.content(0);
-    str.append(_GT("测试"));
-    buffer.getLine(20);
-    str.append(_GT("测试"));
-    str.append(_GT("测试"));
+    GString str;
+    str.append("1234");
+    str.append("56");
+    str.append("7");
+    str.insert(1, 'a');
 
-    std::cout << line.content().length();
+    std::cout << str.c_str();
+
+/*
+    TextBuffer buffer;
+
+    auto line = buffer.getLine(0);
+
+    line.content(0).append(_GT("abc"));
+    line.content(0).append(_GT("dde"));
+    line.content(0).append(_GT("asdf"));
+*/
+
+    //std::wcout << line.content() << _GT(" -> ") << line.content().size();
+
     system("pause");
 
     exit(0);
 }
 
 int main() {
+    test();
     if (MyRegisterClass(nullptr) == 0) {
         MessageBox(nullptr, _GT("注册窗口类名失败"), _GT("错误"), 0);
         exit(1);

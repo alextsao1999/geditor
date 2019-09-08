@@ -276,7 +276,7 @@ class Document : public Root {
 public:
     Context m_context;
     ElementIndex m_elements;
-
+    int m_line = 0;
 public:
     explicit Document(PaintManager *paintManager) : m_context(Context(paintManager)) {}
     ~Document() {
@@ -291,6 +291,7 @@ public:
         if (element->getDisplay() != Display::Line) {
             return {};
         }
+        m_line++;
         m_elements.append(element);
         element->m_parent = this;
         return m_context.m_textBuffer.appendLine();
@@ -303,6 +304,7 @@ public:
         for (int i = 0; i < count; ++i) {
             m_context.m_textBuffer.appendLine();
         }
+        m_line += count;
     };
 
     Element *getLineElement(int line) {

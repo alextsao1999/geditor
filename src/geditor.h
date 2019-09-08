@@ -35,14 +35,6 @@ public:
         m_data = new GEditorData(hwnd);
         SetWindowLong(m_data->m_hwnd, GWL_USERDATA, (LONG) m_data);
 
-        for (int i = 0; i < 2; ++i) {
-            GChar str[255];
-            auto line = m_data->m_document.appendLine(new TextElement());
-            wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
-            line.content().append(str);
-        }
-
-
         auto row = new RowElement();
         row->append(new ColumnTextElement(0));
         row->append(new ColumnTextElement(1));
@@ -51,6 +43,12 @@ public:
         tt.content(0).append(_GT("阿斯蒂"));
         tt.content(1).append(_GT("阿斯蒂d asdf"));
         tt.content(2).append(_GT("阿斯蒂"));
+        for (int i = 0; i < 1; ++i) {
+            GChar str[255];
+            auto line = m_data->m_document.appendLine(new TextElement());
+            wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
+            line.content().append(str);
+        }
 
         m_data->m_document.flow();
 

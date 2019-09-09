@@ -18,12 +18,12 @@
 #define BUFFER_GROWTH(count) CeilToPowerOf2(count)
 
 template<typename T>
-T *MemManager(T *ptr, size_t newSize) {
+T *MemManager(T *ptr, size_t oldSize, size_t newSize) {
     if (newSize == 0){
         ge_free(ptr);
         return nullptr; // 防止野指针
     }
-    return (T *) ge_realloc(ptr, newSize);
+    return (T *) ge_realloc((void *) ptr, newSize);
 }
 
 template <typename T>
@@ -31,10 +31,13 @@ struct Buffer {
     T *data = nullptr;
     int count = 0;
     int capacity = 0;
+    inline int begin() { return 0; }
+    inline int end() { return 0; }
     template<typename ...Args>
     T &emplace_back(Args &&...args) {
         fill(T(std::forward<Args>(args)...), 1);
-        return data[count];
+        return data[count - 1];
+
     }
     inline void fill(const T &value, int num) {
         ensureCapacity(count + num);
@@ -52,7 +55,6 @@ struct Buffer {
     inline const T &pop() {
         return data[--count];
     }
-    // 调用析构函数
     inline void erase(int index) {
         data[index].~T();
         memcpy(&data[index], &data[index  + 1], (--count - index) * sizeof(T));
@@ -74,28 +76,33 @@ struct Buffer {
         return true;
     };
     inline void set(int index, const T &value) {
-        if (index >= count)
-            fill(T(), index - count + 1);
+        ensureIndex(index);
+        data[index].~T();
         data[index] = value;
     };
     inline T &at(int index) {
-        if (index >= count)
-            fill(T(), index - count + 1);
+        ensureIndex(index);
         return data[index];
     }
     inline int size() {
-        return capacity * sizeof(T);
+        return count;
     };
     inline void clear() {
-        data = (T *) MemManager(data, 0);
+        data = (T *) MemManager(data, capacity * sizeof(T), 0);
     }
     // 确保容量
     inline void ensureCapacity(int newCapacity) {
         if (newCapacity > capacity) {
+            size_t oldSize = capacity * sizeof(T);
             capacity = BUFFER_GROWTH(newCapacity);
-            data = MemManager(data, capacity * sizeof(T));
+            data = MemManager(data, oldSize, capacity * sizeof(T));
         }
     }
+    inline void ensureIndex(int index) {
+        if (index >= count)
+            fill(T(), index - count + 1);
+    }
+
     // 缩小到合适大小
     void shrink() {
         if (capacity > count) {
@@ -104,8 +111,7 @@ struct Buffer {
         }
     }
     inline T &operator[](const int &index) {
-        if (index >= count)
-            fill(T(), index - count + 1);
+        ensureIndex(index);
         return data[index];
     }
 };
@@ -116,33 +122,40 @@ public:
     GString() = default;
     ~GString() = default;
     const GChar *c_str() const {
-        string.data[string.count + 1] = _GT('\0');
         return string.data;
     }
     inline int size() { return string.count; }
     int begin() { return 0; }
     int end() { return 0; }
-    void append(const GChar *str) {
-        append(str, lstrlen(str));
-    }
     void append(const GChar *str, int len) {
         int before = string.count;
         string.count = before + len;
         string.ensureCapacity(string.count + 1);
         memcpy(string.data + before, str, (size_t) len);
-        string.data[string.count + 1] = _GT('\0');
+        string.data[string.count] = _GT('\0');
+    }
+    void append(const GChar* str) {
+        append(str, lstrlen(str));
     }
     void append(const GString &str) {
         append(str.c_str());
     }
+    void append(int value) {
+        GChar str[255];
+        wsprintf(str, _GT("%d\0"), value);
+        append(str);
+    }
     void erase(int index) {
         string.erase(index);
+        string.data[string.count] = _GT('\0');
     }
     void erase(int index, int n) {
         string.erase(index, n);
     }
     void insert(int index, GChar ch) {
+        string.ensureCapacity(string.count + 2);
         string.insert(index, ch);
+        string.data[string.count] = _GT('\0');
     }
     GString substr(int pos, int npos) {
         GString str;
@@ -155,12 +168,12 @@ public:
     }
 
 };
-
+#define GString std::wstring
 struct ColumnNode {
     GString content;
     ColumnNode *next = nullptr;
     ColumnNode() = default;
-    explicit ColumnNode(GString content) : content(std::move(content)) {}
+    explicit ColumnNode(GString content) : content(content) {}
     friend std::ostream &operator<<(std::ostream &os, const ColumnNode &node) {
         os << "content: " << node.content.c_str();
         if (node.next) {
@@ -196,7 +209,7 @@ struct TextLine {
         return findNode(column);
     }
 };
-using LineBuffer = Buffer<TextLine>;
+using LineBuffer = std::vector<TextLine>;
 
 class LineViewer {
 private:
@@ -204,7 +217,7 @@ public:
     int m_line = 0;
     LineBuffer *m_buffer = nullptr;
     LineViewer() = default;
-    LineViewer(int number, LineBuffer * buffer) : m_line(number), m_buffer(buffer) {}
+    LineViewer(int number, LineBuffer *buffer) : m_line(number), m_buffer(buffer) {}
     inline int getLineNumber() { return m_line; }
     inline bool empty() { return m_buffer == nullptr; }
     GString &content(int column = 0) {
@@ -223,18 +236,19 @@ public:
         if (line >= m_buffer.size()) {
             return getLine(line);
         }
-        m_buffer.insert(line, TextLine());
+        m_buffer.insert(m_buffer.begin() + line, TextLine());
         return {line, &m_buffer};
     }
     LineViewer appendLine() {
-        m_buffer.fill(TextLine(), 1);
+        m_buffer.emplace_back();
         return {(int) m_buffer.size() - 1, &m_buffer};
     }
     void deleteLine(int line) {
         if (m_buffer.size() == 1) { return; }
-        m_buffer.erase(line);
+        m_buffer.erase(m_buffer.begin() + line);
     }
     LineViewer getLine(int line) {
+        //m_buffer.ensureIndex(line);
         if (line >= m_buffer.size()) {
             int rm = line - m_buffer.size() + 1;
             while (rm--) {

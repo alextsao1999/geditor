@@ -5,8 +5,8 @@
 #ifndef GEDITOR_COMMON_H
 #define GEDITOR_COMMON_H
 
-//#define _UNICODE
-//#define UNICODE
+#define _UNICODE
+#define UNICODE
 
 #include <windows.h>
 #include <wingdi.h>

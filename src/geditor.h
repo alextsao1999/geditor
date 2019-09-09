@@ -6,9 +6,9 @@
 #define GEDITOR_GEDITOR_H
 #include "common.h"
 #include "utils.h"
-#include "string.h"
 #include "paint_manager.h"
 #include "table.h"
+#include "windows.h"
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
@@ -33,17 +33,15 @@ public:
             return;
         }
         m_data = new GEditorData(hwnd);
-        SetWindowLong(m_data->m_hwnd, GWL_USERDATA, (LONG) m_data);
-
-        auto row = new RowElement();
-        row->append(new ColumnTextElement(0));
-        row->append(new ColumnTextElement(1));
-        row->append(new ColumnTextElement(2));
-        auto tt = m_data->m_document.appendLine(row);
-        tt.content(0).append(_GT("阿斯蒂"));
-        tt.content(1).append(_GT("阿斯蒂d asdf"));
-        tt.content(2).append(_GT("阿斯蒂"));
-        for (int i = 0; i < 1; ++i) {
+        SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
+        for (int j = 0; j < 5; ++j) {
+            auto row = new RowElement();
+            row->append(new ColumnTextElement(0));
+            row->append(new ColumnTextElement(1));
+            row->append(new ColumnTextElement(2));
+            auto tt = m_data->m_document.appendLine(row);
+        }
+        for (int i = 0; i < 10; ++i) {
             GChar str[255];
             auto line = m_data->m_document.appendLine(new TextElement());
             wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
@@ -101,13 +99,13 @@ public:
         }  \
     }
 #define MsgCallFocus(name, ...) { \
-    auto focus = data->m_document.getContext()->m_caretManager.getFocus(); \
+    Element *focus = data->m_document.getContext()->m_caretManager.getFocus(); \
     if (focus) \
         focus->name(*data->m_document.getContext()->m_caretManager.getEventContext(), ##__VA_ARGS__); \
     }
     /////////////////////////////////////////////////////
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-        auto data = (GEditorData *) GetWindowLong(hWnd, GWL_USERDATA);
+        GEditorData *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
         EventContext context = EventContextBuilder::build(&data->m_document);
         // int idx = (pos.y / data->m_document.getContext()->m_layoutManager.getMinHeight()); \
@@ -177,7 +175,7 @@ public:
         }
         return 0;
     }
-    inline static void onHandleScroll(int nBar, GEditorData *data, HWND hWnd, WPARAM wParam) {
+    static void onHandleScroll(int nBar, GEditorData *data, HWND hWnd, WPARAM wParam) {
         int prev = GetScrollPos(hWnd, nBar);
         int movement = ((int16_t) HIWORD(wParam)) / -60;
         prev += movement;
@@ -215,7 +213,7 @@ public:
 
     }
 
-    inline static void onPaint(HWND hWnd, HDC hdc, GEditorData *data, EventContext &context) {
+    static void onPaint(HWND hWnd, HDC hdc, GEditorData *data, EventContext &context) {
         data->m_paintManager.update();
         context.set(&data->m_document, 0);
         while (context.has()) {

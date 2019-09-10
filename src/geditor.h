@@ -33,7 +33,6 @@ public:
         }
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-
         m_data->m_document.append(new TableElement(3, 3));
         for (int i = 0; i < 1; ++i) {
             GChar str[255];
@@ -88,7 +87,7 @@ public:
                 context.current()->name(context, pos.x, pos.y); \
                 break; \
             } \
-            if (context.current()->getDisplay() == Display::Block) { \
+            if (context.current()->getDisplay() == Display::None) { \
                 context.nextLine(context.current()->getLineNumber()); \
             } \
             context.next(); \
@@ -215,8 +214,10 @@ public:
         while (context.has()) {
             if (context.current()->getDisplay() != Display::None) {
                 context.current()->redraw(context);
-                context.next();
+
+                // context.nextLine(context.current()->getLineNumber());
             }
+            context.next();
         }
         RECT rect;
         GetWindowRect(hWnd, &rect);

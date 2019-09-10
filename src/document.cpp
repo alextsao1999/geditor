@@ -81,9 +81,14 @@ bool EventContext::prev() {
 }
 
 bool EventContext::next() {
-    if (current()->getDisplay() == Display::Line) {
-        nextLine();
+    if (outer) {
+        if (current()->getDisplay() == Display::Line) {
+            nextLine();
+        }
+    } else {
+        nextLine(current()->getLineNumber());
     }
+
     index++;
     return index < buffer->size();
 }
@@ -153,6 +158,7 @@ Root *Root::getContain(EventContext &context, int x, int y) {
          }
          event.next();
      }
+
      return {};
 }
 void Root::redraw(EventContext &context) {

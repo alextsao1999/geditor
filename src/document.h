@@ -80,7 +80,7 @@ struct EventContext {
     bool next();
     int getLine() {
         if (outer) {
-            return outer->getLine();
+            return outer->getLine() + line;
         } else {
             return line;
         }
@@ -93,18 +93,20 @@ struct EventContext {
         }
     }
     void prevLine(int count = 1) {
-        if (outer) {
-            outer->prevLine(count);
-        } else {
-            line -= count;
-        }
+        line -= count;
     }
     void nextLine(int count = 1) {
+        line += count;
+    }
+    void addLine(int num) {
         if (outer) {
-            outer->nextLine(count);
+            outer->addLine(num);
         } else {
-            line+= count;
+            line += num;
         }
+    }
+    void pushLine() {
+        addLine(line);
     }
     void reflowBrother();
     void reflow();
@@ -122,10 +124,13 @@ struct EventContext {
      * @param index
      */
     void set(Root *obj, int index);
-    void set(int idx) { index = idx; }
-    Element *get(int index) { return buffer->at(index); }
+    void init() {
+        index = 0;
+        line = 0;
+    }
+    Element *get(int idx) { return buffer->at(idx); }
     inline Element *current() {
-        return buffer->at((unsigned int) index);
+        return buffer->at(index);
     }
     Painter getPainter();
     PaintManager *getPaintManager();

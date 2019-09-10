@@ -138,8 +138,7 @@ public:
 class ColumnTextElement : public RelativeElement {
 private:
     int m_column = 0;
-    int m_min = 40;
-
+    int m_min = 50;
 public:
     int m_width = 0;
     explicit ColumnTextElement(Root *parent, int column) : RelativeElement(parent), m_column(column) {}
@@ -237,8 +236,7 @@ public:
         }
         if (context.outer && context.outer->outer) {
             EventContext ctx = context.outer->outer->enter();
-
-            context.outer->outer->current()->onNotify(ctx, context.outer->index, m_column);
+            context.outer->outer->current()->onNotify(ctx, 0, m_column);
         }
 
         context.reflowBrother();
@@ -318,25 +316,21 @@ public:
         element->m_parent = this;
     }
     void onNotify(EventContext& context, int code, int arg) override {
-        RowElement* current = (RowElement*)m_index.at(code);
-        int width = current->getColumnWidth(context, arg);
-        int realWidth = current->getColumnRealWidth(context, arg);
-        if (width < realWidth) {
-            width = realWidth;
-        }
-        int line = context.getLine();
+        int width = 0;
         while (context.has()) {
-            RowElement* element = (RowElement*)context.current();
+            auto *element = (RowElement *) context.current();
             int cur_width = element->getColumnWidth(context, arg);
-            if (cur_width > width) {
-                cur_width = width;
-            }
+            if (cur_width > width)
+                width = cur_width;
+            context.next();
+        }
+        context.init();
+        while (context.has()) {
+            auto *element = (RowElement *) context.current();
             element->setColumnWidth(arg, width);
             context.next();
         }
-        context.set(0);
-        context.setLine(line);
-
+        context.init();
         context.doc->getContext()->m_layoutManager.reflowEnter(context);
     }
 };

@@ -1,5 +1,7 @@
 #include <utility>
 
+#include <utility>
+
 //
 // Created by Alex on 2019/6/29.
 //  先用ArrayMethod 看看效果 之后试试加成内存池和PieceTable
@@ -12,168 +14,20 @@
 #include "common.h"
 #include "memory.h"
 #include <vector>
-#include <list>
 #include <iostream>
-#include <string.h>
-#define BUFFER_GROWTH(count) CeilToPowerOf2(count)
 
-template<typename T>
-T *MemManager(T *ptr, size_t oldSize, size_t newSize) {
-    if (newSize == 0){
-        ge_free(ptr);
-        return nullptr; // 防止野指针
-    }
-    return (T *) ge_realloc((void *) ptr, newSize);
-}
-
-template <typename T>
-struct Buffer {
-    T *data = nullptr;
-    int count = 0;
-    int capacity = 0;
-    inline int begin() { return 0; }
-    inline int end() { return 0; }
-    template<typename ...Args>
-    T &emplace_back(Args &&...args) {
-        fill(T(std::forward<Args>(args)...), 1);
-        return data[count - 1];
-
-    }
-    inline void fill(const T &value, int num) {
-        ensureCapacity(count + num);
-        for (int i = 0; i < num; ++i) {
-            data[count++] = value;
-        }
-    };
-    inline int push(const T &data) {
-        fill(data, 1);
-        return count - 1;
-    };
-    inline const T &back() {
-        return data[count - 1];
-    }
-    inline const T &pop() {
-        return data[--count];
-    }
-    inline void erase(int index) {
-        data[index].~T();
-        memcpy(&data[index], &data[index  + 1], (--count - index) * sizeof(T));
-    };
-    inline void erase(int pos, int npos) {
-        int n = npos - pos + 1;
-        for (int i = 0; i < n; ++i) {
-            erase(pos);
-        }
-    }
-    inline bool insert(int index, const T &value) {
-        if (index >= count)
-            fill(T(), index - count + 1);
-        else {
-            ensureCapacity(++count);
-            memmove(&data[index + 1], &data[index], (count - index - 1) * sizeof(T));
-        }
-        data[index] = value;
-        return true;
-    };
-    inline void set(int index, const T &value) {
-        ensureIndex(index);
-        data[index].~T();
-        data[index] = value;
-    };
-    inline T &at(int index) {
-        ensureIndex(index);
-        return data[index];
-    }
-    inline int size() {
-        return count;
-    };
-    inline void clear() {
-        data = (T *) MemManager(data, capacity * sizeof(T), 0);
-    }
-    // 确保容量
-    inline void ensureCapacity(int newCapacity) {
-        if (newCapacity > capacity) {
-            size_t oldSize = capacity * sizeof(T);
-            capacity = BUFFER_GROWTH(newCapacity);
-            data = MemManager(data, oldSize, capacity * sizeof(T));
-        }
-    }
-    inline void ensureIndex(int index) {
-        if (index >= count)
-            fill(T(), index - count + 1);
-    }
-
-    // 缩小到合适大小
-    void shrink() {
-        if (capacity > count) {
-            data = (T *) MemManager(data, 0);
-            capacity = count;
-        }
-    }
-    inline T &operator[](const int &index) {
-        ensureIndex(index);
-        return data[index];
-    }
-};
-
-class GString {
-public:
-    Buffer<GChar> string;
-    GString() = default;
-    ~GString() = default;
-    const GChar *c_str() const {
-        return string.data;
-    }
-    inline int size() { return string.count; }
-    int begin() { return 0; }
-    int end() { return 0; }
-    void append(const GChar *str, int len) {
-        int before = string.count;
-        string.count = before + len;
-        string.ensureCapacity(string.count + 1);
-        memcpy(string.data + before, str, (size_t) len);
-        string.data[string.count] = _GT('\0');
-    }
-    void append(const GChar* str) {
-        append(str, lstrlen(str));
-    }
-    void append(const GString &str) {
-        append(str.c_str());
-    }
-    void append(int value) {
-        GChar str[255];
-        wsprintf(str, _GT("%d\0"), value);
-        append(str);
-    }
-    void erase(int index) {
-        string.erase(index);
-        string.data[string.count] = _GT('\0');
-    }
-    void erase(int index, int n) {
-        string.erase(index, n);
-    }
-    void insert(int index, GChar ch) {
-        string.ensureCapacity(string.count + 2);
-        string.insert(index, ch);
-        string.data[string.count] = _GT('\0');
-    }
-    GString substr(int pos, int npos) {
-        GString str;
-        str.append(string.data + pos, npos - pos + 1);
-        return str;
-    }
-    friend std::wostream &operator<<(std::wostream &os, const GString &string) {
-        os << (const GChar *) string.string.data;
-        return os;
-    }
-
-};
 #define GString std::wstring
 struct ColumnNode {
     GString content;
     ColumnNode *next = nullptr;
     ColumnNode() = default;
-    explicit ColumnNode(GString content) : content(content) {}
+    explicit ColumnNode(GString content) : content(std::move(content)) {}
+    void free() {
+        if (next) {
+            next->free();
+            delete next;
+        }
+    }
     friend std::ostream &operator<<(std::ostream &os, const ColumnNode &node) {
         os << "content: " << node.content.c_str();
         if (node.next) {
@@ -185,15 +39,12 @@ struct ColumnNode {
 };
 
 struct TextLine {
-    static void FreeAll(ColumnNode *node) {
-        if (node == nullptr)
-            return;
-        FreeAll(node->next);
-        delete node;
-    };
     ColumnNode header;
     TextLine() = default;
-    ~TextLine() { /*FreeAll(header.next);*/ }
+    ~TextLine() = default;
+    inline void free() {
+        header.free();
+    }
     inline ColumnNode *findNode(int column) {
         ColumnNode *node = &header;
         while (column--) {
@@ -245,10 +96,10 @@ public:
     }
     void deleteLine(int line) {
         if (m_buffer.size() == 1) { return; }
+        m_buffer[line].free();
         m_buffer.erase(m_buffer.begin() + line);
     }
     LineViewer getLine(int line) {
-        //m_buffer.ensureIndex(line);
         if (line >= m_buffer.size()) {
             int rm = line - m_buffer.size() + 1;
             while (rm--) {

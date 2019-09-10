@@ -8,7 +8,7 @@
 #define _UNICODE
 #define UNICODE
 
-#include <windows.h>
+#include <Windows.h>
 #include <wingdi.h>
 #include <tchar.h>
 #include <string>

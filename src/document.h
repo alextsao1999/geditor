@@ -85,18 +85,25 @@ struct EventContext {
             return line;
         }
     }
-    void prevLine() {
+    void setLine(int nLine) {
         if (outer) {
-            outer->prevLine();
+            outer->setLine(nLine);
         } else {
-            line--;
+            line = nLine;
         }
     }
-    void nextLine() {
+    void prevLine(int count = 1) {
         if (outer) {
-            outer->nextLine();
+            outer->prevLine(count);
         } else {
-            line++;
+            line -= count;
+        }
+    }
+    void nextLine(int count = 1) {
+        if (outer) {
+            outer->nextLine(count);
+        } else {
+            line+= count;
         }
     }
     void reflowBrother();
@@ -110,11 +117,13 @@ struct EventContext {
         buffer->insert(idx, ele);
     }
     /**
-     * 设置当前上下文对象
+     * 设置要遍历的对象
      * @param obj
      * @param index
      */
     void set(Root *obj, int index);
+    void set(int idx) { index = idx; }
+    Element *get(int index) { return buffer->at(index); }
     inline Element *current() {
         return buffer->at((unsigned int) index);
     }
@@ -230,6 +239,7 @@ public:
     DEFINE_EVENT(onSelect);
     DEFINE_EVENT(onUnselect);
     DEFINE_EVENT(onUndo, Command command);
+    DEFINE_EVENT(onNotify, int code, int arg);
     virtual Element *copy() { return nullptr; }
     int getLineNumber();
     bool contain(EventContext &context, int x, int y) override {
@@ -276,7 +286,6 @@ class Document : public Root {
 public:
     Context m_context;
     ElementIndex m_elements;
-    int m_line = 0;
 public:
     explicit Document(PaintManager *paintManager) : m_context(Context(paintManager)) {}
     ~Document() {
@@ -291,7 +300,6 @@ public:
         if (element->getDisplay() != Display::Line) {
             return {};
         }
-        m_line++;
         m_elements.append(element);
         element->m_parent = this;
         return m_context.m_textBuffer.appendLine();
@@ -304,7 +312,6 @@ public:
         for (int i = 0; i < count; ++i) {
             m_context.m_textBuffer.appendLine();
         }
-        m_line += count;
     };
 
     Element *getLineElement(int line) {

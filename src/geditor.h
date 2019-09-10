@@ -8,7 +8,6 @@
 #include "utils.h"
 #include "paint_manager.h"
 #include "table.h"
-#include "windows.h"
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
@@ -34,14 +33,9 @@ public:
         }
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-        for (int j = 0; j < 5; ++j) {
-            auto row = new RowElement();
-            row->append(new ColumnTextElement(0));
-            row->append(new ColumnTextElement(1));
-            row->append(new ColumnTextElement(2));
-            auto tt = m_data->m_document.appendLine(row);
-        }
-        for (int i = 0; i < 10; ++i) {
+
+        m_data->m_document.append(new TableElement(3, 3));
+        for (int i = 0; i < 1; ++i) {
             GChar str[255];
             auto line = m_data->m_document.appendLine(new TextElement());
             wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
@@ -49,7 +43,6 @@ public:
         }
 
         m_data->m_document.flow();
-
 
     }
     ~GEditor() {
@@ -94,6 +87,9 @@ public:
             if (context.current()->contain(context, pos.x, pos.y)) { \
                 context.current()->name(context, pos.x, pos.y); \
                 break; \
+            } \
+            if (context.current()->getDisplay() == Display::Block) { \
+                context.nextLine(context.current()->getLineNumber()); \
             } \
             context.next(); \
         }  \

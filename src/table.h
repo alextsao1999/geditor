@@ -7,7 +7,7 @@
 
 #include "document.h"
 
-class TextElement : public RelativeElement {
+class LineElement : public RelativeElement {
     using RelativeElement::RelativeElement;
 public:
     int getLogicHeight(EventContext &context) override {
@@ -21,7 +21,7 @@ public:
         return Display::Line;
     }
     Element *copy() override {
-        return new TextElement(m_parent);
+        return new LineElement(m_parent);
     }
     void redraw(EventContext &context) override {
         Painter painter = context.getPainter();
@@ -135,14 +135,14 @@ public:
     }
 };
 
-class ColumnTextElement : public RelativeElement {
+class ColumnElement : public RelativeElement {
 private:
     int m_column = 0;
     int m_min = 50;
 public:
     int m_width = 0;
-    explicit ColumnTextElement(Root *parent, int column) : RelativeElement(parent), m_column(column) {}
-    explicit ColumnTextElement(int column) : m_column(column) {}
+    explicit ColumnElement(Root *parent, int column) : RelativeElement(parent), m_column(column) {}
+    explicit ColumnElement(int column) : m_column(column) {}
     int getLogicHeight(EventContext &context) override {
         return 25;
     }
@@ -234,9 +234,8 @@ public:
                 str.insert(str.begin() + caret->data()->index++, (GChar) ch);
                 break;
         }
-        if (context.outer && context.outer->outer) {
-            EventContext ctx = context.outer->outer->enter();
-            context.outer->outer->current()->onNotify(ctx, 0, m_column);
+        if (context.outer) {
+            context.outer->current()->onNotify(*context.outer, WidthChange, 0, m_column);
         }
 
         context.reflowBrother();
@@ -245,13 +244,120 @@ public:
     }
 
 };
+class TextElement : public RelativeElement {
+private:
+    GString m_data;
+    int m_column = 0;
+    int m_min = 50;
+public:
+    int m_width = 0;
+    explicit TextElement(Root *parent, int column) : RelativeElement(parent), m_column(column) {}
+    explicit TextElement(int column) : m_column(column) {}
+    int getLogicHeight(EventContext &context) override {
+        return 25;
+    }
+    int getLogicWidth(EventContext &context) override {
+        int width = context.getPaintManager()->getTextMeter().meterWidth(m_data.c_str(), m_data.size()) + 8;
+        return width > m_min ? width : m_min;
+    }
+    int getWidth(EventContext& context) override
+    {
+        if (m_width) { return m_width; }
+        return getLogicWidth(context);
+    }
+    Display getDisplay() override {
+        return Display::Inline;
+    }
+    void redraw(EventContext &context) override {
+        Painter painter = context.getPainter();
+        LineViewer line = context.getLineViewer();
+        painter.setTextColor(RGB(0, 0, 0));
+        painter.drawRect(0, 0, getWidth(context), getHeight(context));
+        painter.drawText(4, 4, m_data.c_str(), m_data.size());
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        context.focus();
+        Offset textOffset = getRelOffset(x, y) - Offset(4, 4);
+        auto line = context.getLineViewer();
+        auto meter = context.getPaintManager()->getTextMeter();
+        auto caret = context.getCaretManager();
+        caret->data()->index = meter.getTextIndex(m_data.c_str(), m_data.size(), textOffset.x);
+        caret->set(4 + textOffset.x, 4);
+        caret->show();
+        context.reflow();
+        context.getPaintManager()->refresh();
+    }
+    void onKeyDown(EventContext &context, int code, int status) override {
+        auto caret = context.getCaretManager();
+        auto ctx = caret->getEventContext();
+        auto meter = context.getPaintManager()->getTextMeter();
+        if (code == VK_RIGHT || code == VK_LEFT) {
+            if (code == VK_RIGHT) {
+                caret->data()->index++;
+                if (caret->data()->index > m_data.size()) {
+                    if (!context.next()) {
+                        context.prev();
+                        caret->data()->index = m_data.size();
+                        return;
+                    }
+                    caret->data()->index = 0;
+                }
+            }
+            if (code == VK_LEFT) {
+                caret->data()->index--;
+                if (caret->data()->index < 0) {
+                    caret->data()->index = 0;
+                }
+            }
+        }
+        if (code == VK_UP || code == VK_DOWN) {
+
+        }
+
+        int x = meter.meterWidth(m_data.c_str(), caret->data()->index);
+        caret->set(x + 4, 4);
+        caret->show();
+    };
+    void onInputChar(EventContext &context, int ch) override {
+        auto caret = context.getCaretManager();
+        switch (ch) {
+            case VK_BACK:
+                if (caret->data()->index > 0) {
+                    int index = --caret->data()->index;
+                    if (index >= 0) {
+                        m_data.erase(m_data.begin() + index);
+                    }
+                }
+                break;
+            case VK_RETURN:
+                break;
+            default:
+                context.push(CommandType::Add, CommandData(caret->data()->index, ch));
+                m_data.insert(m_data.begin() + caret->data()->index++, (GChar) ch);
+                break;
+        }
+        if (context.outer) {
+            EventContext ctx = context.outer->enter();
+            context.outer->current()->onNotify(*context.outer, Element::None, 0, m_column);
+        }
+
+        context.redraw();
+        auto meter = context.getPaintManager()->getTextMeter();
+        int x = meter.meterWidth(m_data.c_str(), caret->data()->index);
+        caret->set(x + 4, 4);
+        caret->show();
+
+    }
+
+};
 
 class RowElement : public RelativeElement {
 public:
     ElementIndex m_index;
+    RowElement() = default;
     explicit RowElement(int column) {
         for (int i = 0; i < column; ++i) {
-            Element* element = new ColumnTextElement(i);
+            Element *element = new ColumnElement(i);
             element->m_parent = this;
             m_index.append(element);
         }
@@ -282,22 +388,50 @@ public:
     }
     void setColumnWidth(int column, int width)
     {
-        ((ColumnTextElement*) m_index.at(column))->m_width = width;
+        ((ColumnElement*) m_index.at(column))->m_width = width;
+    }
+    void onNotify(EventContext &context, NotifyType type, int p1, int p2) override {
+        if (type == WidthChange) {
+            if (context.outer) {
+                EventContext ctx = context.outer->enter();
+                context.outer->current()->onNotify(ctx, WidthChange, 0, p2);
+            }
+        }
     }
 
+};
+class InlineRowElement : public RowElement {
+public:
+    explicit InlineRowElement(int line, int column) {
+        for (int i = 0; i < column; ++i) {
+            Element *element = new ColumnElement(i * line);
+            element->m_parent = this;
+            m_index.append(element);
+        }
+    }
+    Display getDisplay() override {
+        return Display::Block;
+    }
 };
 
 class TableElement : public RelativeElement {
 public:
     ElementIndex m_index;
-    TableElement(int line, int column) {
+    TableElement(int line, int column, bool inLine = false) {
         for (int i = 0; i < line; ++i) {
-            Element* element = new RowElement(column);
+            Element* element = inLine ? new InlineRowElement(i, column) : new RowElement(column);
             element->m_parent = this;
             m_index.append(element);
         }
     }
 
+    Element *replace(int line, int column, Element *element) {
+        auto *row = (RowElement *) m_index.at(line);
+        auto *old = row->m_index.at(column);
+        row->m_index.at(column) = element;
+        element->m_parent = row;
+        return old;
+    }
     bool hasChild() override {
         return m_index.size() > 0;
     }
@@ -311,15 +445,16 @@ public:
     Display getDisplay() override {
         return Display::Block;
     }
-    void append(RowElement *element) {
+    void append(Element *element) {
         m_index.append(element);
         element->m_parent = this;
     }
-    void onNotify(EventContext& context, int code, int arg) override {
+
+    void onNotify(EventContext &context, NotifyType type, int p1, int p2) override {
         int width = 0;
         while (context.has()) {
             auto *element = (RowElement *) context.current();
-            int cur_width = element->getColumnWidth(context, arg);
+            int cur_width = element->getColumnWidth(context, p2);
             if (cur_width > width)
                 width = cur_width;
             context.next();
@@ -327,7 +462,7 @@ public:
         context.init();
         while (context.has()) {
             auto *element = (RowElement *) context.current();
-            element->setColumnWidth(arg, width);
+            element->setColumnWidth(p2, width);
             context.next();
         }
         context.init();

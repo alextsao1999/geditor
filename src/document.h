@@ -48,7 +48,7 @@ public:
     std::vector<Element *> m_buffer;
 public:
     virtual void append(Element *element) { m_buffer.push_back(element); }
-    virtual Element *at(int index) { return m_buffer[index]; }
+    virtual Element *&at(int index) { return m_buffer[index]; }
     virtual ElementIterator begin() { return m_buffer.begin(); }
     virtual ElementIterator end() { return m_buffer.end(); }
     virtual void insert(int index, Element *element) { m_buffer.insert(m_buffer.begin() + index, element); }
@@ -244,7 +244,13 @@ public:
     DEFINE_EVENT(onSelect);
     DEFINE_EVENT(onUnselect);
     DEFINE_EVENT(onUndo, Command command);
-    DEFINE_EVENT(onNotify, int code, int arg);
+    enum NotifyType {
+        None,
+        SizeChange,
+        HeightChange,
+        WidthChange,
+    };
+    DEFINE_EVENT(onNotify, NotifyType type, int p1, int p2);
     virtual Element *copy() { return nullptr; }
     int getLineNumber();
     bool contain(EventContext &context, int x, int y) override {

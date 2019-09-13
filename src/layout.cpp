@@ -1,10 +1,9 @@
 //
-// Created by Administrator on 2019/6/27.
+// Created by Alex on 2019/6/27.
 //
 
 #include "layout.h"
 #include "document.h"
-#define checkWidth(width)
 void LayoutManager::reflow(EventContext context) {
     // 先把同级别的元素都安排一下
     Offset offset = context.current()->getLogicOffset();
@@ -75,6 +74,7 @@ void LayoutManager::reflowEnter(EventContext context) {
                 if (current->hasChild()) {
                     EventContext ctx = context.enter();
                     reflowEnter(ctx);
+                    ctx.leave();
                 }
                 offset.x = 0;
                 offset.y += current->getHeight(context);

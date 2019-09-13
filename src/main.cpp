@@ -1,8 +1,6 @@
 #include <iostream>
-#include "document.h"
 #include "common.h"
 #include "text_buffer.h"
-#include "table.h"
 #include "geditor.h"
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {

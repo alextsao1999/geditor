@@ -42,7 +42,7 @@ public:
             line.content().append(str);
         }
         m_data->m_document.append(new TableElement(3, 3));
-
+        m_data->m_document.append(new LineElement());
         m_data->m_document.flow();
 
     }
@@ -83,7 +83,6 @@ public:
 #define MsgCallEvent(name) { \
         Offset pos(LOWORD(lParam), HIWORD(lParam)); \
         pos += data->m_paintManager.getViewportOffset(); \
-        context.set(&data->m_document, 0); \
         while (context.has()) { \
             if (context.current()->contain(context, pos.x, pos.y)) { \
                 context.current()->name(context, pos.x, pos.y); \
@@ -105,6 +104,7 @@ public:
         GEditorData *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
         EventContext context = EventContextBuilder::build(&data->m_document);
+        context.set(&data->m_document, 0);
         // int idx = (pos.y / data->m_document.getContext()->m_layoutManager.getMinHeight()); \
         // std::cout << "predict : " << idx << std::endl;
         switch (message) {
@@ -212,12 +212,9 @@ public:
 
     static void onPaint(HWND hWnd, HDC hdc, GEditorData *data, EventContext &context) {
         data->m_paintManager.update();
-        context.set(&data->m_document, 0);
         while (context.has()) {
             if (context.current()->getDisplay() != Display::None) {
                 context.current()->redraw(context);
-
-                // context.nextLine(context.current()->getLineNumber());
             }
             context.next();
         }

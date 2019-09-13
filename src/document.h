@@ -21,6 +21,7 @@
 
 #define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
 #define DEFINE_EVENT2(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {CallChildEvent(event);}
+#define CallEvent(context, event, ...) ((context).current()->event(context, ##__VA_ARGS__))
 
 enum class Display {
     None,
@@ -78,35 +79,20 @@ struct EventContext {
     bool has() { return buffer!= nullptr && index < buffer->size(); }
     bool prev();
     bool next();
-    int getLine() {
+    int getLineIndex() {
         if (outer) {
-            return outer->getLine() + line;
+            return outer->getLineIndex() + line;
         } else {
             return line;
         }
     }
-    void setLine(int nLine) {
-        if (outer) {
-            outer->setLine(nLine);
-        } else {
-            line = nLine;
-        }
-    }
+    // 只改变本层次Line
     void prevLine(int count = 1) {
         line -= count;
     }
+    // 只改变本层次Line
     void nextLine(int count = 1) {
         line += count;
-    }
-    void addLine(int num) {
-        if (outer) {
-            outer->addLine(num);
-        } else {
-            line += num;
-        }
-    }
-    void pushLine() {
-        addLine(line);
     }
     void reflowBrother();
     void reflow();
@@ -114,7 +100,6 @@ struct EventContext {
     void focus();
     void combine();
     void push(CommandType type, CommandData data);
-
     void insert(int idx, Element *ele) {
         buffer->insert(idx, ele);
     }
@@ -147,14 +132,12 @@ struct EventContext {
                                                                             buffer(context->buffer),
                                                                             index(context->index), line(context->line),
                                                                             outer(out) {}
-    /**
-     * 进入Children
-     * @param element
-     * @param index
-     * @return
-     */
-    EventContext enter(Root *element, int index = 0);
     EventContext enter();
+    void leave() {
+        if (outer) {
+            outer->nextLine(line);
+        }
+    }
 
 };
 
@@ -174,22 +157,24 @@ struct Root {
     inline ElementIterator end() {  if(hasChild()) return children()->end(); return {}; }
     ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
-    // 获取实际的偏移
-    virtual Offset getOffset() { return {0, 0}; }
+
     // 获取对于父元素的相对偏移
     virtual Offset getLogicOffset() { return {0, 0}; }
+    // 获取实际的偏移
+    virtual Offset getOffset(EventContext &context) { return {0, 0}; }
+
+    virtual int getLogicWidth(EventContext &context) { return 0; };
+    virtual int getLogicHeight(EventContext &context) { return 0; };
     // 获取实际宽度
     virtual int getWidth(EventContext &context) { return getLogicWidth(context); };
     // 获取实际高度
     virtual int getHeight(EventContext &context) { return getLogicHeight(context); };
-    virtual int getLogicWidth(EventContext &context) { return 0; };
-    virtual int getLogicHeight(EventContext &context) { return 0; };
     /**
      * 绝对坐标是否包含在元素中
      * @return bool
      */
     virtual bool contain(EventContext &context, int x, int y) {
-        Offset offset = getOffset();
+        Offset offset = getOffset(context);
         return (offset.x < x) && (offset.x + getWidth(context) > x) && (offset.y < y) &&
                (offset.y + getHeight(context) > y);
     };
@@ -202,12 +187,12 @@ struct Root {
      * 获取绝对坐标所在的子元素
      * @return EventContext
      */
-    EventContext getContainEventContext(EventContext &context, int x, int y);
+    static EventContext getContainEventContext(EventContext &context, int x, int y);
     /**
      * 获取相对坐标所在的子元素
      * @return EventContext
      */
-    /////////////////////////////////////////
+    /////////////////////////////////////////static
     virtual void redraw(EventContext &context);
     virtual void reflow(EventContext &context);
     /////////////////////////////////////////
@@ -218,13 +203,11 @@ class Element : public Root {
     friend Document;
 public:
     Element() = default;
-    explicit Element(Root *parent) : m_parent(parent) {}
-    inline Root *parent() const { return m_parent; }
-    inline Offset getRelOffset(int x, int y) {
+    inline Offset getRelOffset(EventContext &context, int x, int y) {
         Offset offset(x, y);
-        return offset - getOffset();
+        return offset - getOffset(context);
     }
-    Offset getOffset() override;
+    Offset getOffset(EventContext &context) override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
     DEFINE_EVENT(onFocus);
@@ -253,21 +236,7 @@ public:
     DEFINE_EVENT(onNotify, NotifyType type, int p1, int p2);
     virtual Element *copy() { return nullptr; }
     int getLineNumber();
-    bool contain(EventContext &context, int x, int y) override {
-        Offset offset = getOffset();
-        if (getDisplay() == Display::Block || getDisplay() == Display::Line) {
-            return (offset.x < x) && (m_parent->getOffset().x + m_parent->getWidth(context) > x) && (offset.y < y) &&
-                   (offset.y + getHeight(context) > y);
-        }
-        return (offset.x < x) && (offset.x + getWidth(context) > x) && (offset.y < y) &&
-               (offset.y + getHeight(context) > y);
-    }
-    int getWidth(EventContext &context) override {
-        if (getDisplay() == Display::Block) {
-            return parent()->getWidth(context) - (getOffset().x - parent()->getOffset().x);
-        }
-        return Root::getWidth(context);
-    }
+    int getWidth(EventContext &context) override;
     void dump() override {
         std::cout << "Display : ";
         switch (getDisplay()) {
@@ -287,13 +256,9 @@ public:
         std::cout << std::endl;
 
     }
-
-
-public:
-    Root *m_parent{};
 };
 
-class Document : public Root {
+class Document : public Element {
 public:
     Context m_context;
     ElementIndex m_elements;
@@ -312,13 +277,11 @@ public:
             return {};
         }
         m_elements.append(element);
-        element->m_parent = this;
         return m_context.m_textBuffer.appendLine();
     };
 
     void append(Element *element) {
         m_elements.append(element);
-        element->m_parent = this;
         int count = element->getLineNumber();
         for (int i = 0; i < count; ++i) {
             m_context.m_textBuffer.appendLine();
@@ -368,7 +331,6 @@ public:
     using Element::Element;
     Offset getLogicOffset() override { return m_offset; }
     void setLogicOffset(Offset offset) override { m_offset = offset; }
-
     void reflow(EventContext &context) override {
         context.getLayoutManager()->reflow(context);
     }

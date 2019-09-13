@@ -4,10 +4,10 @@
 
 #include "document.h"
 
-Offset Element::getOffset() {
+Offset Element::getOffset(EventContext &context) {
     Offset offset = getLogicOffset();
-    if (m_parent != nullptr) {
-        Offset base = m_parent->getOffset();
+    if (context.outer) {
+        Offset base = CallEvent(*context.outer, getOffset);
         offset.x += base.x;
         offset.y += base.y;
     }
@@ -34,8 +34,20 @@ int Element::getLineNumber() {
     return line;
 }
 
+int Element::getWidth(EventContext &context) {
+    if (getDisplay() == Display::Block || getDisplay() == Display::Line) {
+        if (context.outer) {
+            return CallEvent(*context.outer, getWidth) -
+                   (getOffset(context).x - CallEvent(*context.outer, getOffset).x);
+        } else{
+            return context.doc->getWidth(context) - (getOffset(context).x - context.doc->getOffset(context).x);
+        }
+    }
+    return Root::getWidth(context);
+}
+
 LineViewer EventContext::getLineViewer() {
-    return doc->getContext()->m_textBuffer.getLine(getLine());
+    return doc->getContext()->m_textBuffer.getLine(getLineIndex());
 }
 
 void EventContext::set(Root *obj, int idx = 0) {
@@ -47,10 +59,6 @@ void EventContext::set(Root *obj, int idx = 0) {
 
 Painter EventContext::getPainter() {
     return doc->getContext()->m_paintManager->getPainter(this);
-}
-
-EventContext EventContext::enter(Root *element, int idx) {
-    return EventContext(doc, element->children(), this, idx);
 }
 
 EventContext EventContext::enter() {
@@ -81,14 +89,7 @@ bool EventContext::prev() {
 }
 
 bool EventContext::next() {
-    if (outer) {
-        if (current()->getDisplay() == Display::Line) {
-            nextLine();
-        }
-    } else {
-        nextLine(current()->getLineNumber());
-    }
-
+    nextLine(current()->getLineNumber());
     index++;
     return index < buffer->size();
 }
@@ -108,7 +109,7 @@ void EventContext::combine() {
     }
     auto &text = doc->getContext()->m_textBuffer;
     auto ele = buffer->at(next);
-    int cur = getLine();
+    int cur = getLineIndex();
     if (current()->getDisplay() == Display::Line && ele->getDisplay() == Display::Line) {
         text.getLine(cur).content().append(text.getLine(cur + 1).content());
         buffer->erase(next);
@@ -121,9 +122,10 @@ void EventContext::redraw() {
     // redraw 需要更新宽度!!!
     doc->getContext()->m_paintManager->refresh();
 }
+
 LineViewer EventContext::copyLine() {
     if (current()->getDisplay() == Display::Line) {
-        int next = getLine() + 1;
+        int next = getLineIndex() + 1;
         Element *element = current()->copy();
         if (!element) {
             return {};
@@ -133,12 +135,15 @@ LineViewer EventContext::copyLine() {
     }
     return {};
 }
+
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), type, data});
 }
+
 void EventContext::reflowBrother() {
     doc->getContext()->m_layoutManager.reflowEnter(*this);
 }
+
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
         return this;
@@ -150,8 +155,8 @@ Root *Root::getContain(EventContext &context, int x, int y) {
     }
     return nullptr;
 }
- EventContext Root::getContainEventContext(EventContext &context, int x, int y) {
-     EventContext event = context.enter(this, 0);
+EventContext Root::getContainEventContext(EventContext &context, int x, int y) {
+     EventContext event = context.enter();
      while (event.has()) {
          if (event.current()->contain(event, x, y)) {
              return event;

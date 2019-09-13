@@ -1,5 +1,5 @@
 //
-// Created by Administrator on 2019/6/27.
+// Created by Alex on 2019/6/27.
 //
 
 #ifndef GEDITOR_LAYOUT_H

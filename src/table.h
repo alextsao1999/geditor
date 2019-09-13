@@ -21,7 +21,7 @@ public:
         return Display::Line;
     }
     Element *copy() override {
-        return new LineElement(m_parent);
+        return new LineElement();
     }
     void redraw(EventContext &context) override {
         Painter painter = context.getPainter();
@@ -35,7 +35,7 @@ public:
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
-        Offset textOffset = getRelOffset(x, y) - Offset(4, 4);
+        Offset textOffset = getRelOffset(context, x, y) - Offset(4, 4);
         auto line = context.getLineViewer();
         auto meter = context.getPaintManager()->getTextMeter();
         auto caret = context.getCaretManager();
@@ -141,7 +141,6 @@ private:
     int m_min = 50;
 public:
     int m_width = 0;
-    explicit ColumnElement(Root *parent, int column) : RelativeElement(parent), m_column(column) {}
     explicit ColumnElement(int column) : m_column(column) {}
     int getLogicHeight(EventContext &context) override {
         return 25;
@@ -171,7 +170,7 @@ public:
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
-        Offset textOffset = getRelOffset(x, y) - Offset(4, 4);
+        Offset textOffset = getRelOffset(context, x, y) - Offset(4, 4);
         auto line = context.getLineViewer();
         auto meter = context.getPaintManager()->getTextMeter();
         auto caret = context.getCaretManager();
@@ -251,7 +250,6 @@ private:
     int m_min = 50;
 public:
     int m_width = 0;
-    explicit TextElement(Root *parent, int column) : RelativeElement(parent), m_column(column) {}
     explicit TextElement(int column) : m_column(column) {}
     int getLogicHeight(EventContext &context) override {
         return 25;
@@ -277,7 +275,7 @@ public:
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
-        Offset textOffset = getRelOffset(x, y) - Offset(4, 4);
+        Offset textOffset = getRelOffset(context, x, y) - Offset(4, 4);
         auto line = context.getLineViewer();
         auto meter = context.getPaintManager()->getTextMeter();
         auto caret = context.getCaretManager();
@@ -358,7 +356,6 @@ public:
     explicit RowElement(int column) {
         for (int i = 0; i < column; ++i) {
             Element *element = new ColumnElement(i);
-            element->m_parent = this;
             m_index.append(element);
         }
     }
@@ -378,7 +375,6 @@ public:
     }
     void append(Element *element) {
         m_index.append(element);
-        element->m_parent = this;
     }
     int getColumnWidth(EventContext &context, int column) {
         return m_index.at(column)->getLogicWidth(context);
@@ -398,14 +394,12 @@ public:
             }
         }
     }
-
 };
 class InlineRowElement : public RowElement {
 public:
     explicit InlineRowElement(int line, int column) {
         for (int i = 0; i < column; ++i) {
             Element *element = new ColumnElement(i * line);
-            element->m_parent = this;
             m_index.append(element);
         }
     }
@@ -420,7 +414,6 @@ public:
     TableElement(int line, int column, bool inLine = false) {
         for (int i = 0; i < line; ++i) {
             Element* element = inLine ? new InlineRowElement(i, column) : new RowElement(column);
-            element->m_parent = this;
             m_index.append(element);
         }
     }
@@ -429,7 +422,6 @@ public:
         auto *row = (RowElement *) m_index.at(line);
         auto *old = row->m_index.at(column);
         row->m_index.at(column) = element;
-        element->m_parent = row;
         return old;
     }
     bool hasChild() override {
@@ -447,7 +439,6 @@ public:
     }
     void append(Element *element) {
         m_index.append(element);
-        element->m_parent = this;
     }
 
     void onNotify(EventContext &context, NotifyType type, int p1, int p2) override {

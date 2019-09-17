@@ -6,6 +6,7 @@
 #include "document.h"
 void LayoutManager::reflow(EventContext context) {
     // 先把同级别的元素都安排一下
+    int lineMaxHeight = 0, blockMaxWidth = 0;
     Offset offset = context.current()->getLogicOffset();
     int value;
     while (context.has()) {
@@ -15,39 +16,40 @@ void LayoutManager::reflow(EventContext context) {
             case Display::None:
                 break;
             case Display::Inline:
-                value = current->getWidth(context);
-                offset.x += value;
-                if (offset.x > m_width) {
-                    m_width = offset.x;
-                }
-                if (m_minWidth > value || !m_minWidth)
-                    m_minWidth = value;
+                blockMaxWidth = 0;
+                offset.x += current->getWidth(context);
                 value = current->getHeight(context);
-                if (m_minHeight > value  || !m_minHeight)
-                    m_minHeight = value;
+                if (value > lineMaxHeight) {
+                    lineMaxHeight = value;
+                }
                 break;
             case Display::Line:
             case Display::Block:
+                lineMaxHeight = 0;
                 value = current->getWidth(context);
-                if (offset.x +  value> m_width)
-                    m_width = offset.x + value;
-                if (m_minWidth > value  || !m_minWidth)
-                    m_minWidth = value;
-                value = current->getHeight(context);
-                if (m_minHeight > value  || !m_minHeight)
-                    m_minHeight = value;
+                if (value > blockMaxWidth) {
+                    blockMaxWidth = value;
+                }
                 offset.x = 0;
-                offset.y += value;
+                offset.y += current->getHeight(context);
                 break;
         }
         context.next();
     }
-    if (offset.y > m_height) {
-        m_height = offset.y;
-    }
     // 再把父级别的元素都安排一下
-    if (context.outer != nullptr && context.outer->has()) {
+    if (context.outer != nullptr) {
+        if (lineMaxHeight) {
+            context.outer->current()->setLogicWidth(offset.x);
+            context.outer->current()->setLogicHeight(lineMaxHeight);
+        }
+        if (blockMaxWidth) {
+            context.outer->current()->setLogicWidth(blockMaxWidth);
+            context.outer->current()->setLogicHeight(offset.y);
+        }
         reflow(*context.outer);
+    } else {
+        m_width = blockMaxWidth;
+        m_height = offset.y;
     }
 
 }
@@ -59,28 +61,65 @@ void LayoutManager::reflowAll(Document *doc) {
 }
 
 void LayoutManager::reflowEnter(EventContext context) {
+    int lineMaxHeight = 0, blockMaxWidth = 0, value = 0;
     Offset offset = context.current()->getLogicOffset();
+    std::cout << " -> { ";
     while (context.has()) {
         Element *current = context.current();
+        std::cout << "(" << offset.x << ", " << offset.y << ")";
         current->setLogicOffset(offset);
         switch (current->getDisplay()) {
             case Display::None:
                 break;
             case Display::Inline:
+                blockMaxWidth = 0;
+                if (current->hasChild()) {
+                    EventContext ctx = context.enter();
+                    reflowEnter(ctx);
+                    // inline里面不计行
+                    //ctx.leave();
+                }
                 offset.x += current->getWidth(context);
+                value = current->getHeight(context);
+                if (value > lineMaxHeight) {
+                    lineMaxHeight = value;
+                }
                 break;
             case Display::Line:
             case Display::Block:
+                lineMaxHeight = 0;
                 if (current->hasChild()) {
                     EventContext ctx = context.enter();
                     reflowEnter(ctx);
                     ctx.leave();
+                }
+                value = current->getWidth(context);
+                if (value > blockMaxWidth) {
+                    blockMaxWidth = value;
                 }
                 offset.x = 0;
                 offset.y += current->getHeight(context);
                 break;
         }
         context.next();
+        if (context.has()) {
+            std::cout << ", ";
+        }
     }
+    if (context.outer != nullptr) {
+        if (lineMaxHeight) {
+            context.outer->current()->setLogicWidth(offset.x);
+            context.outer->current()->setLogicHeight(lineMaxHeight);
+        }
+        if (blockMaxWidth) {
+            context.outer->current()->setLogicWidth(blockMaxWidth);
+            context.outer->current()->setLogicHeight(offset.y);
+        }
+    } else {
+        m_width = blockMaxWidth;
+        m_height = offset.y;
+    }
+
+    std::cout << " }";
 
 }

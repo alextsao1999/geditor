@@ -64,9 +64,6 @@ struct EventContext {
     EventContext *outer = nullptr;
     int index = 0;
     int line = 0;
-    EventContext *copy() {
-        return new EventContext(this, outer ? outer->copy() : nullptr);
-    }
     // free outer
     void free() {
         if (!outer)
@@ -103,6 +100,8 @@ struct EventContext {
     void insert(int idx, Element *ele) {
         buffer->insert(idx, ele);
     }
+    void notify(int type, int p1, int p2);
+
     /**
      * 设置要遍历的对象
      * @param obj
@@ -132,6 +131,12 @@ struct EventContext {
                                                                             buffer(context->buffer),
                                                                             index(context->index), line(context->line),
                                                                             outer(out) {}
+    EventContext clone() {
+        return EventContext(doc, buffer, outer, 0);
+    }
+    EventContext *copy() {
+        return new EventContext(this, outer ? outer->copy() : nullptr);
+    }
     EventContext enter();
     void leave() {
         if (outer) {
@@ -165,6 +170,8 @@ struct Root {
 
     virtual int getLogicWidth(EventContext &context) { return 0; };
     virtual int getLogicHeight(EventContext &context) { return 0; };
+    virtual void setLogicWidth(int width) {};
+    virtual void setLogicHeight(int height) {};
     // 获取实际宽度
     virtual int getWidth(EventContext &context) { return getLogicWidth(context); };
     // 获取实际高度
@@ -233,7 +240,7 @@ public:
         HeightChange,
         WidthChange,
     };
-    DEFINE_EVENT(onNotify, NotifyType type, int p1, int p2);
+    DEFINE_EVENT(onNotify, int type, int p1, int p2);
     virtual Element *copy() { return nullptr; }
     int getLineNumber();
     int getWidth(EventContext &context) override;

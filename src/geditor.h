@@ -33,7 +33,10 @@ public:
         }
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-        m_data->m_document.append(new TableElement(3, 3));
+        auto *table = new TableElement(3, 3);
+        auto *intable = new InlineTableElement(3, 4);
+        table->replace(0, 1, intable);
+        m_data->m_document.append(table);
 
         for (int i = 0; i < 1; ++i) {
             GChar str[255];
@@ -42,8 +45,16 @@ public:
             line.content().append(str);
         }
         m_data->m_document.append(new TableElement(3, 3));
-        m_data->m_document.append(new LineElement());
+        for (int i = 0; i < 5; ++i) {
+            GChar str[255];
+            auto line = m_data->m_document.appendLine(new LineElement());
+            wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
+            line.content().append(str);
+        }
+
+
         m_data->m_document.flow();
+        std::cout << intable->m_width;
 
     }
     ~GEditor() {
@@ -95,9 +106,9 @@ public:
         }  \
     }
 #define MsgCallFocus(name, ...) { \
-    Element *focus = data->m_document.getContext()->m_caretManager.getFocus(); \
-    if (focus) \
-        focus->name(*data->m_document.getContext()->m_caretManager.getEventContext(), ##__VA_ARGS__); \
+        Element *focus = data->m_document.getContext()->m_caretManager.getFocus(); \
+        if (focus) \
+            focus->name(*data->m_document.getContext()->m_caretManager.getEventContext(), ##__VA_ARGS__); \
     }
     /////////////////////////////////////////////////////
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {

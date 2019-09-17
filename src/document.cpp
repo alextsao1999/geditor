@@ -144,6 +144,10 @@ void EventContext::reflowBrother() {
     doc->getContext()->m_layoutManager.reflowEnter(*this);
 }
 
+void EventContext::notify(int type, int p1, int p2) {
+    current()->onNotify(*this, type, p1, p2);
+}
+
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
         return this;

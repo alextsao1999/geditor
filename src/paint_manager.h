@@ -79,6 +79,16 @@ public:
     enum Brush {
         BrushBackground
     };
+    HPEN m_pens[3] = {
+            CreatePen(PS_SOLID, 1, RGB (0, 0, 0)),
+            CreatePen(PS_SOLID, 1, RGB (255, 0, 0)),
+            CreatePen(PS_SOLID, 1, RGB (0, 0, 255)),
+    };
+    enum Pen {
+        PenDefault,
+        PenRed,
+        PenBlue,
+    };
 
     ~ObjectManger() {
         for (auto font : m_fonts) {
@@ -86,6 +96,9 @@ public:
         }
         for (auto brush : m_brushes) {
             DeleteObject(brush);
+        }
+        for (auto pen : m_pens) {
+            DeleteObject(pen);
         }
     }
 
@@ -128,6 +141,9 @@ public:
         return m_brushes[nBrush];
     }
 
+    void usePen(int nPen) {
+        SelectObject(m_HDC, m_pens[nPen]);
+    }
 };
 
 class Painter {
@@ -266,8 +282,16 @@ public:
         offset.y = GetScrollPos(m_hWnd, SB_VERT);
         Size size = getViewportSize();
         // 根据整体画布的宽高来确定显示的偏移
-        m_offset.x = (int) ((layoutManager->getWidth() - size.width + 20) * ((float) offset.x / 100));
-        m_offset.y = (int) ((layoutManager->getHeight() - size.height + 20) * ((float) offset.y / 100));
+        auto realWidth = (float) (layoutManager->getWidth() - size.width + 20);
+        auto realHeight = (float) (layoutManager->getHeight() - size.height + 20);
+        if (realWidth < 0.0) {
+            realWidth = 0.0;
+        }
+        if (realHeight < 0.0) {
+            realHeight = 0.0;
+        }
+        m_offset.x = (int) (realWidth * ((float) offset.x / 100));
+        m_offset.y = (int) (realHeight * ((float) offset.y / 100));
         refresh();
     }
     virtual Size getViewportSize() {

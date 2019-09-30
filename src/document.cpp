@@ -46,6 +46,19 @@ int Element::getWidth(EventContext &context) {
     return Root::getWidth(context);
 }
 
+void Element::onMouseMove(EventContext &context, int x, int y) {
+    EventContext event = getContainEventContext(context, x, y);
+    if (!event.empty()) {
+        event.current()->onMouseMove(event, x, y);
+    } else {
+        if (context.doc->getContext()->m_mouseEnter && context.doc->getContext()->m_mouseEnter != this) {
+            context.doc->getContext()->m_mouseEnter->onMouseLeave(x, y);
+            onMouseEnter(context, x, y);
+            context.doc->getContext()->m_mouseEnter = this;
+        }
+    }
+}
+
 LineViewer EventContext::getLineViewer() {
     return doc->getContext()->m_textBuffer.getLine(getLineIndex());
 }
@@ -58,15 +71,15 @@ void EventContext::set(Root *obj, int idx = 0) {
 }
 
 Painter EventContext::getPainter() {
-    return doc->getContext()->m_paintManager->getPainter(this);
+    return doc->getContext()->m_renderManager->getPainter(this);
 }
 
 EventContext EventContext::enter() {
     return EventContext(doc, current()->children(), this, 0);
 }
 
-PaintManager *EventContext::getPaintManager() {
-    return doc->getContext()->m_paintManager;
+RenderManager *EventContext::getPaintManager() {
+    return doc->getContext()->m_renderManager;
 }
 
 LayoutManager *EventContext::getLayoutManager() {
@@ -119,8 +132,8 @@ void EventContext::combine() {
 }
 
 void EventContext::redraw() {
-    // redraw 需要更新宽度!!!
-    doc->getContext()->m_paintManager->refresh();
+    // onRedraw 需要更新宽度!!!
+    doc->getContext()->m_renderManager->refresh();
 }
 
 LineViewer EventContext::copyLine() {
@@ -170,15 +183,12 @@ EventContext Root::getContainEventContext(EventContext &context, int x, int y) {
 
      return {};
 }
-void Root::redraw(EventContext &context) {
+void Root::onRedraw(EventContext &context) {
     EventContext ctx = context.enter();
     while (ctx.has()) {
-        ctx.current()->redraw(ctx);
+        ctx.current()->onRedraw(ctx);
         ctx.next();
     }
-}
-void Root::reflow(EventContext &context) {
-    context.reflow();
 }
 
 /*

@@ -15,14 +15,14 @@ struct CaretData {
 };
 
 class CaretManager {
-    friend PaintManager;
+    friend RenderManager;
 private:
-    PaintManager *m_paintManager;
+    RenderManager *m_paintManager;
     EventContext *m_context = nullptr;
     Offset m_current;
     CaretData m_data;
 public:
-    explicit CaretManager(PaintManager *paintManager) : m_paintManager(paintManager) {}
+    explicit CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();
     Element *getFocus ();
     EventContext *getEventContext() { return m_context; }
@@ -54,6 +54,7 @@ public:
     void update();
 
     bool enter(int index = 0);
+    void leave();
 };
 
 

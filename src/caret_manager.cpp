@@ -39,7 +39,7 @@ Element *CaretManager::getFocus() {
 }
 
 void CaretManager::autoSet(int x, int y, int column) {
-    auto meter = m_context->getPaintManager()->getTextMeter();
+    auto meter = m_context->getPaintManager()->getTextMetrics();
     auto &line = m_context->getLineViewer().content(column);
     int width = meter.meterWidth(line.c_str(), m_data.index);
     set(x + width, y);
@@ -51,4 +51,10 @@ bool CaretManager::enter(int index) {
         return true;
     }
     return false;
+}
+
+void CaretManager::leave() {
+    EventContext *outer = m_context->outer;
+    delete m_context;
+    m_context = outer;
 }

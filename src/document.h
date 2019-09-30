@@ -31,13 +31,14 @@ enum class Display {
 };
 
 struct Context {
-    PaintManager *m_paintManager;
+    RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
     CaretManager m_caretManager;
     CommandQueue m_queue;
     TextBuffer m_textBuffer;
-    explicit Context(PaintManager *paintManager) : m_paintManager(paintManager),
-                                                     m_caretManager(CaretManager(paintManager)) {}
+    Element *m_mouseEnter = nullptr;
+    explicit Context(RenderManager *renderManager) : m_renderManager(renderManager),
+                                                     m_caretManager(CaretManager(renderManager)) {}
 };
 
 class Element;
@@ -117,7 +118,7 @@ struct EventContext {
         return buffer->at(index);
     }
     Painter getPainter();
-    PaintManager *getPaintManager();
+    RenderManager *getPaintManager();
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
     LineViewer getLineViewer();
@@ -131,7 +132,7 @@ struct EventContext {
                                                                             buffer(context->buffer),
                                                                             index(context->index), line(context->line),
                                                                             outer(out) {}
-    EventContext clone() {
+    EventContext start() {
         return EventContext(doc, buffer, outer, 0);
     }
     EventContext *copy() {
@@ -200,8 +201,7 @@ struct Root {
      * @return EventContext
      */
     /////////////////////////////////////////static
-    virtual void redraw(EventContext &context);
-    virtual void reflow(EventContext &context);
+    virtual void onRedraw(EventContext &context);
     /////////////////////////////////////////
 };
 
@@ -217,13 +217,14 @@ public:
     Offset getOffset(EventContext &context) override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
+    virtual void onMouseMove(EventContext &context, int x, int y);
+    virtual void onMouseEnter(EventContext &context, int x, int y) {}
+    virtual void onMouseLeave(int x, int y) {}
+
     DEFINE_EVENT(onFocus);
     DEFINE_EVENT(onBlur);
     DEFINE_EVENT(onKeyDown, int code, int status);
     DEFINE_EVENT(onKeyUp, int code, int status);
-    DEFINE_EVENT2(onMouseEnter, int x, int y);
-    DEFINE_EVENT2(onMouseMove, int x, int y);
-    DEFINE_EVENT2(onMouseLeave, int x, int y);
     DEFINE_EVENT2(onLeftButtonUp, int x, int y);
     DEFINE_EVENT2(onLeftButtonDown, int x, int y);
     DEFINE_EVENT2(onRightButtonUp, int x, int y);
@@ -234,11 +235,15 @@ public:
     DEFINE_EVENT(onSelect);
     DEFINE_EVENT(onUnselect);
     DEFINE_EVENT(onUndo, Command command);
+
+    DEFINE_EVENT(onEnterReflow, Offset &offset);
+    DEFINE_EVENT(onLeaveReflow);
     enum NotifyType {
         None,
         SizeChange,
         HeightChange,
         WidthChange,
+        Update,
     };
     DEFINE_EVENT(onNotify, int type, int p1, int p2);
     virtual Element *copy() { return nullptr; }
@@ -265,70 +270,6 @@ public:
     }
 };
 
-class Document : public Element {
-public:
-    Context m_context;
-    ElementIndex m_elements;
-public:
-    explicit Document(PaintManager *paintManager) : m_context(Context(paintManager)) {}
-    ~Document() {
-        for (auto element : m_elements) {
-            delete element;
-        }
-    }
-    ///////////////////////////////////////////////////////////////////
-    inline Context *getContext() { return &m_context; };
-
-    LineViewer appendLine(Element *element) {
-        if (element->getDisplay() != Display::Line) {
-            return {};
-        }
-        m_elements.append(element);
-        return m_context.m_textBuffer.appendLine();
-    };
-
-    void append(Element *element) {
-        m_elements.append(element);
-        int count = element->getLineNumber();
-        for (int i = 0; i < count; ++i) {
-            m_context.m_textBuffer.appendLine();
-        }
-    };
-
-    Element *getLineElement(int line) {
-        return m_elements.at(line);
-    }
-
-    void flow() {
-        m_context.m_layoutManager.reflowAll(this);
-    }
-
-    void reflow(EventContext &context) override {
-        // 这里重排 emm...
-        context.getLayoutManager()->reflow(context);
-    }
-
-    bool hasChild() override {
-        return !m_elements.empty();
-    }
-
-    ElementIndex *children() override {
-        return &m_elements;
-    }
-
-    int getLogicWidth(EventContext &context) override {
-        // FIXME:
-        //  Width is not the size of viewport
-        //  it should be the real width
-        return m_context.m_paintManager->getViewportSize().width;
-    }
-
-    int getLogicHeight(EventContext &context) override {
-        return m_context.m_paintManager->getViewportSize().height;
-    }
-
-};
-
 class RelativeElement : public Element {
     friend LayoutManager;
     friend Document;
@@ -338,8 +279,83 @@ public:
     using Element::Element;
     Offset getLogicOffset() override { return m_offset; }
     void setLogicOffset(Offset offset) override { m_offset = offset; }
-    void reflow(EventContext &context) override {
-        context.getLayoutManager()->reflow(context);
+
+};
+
+// 根据Children 自动改变宽高
+class Container : public RelativeElement {
+public:
+    ElementIndex m_index;
+    int m_width = 0;
+    int m_height = 0;
+public:
+    Display m_display = Display::Block;
+    Container() = default;
+    ~Container() {
+        for (auto element : m_index) {
+            delete element;
+        }
+    }
+    explicit Container(Display display) : m_display(display) {}
+    bool hasChild() override {
+        return m_index.size() > 0;
+    }
+    void setLogicWidth(int width) override { m_width = width; }
+    void setLogicHeight(int height) override { m_height = height; }
+    int getLogicWidth(EventContext &context) override {
+        return m_width;
+    }
+    int getLogicHeight(EventContext &context) override {
+        return m_height;
+    }
+    int getHeight(EventContext &context) override {
+        return getLogicHeight(context);
+    }
+    int getWidth(EventContext &context) override {
+        return getLogicWidth(context);
+    }
+    ElementIndex *children() override {
+        return &m_index;
+    }
+    Display getDisplay() override {
+        return m_display;
+    }
+    inline void setDisplay(Display display) { m_display = display; }
+    virtual void append(Element *element) {
+        m_index.append(element);
+    }
+
+};
+
+class Document : public Container {
+public:
+    Context m_context;
+public:
+    explicit Document(RenderManager *renderManager) : m_context(Context(renderManager)) {}
+    ///////////////////////////////////////////////////////////////////
+    inline Context *getContext() { return &m_context; };
+    LineViewer appendLine(Element *element) {
+        if (element->getDisplay() != Display::Line) {
+            return {};
+        }
+        m_index.append(element);
+        return m_context.m_textBuffer.appendLine();
+    };
+    void flow() {
+        m_context.m_layoutManager.reflowAll(this);
+    }
+    void append(Element *element) override {
+        m_index.append(element);
+        int count = element->getLineNumber();
+        for (int i = 0; i < count; ++i) {
+            m_context.m_textBuffer.appendLine();
+        }
+    };
+    int getLogicWidth(EventContext &context) override {
+        return m_context.m_layoutManager.getWidth();
+    }
+    int getLogicHeight(EventContext &context) override {
+        return m_context.m_layoutManager.getHeight();
     }
 
 };

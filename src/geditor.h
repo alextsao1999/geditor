@@ -14,9 +14,8 @@ class GEditor;
 struct GEditorData {
     HWND m_hwnd{};
     Document m_document;
-    PaintManager m_paintManager;
-
-    explicit GEditorData(HWND hwnd) : m_hwnd(hwnd), m_document(Document(&m_paintManager)), m_paintManager(hwnd) {}
+    RenderManager m_renderManager;
+    explicit GEditorData(HWND hwnd) : m_hwnd(hwnd), m_document(Document(&m_renderManager)), m_renderManager(hwnd) {}
 };
 class GEditor {
 public:
@@ -34,8 +33,8 @@ public:
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
         auto *table = new TableElement(3, 3);
-        auto *intable = new InlineTableElement(3, 4);
-        table->replace(0, 1, intable);
+        auto *intable = new InlineTableElement(2, 2);
+        table->replace(1, 1, intable);
         m_data->m_document.append(table);
 
         for (int i = 0; i < 1; ++i) {
@@ -45,6 +44,7 @@ public:
             line.content().append(str);
         }
         m_data->m_document.append(new TableElement(3, 3));
+        m_data->m_document.append(new PosElement());
         for (int i = 0; i < 5; ++i) {
             GChar str[255];
             auto line = m_data->m_document.appendLine(new LineElement());
@@ -54,7 +54,6 @@ public:
 
 
         m_data->m_document.flow();
-        std::cout << intable->m_width;
 
     }
     ~GEditor() {
@@ -93,14 +92,11 @@ public:
     ////////////////////////////////////////////////////
 #define MsgCallEvent(name) { \
         Offset pos(LOWORD(lParam), HIWORD(lParam)); \
-        pos += data->m_paintManager.getViewportOffset(); \
+        pos += data->m_renderManager.getViewportOffset(); \
         while (context.has()) { \
             if (context.current()->contain(context, pos.x, pos.y)) { \
                 context.current()->name(context, pos.x, pos.y); \
                 break; \
-            } \
-            if (context.current()->getDisplay() == Display::None) { \
-                context.nextLine(context.current()->getLineNumber()); \
             } \
             context.next(); \
         }  \
@@ -119,6 +115,9 @@ public:
         // int idx = (pos.y / data->m_document.getContext()->m_layoutManager.getMinHeight()); \
         // std::cout << "predict : " << idx << std::endl;
         switch (message) {
+            case WM_MOUSEMOVE:
+                MsgCallEvent(onMouseMove);
+                break;
             case WM_MOUSEWHEEL:
             case WM_VSCROLL:
                 onHandleScroll(SB_VERT, data, hWnd, wParam);
@@ -127,7 +126,7 @@ public:
                 onHandleScroll(SB_HORZ, data, hWnd, wParam);
                 break;
             case WM_SIZE:
-                data->m_paintManager.resize();
+                data->m_renderManager.resize();
                 break;
             case WM_LBUTTONUP: // 鼠标左键放开
                 ReleaseCapture();
@@ -216,22 +215,22 @@ public:
                 break;
         }
         SetScrollPos(hWnd, nBar, prev, true);
-        data->m_paintManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
+        data->m_renderManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
         data->m_document.getContext()->m_caretManager.update();
 
     }
 
     static void onPaint(HWND hWnd, HDC hdc, GEditorData *data, EventContext &context) {
-        data->m_paintManager.update();
+        data->m_renderManager.update();
         while (context.has()) {
             if (context.current()->getDisplay() != Display::None) {
-                context.current()->redraw(context);
+                context.current()->onRedraw(context);
             }
             context.next();
         }
         RECT rect;
         GetWindowRect(hWnd, &rect);
-        data->m_paintManager.copy(hdc, rect.right - rect.left, rect.bottom - rect.top);
+        data->m_renderManager.copy(hdc, rect.right - rect.left, rect.bottom - rect.top);
     }
 };
 

@@ -11,6 +11,7 @@ void LayoutManager::reflow(EventContext context) {
     int value;
     while (context.has()) {
         Element *current = context.current();
+        current->onEnterReflow(context, offset);
         current->setLogicOffset(offset);
         switch (current->getDisplay()) {
             case Display::None:
@@ -34,6 +35,7 @@ void LayoutManager::reflow(EventContext context) {
                 offset.y += current->getHeight(context);
                 break;
         }
+        current->onLeaveReflow(context);
         context.next();
     }
     // 再把父级别的元素都安排一下
@@ -63,10 +65,9 @@ void LayoutManager::reflowAll(Document *doc) {
 void LayoutManager::reflowEnter(EventContext context) {
     int lineMaxHeight = 0, blockMaxWidth = 0, value = 0;
     Offset offset = context.current()->getLogicOffset();
-    std::cout << " -> { ";
     while (context.has()) {
         Element *current = context.current();
-        std::cout << "(" << offset.x << ", " << offset.y << ")";
+        current->onEnterReflow(context, offset);
         current->setLogicOffset(offset);
         switch (current->getDisplay()) {
             case Display::None:
@@ -101,10 +102,8 @@ void LayoutManager::reflowEnter(EventContext context) {
                 offset.y += current->getHeight(context);
                 break;
         }
+        current->onLeaveReflow(context);
         context.next();
-        if (context.has()) {
-            std::cout << ", ";
-        }
     }
     if (context.outer != nullptr) {
         if (lineMaxHeight) {
@@ -119,7 +118,4 @@ void LayoutManager::reflowEnter(EventContext context) {
         m_width = blockMaxWidth;
         m_height = offset.y;
     }
-
-    std::cout << " }";
-
 }

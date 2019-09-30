@@ -1,4 +1,5 @@
 #include <iostream>
+#include <SkGraphics.h>
 #include "common.h"
 #include "text_buffer.h"
 #include "geditor.h"

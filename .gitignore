@@ -41,3 +41,4 @@ gen### C++ template
 # Prerequisites
 /cmake-build-debug/
 /third_party/
+!/build/

@@ -6,52 +6,14 @@
 #define GEDITOR_TABLE_H
 
 #include "document.h"
-class Container : public RelativeElement {
-public:
-    ElementIndex m_index;
-    int m_width = 0;
-    int m_height = 0;
-public:
-    Display m_display = Display::Block;
-    Container() = default;
-    explicit Container(Display mDisplay) : m_display(mDisplay) {}
-    bool hasChild() override {
-        return m_index.size() > 0;
-    }
-    void setLogicWidth(int width) override { m_width = width; }
-    void setLogicHeight(int height) override { m_height = height; }
-    int getLogicWidth(EventContext &context) override {
-        return m_width;
-    }
-    int getLogicHeight(EventContext &context) override {
-        return m_height;
-    }
-    int getHeight(EventContext &context) override {
-        return getLogicHeight(context);
-    }
-    int getWidth(EventContext &context) override {
-        return getLogicWidth(context);
-    }
-    ElementIndex *children() override {
-        return &m_index;
-    }
-    Display getDisplay() override {
-        return m_display;
-    }
-    inline void append(Element *element) {
-        m_index.append(element);
-    }
-
-};
 class LineElement : public RelativeElement {
-    using RelativeElement::RelativeElement;
 public:
     int getLogicHeight(EventContext &context) override {
         return 23;
     }
     int getLogicWidth(EventContext &context) override {
         auto &str = context.getLineViewer().content();
-        return context.getPaintManager()->getTextMeter().meterWidth(str.c_str(), str.size()) + 8;
+        return context.getPaintManager()->getTextMetrics().meterWidth(str.c_str(), str.size()) + 8;
     }
     Display getDisplay() override {
         return Display::Line;
@@ -59,9 +21,15 @@ public:
     Element *copy() override {
         return new LineElement();
     }
-    void redraw(EventContext &context) override {
+    void onRedraw(EventContext &context) override {
         Painter painter = context.getPainter();
         LineViewer line = context.getLineViewer();
+        if (this == context.getCaretManager()->getFocus()) {
+            painter.getObjectManager()->useBrush(PaintManger::BrushFocusBkg);
+        } else {
+            painter.getObjectManager()->useBrush(PaintManger::BrushBackground);
+        }
+        painter.fillRect(0, 1, getWidth(context), getHeight(context) + 4);
         painter.setTextColor(RGB(0, 0, 0));
         auto str = &line.content();
         if (str != nullptr) {
@@ -73,17 +41,16 @@ public:
         context.focus();
         Offset textOffset = getRelOffset(context, x, y) - Offset(4, 4);
         auto line = context.getLineViewer();
-        auto meter = context.getPaintManager()->getTextMeter();
+        auto meter = context.getPaintManager()->getTextMetrics();
         auto caret = context.getCaretManager();
         caret->data()->index = meter.getTextIndex(line.content().c_str(), line.content().size(), textOffset.x);
         caret->set(textOffset.x + 4, 4);
         caret->show();
-        //context.getPaintManager()->refresh();
     }
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         auto ctx = caret->getEventContext();
-        auto meter = context.getPaintManager()->getTextMeter();
+        auto meter = context.getPaintManager()->getTextMetrics();
         LineViewer line;
         if (code == VK_RIGHT || code == VK_LEFT) {
             line = ctx->getLineViewer();
@@ -127,6 +94,7 @@ public:
         int x = meter.meterWidth(line.content().c_str(), caret->data()->index);
         caret->set(x + 4, 4);
         caret->show();
+        context.redraw();
     };
     void onInputChar(EventContext &context, int ch) override {
         auto caret = context.getCaretManager();
@@ -168,8 +136,116 @@ public:
         context.redraw();
         caret->autoSet(4, 4);
     }
+    void onFocus(EventContext &context) override {
+        context.redraw();
+    }
+    void onBlur(EventContext &context) override {
+        context.redraw();
+    }
 };
+class PosElement : public RelativeElement {
+private:
+    GString m_data;
+    int m_min = 50;
+public:
+    int m_width = 0;
+    int m_height = 25;
+    explicit PosElement() {}
+    int getLogicHeight(EventContext &context) override {
+        return m_height;
+    }
+    int getLogicWidth(EventContext &context) override {
+        int width = context.getPaintManager()->getTextMetrics().meterWidth(m_data.c_str(), m_data.size()) + 8;
+        return width > m_min ? width : m_min;
+    }
+    Display getDisplay() override {
+        return Display::Block;
+    }
+    void onRedraw(EventContext &context) override {
+        Painter painter = context.getPainter();
+        LineViewer line = context.getLineViewer();
+        painter.setTextColor(RGB(255, 0, 0));
+        painter.getObjectManager()->usePen(1);
+        painter.drawRect(0, 0, getWidth(context), getHeight(context));
+        painter.drawText(4, 4, m_data.c_str(), m_data.size());
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        context.focus();
+        Offset textOffset = getRelOffset(context, x, y) - Offset(4, 4);
+        auto line = context.getLineViewer();
+        auto meter = context.getPaintManager()->getTextMetrics();
+        auto caret = context.getCaretManager();
+        caret->data()->index = meter.getTextIndex(m_data.c_str(), m_data.size(), textOffset.x);
+        caret->set(4 + textOffset.x, 4);
+        caret->show();
+    }
+    void onKeyDown(EventContext &context, int code, int status) override {
+        auto caret = context.getCaretManager();
+        auto ctx = caret->getEventContext();
+        auto meter = context.getPaintManager()->getTextMetrics();
+        if (code == VK_RIGHT || code == VK_LEFT) {
+            if (code == VK_RIGHT) {
+                caret->data()->index++;
+                if (caret->data()->index > m_data.size()) {
+                    if (!context.next()) {
+                        context.prev();
+                        caret->data()->index = m_data.size();
+                        return;
+                    }
+                    caret->data()->index = 0;
+                }
+            }
+            if (code == VK_LEFT) {
+                caret->data()->index--;
+                if (caret->data()->index < 0) {
+                    caret->data()->index = 0;
+                }
+            }
+        }
+        if (code == VK_UP || code == VK_DOWN) {
 
+        }
+
+        int x = meter.meterWidth(m_data.c_str(), caret->data()->index);
+        caret->set(x + 4, 4);
+        caret->show();
+    };
+    void onInputChar(EventContext &context, int ch) override {
+        auto caret = context.getCaretManager();
+        switch (ch) {
+            case VK_BACK:
+                if (caret->data()->index > 0) {
+                    int index = --caret->data()->index;
+                    if (index >= 0) {
+                        m_data.erase(m_data.begin() + index);
+                    }
+                }
+                break;
+            case VK_RETURN:
+                break;
+            default:
+                context.push(CommandType::Add, CommandData(caret->data()->index, ch));
+                m_data.insert(m_data.begin() + caret->data()->index++, (GChar) ch);
+                break;
+        }
+        context.reflow();
+        context.redraw();
+        auto meter = context.getPaintManager()->getTextMetrics();
+        int x = meter.meterWidth(m_data.c_str(), caret->data()->index);
+        caret->set(x + 4, 4);
+        caret->show();
+
+    }
+
+    void onMouseMove(EventContext &context, int x, int y) override {
+        Offset rel = getRelOffset(context, x, y);
+        GChar str[255];
+        wsprintf(str, _GT("your x: %d, y: %d\0"), rel.x, rel.y);
+        m_data.clear();
+        m_data.append(str);
+        context.redraw();
+    }
+};
 class TextElement : public RelativeElement {
 private:
     GString m_data;
@@ -183,7 +259,7 @@ public:
         return m_height;
     }
     int getLogicWidth(EventContext &context) override {
-        int width = context.getPaintManager()->getTextMeter().meterWidth(m_data.c_str(), m_data.size()) + 8;
+        int width = context.getPaintManager()->getTextMetrics().meterWidth(m_data.c_str(), m_data.size()) + 8;
         return width > m_min ? width : m_min;
     }
     void setLogicWidth(int width) override { m_width = width; }
@@ -195,19 +271,20 @@ public:
     Display getDisplay() override {
         return Display::Inline;
     }
-    void redraw(EventContext &context) override {
+    void onRedraw(EventContext &context) override {
         Painter painter = context.getPainter();
         LineViewer line = context.getLineViewer();
-        painter.setTextColor(RGB(255, 0, 0));
+        painter.setTextColor(RGB(0, 0, 0));
         painter.getObjectManager()->usePen(1);
         painter.drawRect(0, 0, getWidth(context), getHeight(context));
         painter.drawText(4, 4, m_data.c_str(), m_data.size());
+
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
         Offset textOffset = getRelOffset(context, x, y) - Offset(4, 4);
         auto line = context.getLineViewer();
-        auto meter = context.getPaintManager()->getTextMeter();
+        auto meter = context.getPaintManager()->getTextMetrics();
         auto caret = context.getCaretManager();
         caret->data()->index = meter.getTextIndex(m_data.c_str(), m_data.size(), textOffset.x);
         caret->set(4 + textOffset.x, 4);
@@ -216,7 +293,7 @@ public:
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         auto ctx = caret->getEventContext();
-        auto meter = context.getPaintManager()->getTextMeter();
+        auto meter = context.getPaintManager()->getTextMetrics();
         if (code == VK_RIGHT || code == VK_LEFT) {
             if (code == VK_RIGHT) {
                 caret->data()->index++;
@@ -267,7 +344,7 @@ public:
         }
         context.reflow();
         context.redraw();
-        auto meter = context.getPaintManager()->getTextMeter();
+        auto meter = context.getPaintManager()->getTextMetrics();
         int x = meter.meterWidth(m_data.c_str(), caret->data()->index);
         caret->set(x + 4, 4);
         caret->show();
@@ -316,33 +393,22 @@ public:
             row->setColumnWidth(column, width);
         }
     }
-    void onNotify(EventContext &ctx, int type, int p1, int p2) override {
-        m_height = 0;
-        EventContext context = ctx.enter();
+    void onNotify(EventContext &context, int type, int p1, int p2) override {
+        EventContext ctx = context.enter();
         int width = 0;
-        while (context.has()) {
-            auto *element = (InlineRowElement *) context.current();
-            int now_width = element->getLogicWidth(context);
-            if (now_width > m_width) {
-                m_width = now_width;
-            }
-            int cur_width = element->getColumnWidth(context, p2);
+        while (ctx.has()) {
+            auto *element = (InlineRowElement *) ctx.current();
+            int cur_width = element->getColumnWidth(ctx, p2);
             if (cur_width > width)
                 width = cur_width;
-            context.next();
+            ctx.next();
         }
         setColumnWidth(p2, width);
-        context.init();
-        context.doc->getContext()->m_layoutManager.reflowEnter(context);
+        ctx.getLayoutManager()->reflowEnter(ctx.start());
+        if (context.outer) {
+            context.outer->notify(WidthChange, 0, context.index);
+        }
     }
-    void redraw(EventContext &context) override {
-        Root::redraw(context);
-        auto painter = context.getPainter();
-        painter.getObjectManager()->usePen(2);
-        painter.drawRect(0, 0, getWidth(context), getHeight(context));
-
-    }
-
 };
 
 class ColumnElement : public RelativeElement {
@@ -358,7 +424,7 @@ public:
     }
     int getLogicWidth(EventContext &context) override {
         auto &str = context.getLineViewer().content(m_column);
-        int width = context.getPaintManager()->getTextMeter().meterWidth(str.c_str(), str.size()) + 8;
+        int width = context.getPaintManager()->getTextMetrics().meterWidth(str.c_str(), str.size()) + 8;
         return width > m_min ? width : m_min;
     }
     int getWidth(EventContext& context) override {
@@ -371,7 +437,7 @@ public:
     Display getDisplay() override {
         return Display::Inline;
     }
-    void redraw(EventContext &context) override {
+    void onRedraw(EventContext &context) override {
         Painter painter = context.getPainter();
         LineViewer line = context.getLineViewer();
         auto str = &line.content(m_column);
@@ -386,17 +452,16 @@ public:
         context.focus();
         Offset textOffset = getRelOffset(context, x, y) - Offset(4, 4);
         auto line = context.getLineViewer();
-        auto meter = context.getPaintManager()->getTextMeter();
+        auto meter = context.getPaintManager()->getTextMetrics();
         auto caret = context.getCaretManager();
         caret->data()->index = meter.getTextIndex(line.content(m_column).c_str(), line.content(m_column).size(), textOffset.x);
         caret->set(4 + textOffset.x, 4);
         caret->show();
-        //context.getPaintManager()->refresh();
     }
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         auto ctx = caret->getEventContext();
-        auto meter = context.getPaintManager()->getTextMeter();
+        auto meter = context.getPaintManager()->getTextMetrics();
         LineViewer line;
         if (code == VK_RIGHT || code == VK_LEFT) {
             line = ctx->getLineViewer();
@@ -441,7 +506,7 @@ public:
                 break;
             case VK_RETURN:
                 m_height += 10;
-                context.clone().reflow();
+                context.start().reflow();
                 break;
             default:
                 context.push(CommandType::Add, CommandData(caret->data()->index, ch));
@@ -488,10 +553,11 @@ public:
 };
 class TableElement : public Container {
 public:
+    bool m_init = false;
     TableElement(int line, int column) {
         for (int i = 0; i < line; ++i) {
             Element *element = new RowElement(column);
-            m_index.append(element);
+            append(element);
         }
     }
     void replace(int line, int column, Element *element) {
@@ -507,24 +573,45 @@ public:
         }
     }
     void onNotify(EventContext &ctx, int type, int p1, int p2) override {
-        m_height = 0;
         EventContext context = ctx.enter();
         int width = 0;
         while (context.has()) {
             auto *element = (RowElement *) context.current();
-            m_height += element->getHeight(context);
-            int now_width = element->getLogicWidth(context);
-            if (now_width > m_width) {
-                m_width = now_width;
-            }
             int cur_width = element->getColumnWidth(context, p2);
             if (cur_width > width)
                 width = cur_width;
             context.next();
         }
         setColumnWidth(p2, width);
-        context.init();
-        context.doc->getContext()->m_layoutManager.reflowEnter(context);
+        context.getLayoutManager()->reflowEnter(context.start());
+    }
+    void onLeaveReflow(EventContext &context) override {
+        if (m_init) {
+            return;
+        }
+        m_init = true;
+        int i = 0;
+        int colMaxWidth[63] = {0};
+        // 排列完成之后更新高度
+        EventContext row = context.enter();
+        while (row.has()) {
+            EventContext col = row.enter();
+            i = 0;
+            while (col.has()) {
+                int width = CallEvent(col, getWidth);
+                if (width > colMaxWidth[i]) {
+                    colMaxWidth[i] = width;
+                }
+                i++;
+                col.next();
+            }
+            row.next();
+        }
+        for (int j = 0; j < i; ++j) {
+            setColumnWidth(j, colMaxWidth[j]);
+        }
+        context.getLayoutManager()->reflowEnter(row.start());
+
     }
 
 };

@@ -5,11 +5,14 @@
 #ifndef _PAINT_MANAGER_H
 #define _PAINT_MANAGER_H
 
-#include <memory>
 #include <iostream>
+#include <SkBitmap.h>
+#include <SkCanvas.h>
+#include <SkSurface.h>
+#include <SkString.h>
 #include "common.h"
 #include "layout.h"
-
+#define GColor COLORREF
 struct Offset {
     int x = 0;
     int y = 0;
@@ -21,7 +24,6 @@ struct Offset {
     inline Offset operator-(const Offset &offset) {
         return {x - offset.x, y - offset.y};
     }
-
     inline Offset &operator+=(const Offset &offset) {
         x += offset.x;
         y += offset.y;
@@ -32,7 +34,6 @@ struct Offset {
         y -= offset.y;
         return *this;
     }
-
 };
 
 struct Rect {
@@ -57,14 +58,14 @@ struct Size {
 };
 class EventContext;
 
-class ObjectManger {
+class PaintManger {
 private:
     HDC m_HDC{nullptr};
 public:
-    ObjectManger() = default;
-    void set(HDC hdc) {
-        m_HDC = hdc;
-    }
+    PaintManger() = default;
+    SkPaint m_paints;
+
+    int m_curFont = 0;
     HFONT m_fonts[1] = {
             CreateFont(18, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
                        DEFAULT_PITCH | FF_SWISS, _GT("宋体"))
@@ -73,12 +74,17 @@ public:
         FontDefault,
     };
 
-    HBRUSH m_brushes[1] = {
-            CreateSolidBrush(RGB (255, 255, 255))
+    int m_curBrush = 0;
+    HBRUSH m_brushes[2] = {
+            CreateSolidBrush(RGB (255, 255, 255)),
+            CreateSolidBrush(RGB (255, 250, 227)),
     };
     enum Brush {
-        BrushBackground
+        BrushBackground,
+        BrushFocusBkg,
     };
+
+    int m_curPen = 0;
     HPEN m_pens[3] = {
             CreatePen(PS_SOLID, 1, RGB (0, 0, 0)),
             CreatePen(PS_SOLID, 1, RGB (255, 0, 0)),
@@ -90,7 +96,7 @@ public:
         PenBlue,
     };
 
-    ~ObjectManger() {
+    ~PaintManger() {
         for (auto font : m_fonts) {
             DeleteObject(font);
         }
@@ -125,9 +131,10 @@ public:
 
     void useFont(int nFont) {
         SelectObject(m_HDC, m_fonts[nFont]);
+        m_curFont = nFont;
     }
 
-    void setBrush(int nBrush, COLORREF color) {
+    void setBrush(int nBrush, GColor color) {
         if (m_brushes[nBrush]) {
             DeleteObject(m_brushes[nBrush]);
         }
@@ -136,25 +143,27 @@ public:
     }
     void useBrush(int nBrush) {
         SelectObject(m_HDC, m_brushes[nBrush]);
+        m_curBrush = nBrush;
     }
-    HBRUSH getBrush(int nBrush) {
-        return m_brushes[nBrush];
+    HBRUSH getBrush() {
+        return m_brushes[m_curBrush];
     }
 
     void usePen(int nPen) {
         SelectObject(m_HDC, m_pens[nPen]);
+        m_curPen = nPen;
     }
 };
 
-class Painter {
+class GDIPainter {
 private:
     HDC m_HDC{};
     EventContext *m_context;
     Offset m_offset;
-    ObjectManger *m_object;
+    PaintManger *m_object;
 public:
-    explicit Painter(HDC m_HDC, EventContext *context, ObjectManger *obj);
-    ~Painter() = default;
+    explicit GDIPainter(HDC m_HDC, EventContext *context, PaintManger *obj);
+    ~GDIPainter() = default;
     void drawLine(int x1, int y1, int x2, int y2) {
         MoveToEx(m_HDC, x1 + m_offset.x, y1 + m_offset.y, nullptr);
         LineTo(m_HDC, x2 + m_offset.x, y2 + m_offset.y);
@@ -171,15 +180,18 @@ public:
         drawLine(x1, y2, x2, y2);
         drawLine(x1, y1, x1, y2);
     }
-    void fillRect() {
+    void fillRect(int x1, int y1, int x2, int y2) {
         RECT rect;
-        HBRUSH brush = CreateBrushIndirect(nullptr);
-        FillRect(m_HDC, &rect, brush);
+        rect.left = m_offset.x + x1;
+        rect.top = m_offset.y + y1;
+        rect.right = m_offset.x + x2;
+        rect.bottom = m_offset.y + y2;
+        FillRect(m_HDC, &rect, m_object->getBrush());
     }
-    void setTextColor(COLORREF color) {
+    void setTextColor(GColor color) {
         SetTextColor(m_HDC, color);
     }
-    void setBkColor(COLORREF color) {
+    void setBkColor(GColor color) {
         SetBkColor(m_HDC, color);
     }
     void drawText(int x, int y, const GChar *str, int count, bool transparent = true) {
@@ -188,14 +200,15 @@ public:
         }
         TextOut(m_HDC, m_offset.x + x, m_offset.y + y, str, count);
     }
-    inline ObjectManger *getObjectManager() { return m_object; }
+    inline PaintManger *getObjectManager() { return m_object; }
 
 };
+typedef GDIPainter Painter;
 
-class TextMeter {
+class TextMetrics {
 public:
     HDC m_HDC{};
-    explicit TextMeter(HDC HDC) : m_HDC(HDC) {}
+    explicit TextMetrics(HDC HDC) : m_HDC(HDC) {}
     int meterWidth(const GChar *text, int length) {
         SIZE size;
         GetTextExtentPoint32(m_HDC, text, length, &size);
@@ -223,31 +236,34 @@ public:
     }
 };
 
-class PaintManager {
+class RenderManager {
 public:
-    ObjectManger m_object;
+    PaintManger m_object;
     HWND m_hWnd = nullptr;
     HDC m_hMemDC = nullptr;
     HDC m_hWndDC = nullptr;
     HBITMAP m_hBitmap = nullptr;
     Offset m_offset;
+    SkBitmap m_bitmap;
+
 public:
-    PaintManager() = default;
-    explicit PaintManager(HWND hwnd)  {
+    RenderManager() = default;
+    explicit RenderManager(HWND hwnd)  {
         m_hWnd = hwnd;
         m_hWndDC = GetDC(hwnd);
         m_hMemDC = CreateCompatibleDC(m_hWndDC);
         m_object.set(m_hMemDC);
-        m_object.useFont(ObjectManger::FontDefault);
+        m_object.useFont(PaintManger::FontDefault);
+
         resize();
     }
-    ~PaintManager() {
+    ~RenderManager() {
         if (m_hBitmap)
             DeleteObject(m_hBitmap);
         ////////////////////////////////
     }
-    static PaintManager FromWindow(HWND hwnd) {
-        return PaintManager(hwnd);
+    static RenderManager *FromWindow(HWND hwnd) {
+        return new RenderManager(hwnd);
     }
     virtual void refresh() {
         InvalidateRect(m_hWnd, nullptr, false);
@@ -260,18 +276,56 @@ public:
         rt.top = 0;
         rt.right = rect.right - rect.left;
         rt.bottom = rect.bottom - rect.top;
-        FillRect(m_hMemDC, &rt, m_object.getBrush(0));
+        m_object.useBrush(PaintManger::BrushBackground);
+        FillRect(m_hMemDC, &rt, m_object.getBrush());
+
+        SkPaint paint;
+        paint.setARGB(0, 255, 0, 0);
+        paint.setXfermodeMode(SkXfermode::kClear_Mode);
+
+        SkCanvas canvas(m_bitmap);
+        canvas.drawRect(SkRect::MakeXYWH(30, 30, 40, 40), paint);
+        canvas.drawText("this is good", 12, SkIntToScalar(30), SkIntToScalar(30), paint);
+
     }
     virtual void resize() {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);
-        m_hBitmap = CreateCompatibleBitmap(m_hWndDC, rect.right - rect.left, rect.bottom - rect.top);
+        int w = rect.right - rect.left, h = rect.bottom - rect.top;
+        //m_hBitmap = CreateCompatibleBitmap(m_hWndDC, rect.right - rect.left, rect.bottom - rect.top);
+        void *bits = nullptr;
+        m_hBitmap = createBitmap(w, h, &bits);
         HGDIOBJ hOldBitmap = SelectObject(m_hMemDC, m_hBitmap);
         DeleteObject(hOldBitmap);
+
+        SkImageInfo info = SkImageInfo::Make(w, h, kN32_SkColorType, kPremul_SkAlphaType);
+        m_bitmap.installPixels(info, bits, info.minRowBytes());
     }
-    virtual ObjectManger *getObjectManager() { return &m_object; }
-    virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx, &m_object); }
-    virtual TextMeter getTextMeter() { return TextMeter(m_hMemDC); }
+
+    HBITMAP createBitmap(int nWid, int nHei, void **ppBits) {
+        BITMAPINFO bmi;
+        memset(&bmi, 0, sizeof(bmi));
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = nWid;
+        bmi.bmiHeader.biHeight = -nHei;
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        bmi.bmiHeader.biSizeImage = 0;
+        HDC hdc = GetDC(NULL);
+        LPVOID pBits = NULL;
+        HBITMAP hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, ppBits, nullptr, 0);
+        ReleaseDC(NULL, hdc);
+        return hBmp;
+    }
+    virtual PaintManger *getPaintManager() { return &m_object; }
+
+    virtual Painter getPainter(EventContext *ctx) {
+        SkCanvas canvas(m_bitmap);
+        canvas.save()
+        return Painter(m_hMemDC, ctx, &m_object);
+    }
+    virtual TextMetrics getTextMetrics() { return TextMetrics(m_hMemDC); }
     inline Offset getViewportOffset() { return m_offset; }
     virtual void setViewportOffset(Offset offset) {
         m_offset = offset;
@@ -282,6 +336,9 @@ public:
         offset.y = GetScrollPos(m_hWnd, SB_VERT);
         Size size = getViewportSize();
         // 根据整体画布的宽高来确定显示的偏移
+        SCROLLINFO info;
+        GetScrollInfo(m_hWnd, SB_VERT, &info);
+        //info.nPage
         auto realWidth = (float) (layoutManager->getWidth() - size.width + 20);
         auto realHeight = (float) (layoutManager->getHeight() - size.height + 20);
         if (realWidth < 0.0) {

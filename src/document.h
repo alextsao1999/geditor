@@ -13,14 +13,18 @@
 #include "text_buffer.h"
 #include "caret_manager.h"
 
-#define CallChildEvent(name) { \
-        EventContext event = getContainEventContext(context, x, y); \
-        if (!event.empty()) \
+#define CallChildEvent(name) \
+    EventContext event = context.enter(); \
+    while (event.has()) { \
+        if (event.current()->contain(event, x, y)) { \
             event.current()->name(event, x, y); \
+            break; \
+        } \
+        event.next(); \
     }
 
 #define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
-#define DEFINE_EVENT2(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {CallChildEvent(event);}
+#define DEFINE_EVENT2(event) virtual void event(EventContext &context, int x, int y) {CallChildEvent(event);}
 #define CallEvent(context, event, ...) ((context).current()->event(context, ##__VA_ARGS__))
 
 enum class Display {
@@ -102,23 +106,14 @@ struct EventContext {
         buffer->insert(idx, ele);
     }
     void notify(int type, int p1, int p2);
-
-    /**
-     * 设置要遍历的对象
-     * @param obj
-     * @param index
-     */
     void set(Root *obj, int index);
-    void init() {
-        index = 0;
-        line = 0;
-    }
     Element *get(int idx) { return buffer->at(idx); }
     inline Element *current() {
         return buffer->at(index);
     }
     Painter getPainter();
-    RenderManager *getPaintManager();
+    Canvas getCanvas();
+    RenderManager *getRenderManager();
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
     LineViewer getLineViewer();
@@ -200,7 +195,7 @@ struct Root {
      * 获取相对坐标所在的子元素
      * @return EventContext
      */
-    /////////////////////////////////////////static
+    /////////////////////////////////////////
     virtual void onRedraw(EventContext &context);
     /////////////////////////////////////////
 };
@@ -217,7 +212,8 @@ public:
     Offset getOffset(EventContext &context) override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return Display::None; };
-    virtual void onMouseMove(EventContext &context, int x, int y);
+    virtual void onPreMouseMove(EventContext &context, int x, int y);
+    virtual void onMouseMove(EventContext &context, int x, int y){}
     virtual void onMouseEnter(EventContext &context, int x, int y) {}
     virtual void onMouseLeave(int x, int y) {}
 
@@ -225,12 +221,12 @@ public:
     DEFINE_EVENT(onBlur);
     DEFINE_EVENT(onKeyDown, int code, int status);
     DEFINE_EVENT(onKeyUp, int code, int status);
-    DEFINE_EVENT2(onLeftButtonUp, int x, int y);
-    DEFINE_EVENT2(onLeftButtonDown, int x, int y);
-    DEFINE_EVENT2(onRightButtonUp, int x, int y);
-    DEFINE_EVENT2(onRightButtonDown, int x, int y);
-    DEFINE_EVENT2(onLeftDoubleClick, int x, int y);
-    DEFINE_EVENT2(onRightDoubleClick, int x, int y);
+    DEFINE_EVENT2(onLeftButtonUp);
+    DEFINE_EVENT2(onLeftButtonDown);
+    DEFINE_EVENT2(onRightButtonUp);
+    DEFINE_EVENT2(onRightButtonDown);
+    DEFINE_EVENT2(onLeftDoubleClick);
+    DEFINE_EVENT2(onRightDoubleClick);
     DEFINE_EVENT(onInputChar, int ch);
     DEFINE_EVENT(onSelect);
     DEFINE_EVENT(onUnselect);

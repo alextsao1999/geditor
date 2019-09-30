@@ -7,10 +7,10 @@
 
 #include "common.h"
 
-struct Root;
-struct RelativeElement;
-struct Document;
-struct Element;
+class Root;
+class RelativeElement;
+class Document;
+class Element;
 struct EventContext;
 
 enum class SelectionState {

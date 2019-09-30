@@ -46,17 +46,27 @@ int Element::getWidth(EventContext &context) {
     return Root::getWidth(context);
 }
 
-void Element::onMouseMove(EventContext &context, int x, int y) {
-    EventContext event = getContainEventContext(context, x, y);
-    if (!event.empty()) {
-        event.current()->onMouseMove(event, x, y);
-    } else {
-        if (context.doc->getContext()->m_mouseEnter && context.doc->getContext()->m_mouseEnter != this) {
+void Element::onPreMouseMove(EventContext &context, int x, int y) {
+    for (EventContext event = context.enter(); event.has(); event.next()) {
+        if (event.current()->contain(event, x, y)) {
+            event.current()->onPreMouseMove(event, x, y);
+            // 触发有子元素的元素 一般没有做处理
+            event.current()->onMouseMove(event, x, y);
+            return;
+        }
+    }
+    if (context.doc->getContext()->m_mouseEnter) {
+        if (context.doc->getContext()->m_mouseEnter != this) {
             context.doc->getContext()->m_mouseEnter->onMouseLeave(x, y);
             onMouseEnter(context, x, y);
             context.doc->getContext()->m_mouseEnter = this;
         }
+    } else{
+        context.doc->getContext()->m_mouseEnter = this;
+        onMouseEnter(context, x, y);
     }
+    context.current()->onMouseMove(context, x, y); // 触发最顶层的函数
+
 }
 
 LineViewer EventContext::getLineViewer() {
@@ -74,11 +84,16 @@ Painter EventContext::getPainter() {
     return doc->getContext()->m_renderManager->getPainter(this);
 }
 
+
+Canvas EventContext::getCanvas() {
+    return doc->getContext()->m_renderManager->getCanvas(this);
+}
+
 EventContext EventContext::enter() {
     return EventContext(doc, current()->children(), this, 0);
 }
 
-RenderManager *EventContext::getPaintManager() {
+RenderManager *EventContext::getRenderManager() {
     return doc->getContext()->m_renderManager;
 }
 
@@ -190,23 +205,3 @@ void Root::onRedraw(EventContext &context) {
         ctx.next();
     }
 }
-
-/*
-EventContext Root::getChildEventContext(EventContext &context, int x, int y) {
-    Offset offset = context.current()->getOffset();
-    EventContext event = context.enter(this, 0);
-    while (event.has()) {
-        if (event.current()->contain(event, offset.x + x, offset.y + y)) {
-            return event;
-        }
-        event.next();
-    }
-    return {};
-}
-
-Offset Root::getChildOffset(EventContext &context, int x, int y) {
-    Offset offset(x, y);
-    offset += getOffset() - context.current()->getOffset();
-    return offset;
-}
-*/

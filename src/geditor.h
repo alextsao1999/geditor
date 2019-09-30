@@ -45,6 +45,8 @@ public:
         }
         m_data->m_document.append(new TableElement(3, 3));
         m_data->m_document.append(new PosElement());
+        m_data->m_document.append(new ButtonElement());
+
         for (int i = 0; i < 5; ++i) {
             GChar str[255];
             auto line = m_data->m_document.appendLine(new LineElement());
@@ -111,12 +113,14 @@ public:
         GEditorData *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
         EventContext context = EventContextBuilder::build(&data->m_document);
+        //EventContext doc = context.enter();
         context.set(&data->m_document, 0);
+
         // int idx = (pos.y / data->m_document.getContext()->m_layoutManager.getMinHeight()); \
         // std::cout << "predict : " << idx << std::endl;
         switch (message) {
             case WM_MOUSEMOVE:
-                MsgCallEvent(onMouseMove);
+                MsgCallEvent(onPreMouseMove);
                 break;
             case WM_MOUSEWHEEL:
             case WM_VSCROLL:

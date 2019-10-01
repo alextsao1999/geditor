@@ -121,8 +121,6 @@ struct EventContext {
         delete outer;
         outer = nullptr;
     }
-
-
 };
 
 class EventContextBuilder {
@@ -272,8 +270,10 @@ public:
 public:
     Display m_display = Display::Block;
     Container() = default;
-    ~Container() {
+
+    ~Container() override {
         for (auto element : m_index) {
+            // FIXME mouseEnter可能和element指向同一个元素
             delete element;
         }
     }

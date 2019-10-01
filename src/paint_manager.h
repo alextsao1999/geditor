@@ -101,6 +101,7 @@ public:
     SkCanvas *m_canvas;
     Offset m_offset;
     EventContext *m_context;
+    int m_count = 0;
     Canvas(SkCanvas *mCanvas, EventContext *context);
     ~Canvas();
     void drawLine(int x1, int y1, int x2, int y2, SkPaint &paint) {

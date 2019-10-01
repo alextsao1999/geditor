@@ -27,7 +27,7 @@ CaretManager::~CaretManager() {
 void CaretManager::update() {
     if (!getFocus())
         return;
-    Offset offset = m_context->offset() + m_current - m_paintManager->getViewportOffset();
+    Offset offset = m_current - m_paintManager->getViewportOffset();
     SetCaretPos(offset.x, offset.y);
 }
 
@@ -36,6 +36,11 @@ Element *CaretManager::getFocus() {
         return nullptr;
     }
     return m_context->current();
+}
+
+void CaretManager::set(Offset pos) {
+    m_current = m_context->offset() + pos;
+    update();
 }
 
 void CaretManager::autoSet(int x, int y, int column) {

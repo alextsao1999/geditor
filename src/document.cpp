@@ -138,9 +138,12 @@ void EventContext::combine() {
     int cur = getLineIndex();
     if (current()->getDisplay() == Display::Line && ele->getDisplay() == Display::Line) {
         text.getLine(cur).append(text.getLine(cur + 1).str());
-        buffer->erase(next);
         doc->getContext()->m_textBuffer.deleteLine(cur + 1);
-        //delete ele;
+        buffer->erase(next);
+        if (ele == doc->getContext()->m_mouseEnter) {
+            doc->getContext()->m_mouseEnter = nullptr;
+        }
+        delete ele;
     }
 }
 

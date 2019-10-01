@@ -46,6 +46,8 @@ public:
         m_data->m_document.append(new TableElement(3, 3));
         m_data->m_document.append(new PosElement());
         m_data->m_document.append(new ButtonElement());
+        m_data->m_document.appendLine(new TestElement()).append(L"this is test string");
+
 
         for (int i = 0; i < 5; ++i) {
             GChar str[255];

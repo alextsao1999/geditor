@@ -1,0 +1,196 @@
+﻿  Building Custom Rule C:/Users/Administrator/Desktop/geditor/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Administrator/Desktop/geditor/build/CMakeFiles/generate.stamp is up-to-date.
+  caret_manager.cpp
+C:\Users\Administrator\Desktop\geditor\src\caret_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,32): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,28): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,30): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,26): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,22): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,18): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(115,44): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\document.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\command_queue.h(11,15): warning C4099: “Element”: 类型名称以前使用“class”现在使用的是“struct”
+C:\Users\Administrator\Desktop\geditor\src\layout.h(13): message : 参见“Element”的声明
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(97,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(114,31): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(133,1): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+  command_queue.cpp
+  document.cpp
+C:\Users\Administrator\Desktop\geditor\src\document.h(63,24): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\document.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\document.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,32): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,28): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,30): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,26): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,22): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,18): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(115,44): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\command_queue.h(11,15): warning C4099: “Element”: 类型名称以前使用“class”现在使用的是“struct”
+C:\Users\Administrator\Desktop\geditor\src\layout.h(13): message : 参见“Element”的声明
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(97,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(114,31): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(133,1): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\caret_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+  geditor.cpp
+C:\Users\Administrator\Desktop\geditor\src\document.h(63,24): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,32): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,28): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,30): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,26): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,22): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,18): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(115,44): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\document.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\command_queue.h(11,15): warning C4099: “Element”: 类型名称以前使用“class”现在使用的是“struct”
+C:\Users\Administrator\Desktop\geditor\src\layout.h(13): message : 参见“Element”的声明
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(97,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(114,31): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(133,1): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\caret_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\document.h(63,24): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(145,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(156,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(168,56): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(168,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(190,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(204,1): warning C4267: “=”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(274,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(290,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(299,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(313,1): warning C4267: “=”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(491,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(501,56): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(501,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(158,17): warning C4244: “参数”: 从“WPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(161,17): warning C4244: “参数”: 从“LPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(161,17): warning C4244: “参数”: 从“WPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(164,17): warning C4244: “参数”: 从“LPARAM”转换到“int”，可能丢失数据
+  layout.cpp
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(164,17): warning C4244: “参数”: 从“WPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\layout.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\document.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,32): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,28): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,30): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,26): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,22): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,18): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(115,44): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\command_queue.h(11,15): warning C4099: “Element”: 类型名称以前使用“class”现在使用的是“struct”
+C:\Users\Administrator\Desktop\geditor\src\layout.h(13): message : 参见“Element”的声明
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(97,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(114,31): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(133,1): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\caret_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+  main.cpp
+C:\Users\Administrator\Desktop\geditor\src\document.h(63,24): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(97,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(114,31): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(133,1): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,32): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,28): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,30): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,26): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,22): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,18): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(115,44): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\document.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\command_queue.h(11,15): warning C4099: “Element”: 类型名称以前使用“class”现在使用的是“struct”
+C:\Users\Administrator\Desktop\geditor\src\layout.h(13): message : 参见“Element”的声明
+C:\Users\Administrator\Desktop\geditor\src\caret_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\document.h(63,24): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(145,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(156,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(168,56): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(168,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(190,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(204,1): warning C4267: “=”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(274,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(290,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(299,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(313,1): warning C4267: “=”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(491,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(501,56): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(501,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(158,17): warning C4244: “参数”: 从“WPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(161,17): warning C4244: “参数”: 从“LPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(161,17): warning C4244: “参数”: 从“WPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(164,17): warning C4244: “参数”: 从“LPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\geditor.h(164,17): warning C4244: “参数”: 从“WPARAM”转换到“int”，可能丢失数据
+  memory.cpp
+  paint_manager.cpp
+C:\Users\Administrator\Desktop\geditor\src\main.cpp(80,15): warning C4244: “return”: 从“WPARAM”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\document.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,32): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,28): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,30): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,26): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,22): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,18): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(115,44): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\command_queue.h(11,15): warning C4099: “Element”: 类型名称以前使用“class”现在使用的是“struct”
+C:\Users\Administrator\Desktop\geditor\src\layout.h(13): message : 参见“Element”的声明
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(97,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(114,31): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(133,1): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\caret_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+  table.cpp
+C:\Users\Administrator\Desktop\geditor\src\document.h(63,24): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\document.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,32): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(107,28): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,30): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,26): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,22): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(111,18): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\paint_manager.h(115,44): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\command_queue.h(11,15): warning C4099: “Element”: 类型名称以前使用“class”现在使用的是“struct”
+C:\Users\Administrator\Desktop\geditor\src\layout.h(13): message : 参见“Element”的声明
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(97,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(114,31): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(133,1): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\caret_manager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\Desktop\geditor\src\document.h(63,24): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(145,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(156,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(168,56): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(168,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(190,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(204,1): warning C4267: “=”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(274,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(290,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(299,1): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(313,1): warning C4267: “=”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(491,40): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\table.h(501,56): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+  text_buffer.cpp
+C:\Users\Administrator\Desktop\geditor\src\table.h(501,36): warning C4244: “参数”: 从“int”转换到“SkScalar”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(97,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(114,31): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+  utils.cpp
+  正在生成代码...
+C:\Users\Administrator\Desktop\geditor\src\text_buffer.h(133,1): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+  geditor.vcxproj -> C:\Users\Administrator\Desktop\geditor\build\Debug\geditor.exe

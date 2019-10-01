@@ -162,8 +162,11 @@ public:
         style.setTextSize(15);
         style.setTextEncoding(SkPaint::kUTF16_TextEncoding);
         style.setColor(SK_ColorRED);
-        canvas->drawText(m_data.c_str(), m_data.size() * 2, 4, 4 + 15, style);
-
+        style.setLinearText(true);
+        canvas->save();
+        canvas->translate(0, style.getTextSize());
+        canvas->drawText(m_data.c_str(), m_data.size() * 2, 4, 4 , style);
+        canvas->restore();
 
         SkRect rect{};
         rect.setXYWH(0, 0, getWidth(context), getHeight(context));
@@ -523,6 +526,119 @@ public:
 
     void onMouseLeave(int x, int y) override {
 
+    }
+};
+class TextCaretService {
+private:
+    Offset m_offset;
+    Offset m_move;
+    CaretManager *m_caret;
+    EventContext *m_context = nullptr;
+    int m_index = 0;
+public:
+    TextCaretService(const Offset &offset, EventContext *context) : m_offset(offset), m_context(context) {
+        m_caret = context->getCaretManager();
+        m_index = m_caret->data()->index;
+    }
+    void setTextOffset(Offset offset) { m_offset = offset; }
+    void moveLeft() { m_index--; }
+    void moveRigh() { m_index++; }
+    void moveToIndex(int index) { m_index = index; }
+    void moveTo(Offset offset) { m_move = offset; }
+    void commit(const char *text, int length, SkPaint &paint) {
+        Offset caret;
+        auto *widths = new SkScalar[length];
+        auto *rects = new SkRect[length];
+        int count = paint.getTextWidths(text, length, widths, rects);
+        SkScalar size = paint.getTextSize();
+        int width = 0;
+        for (int i = 0; i < length; ++i) {
+            rects[i].offset(m_offset.x + width, size + (SkScalar) m_offset.y);
+            if (SkIntToScalar(m_move.x) > rects[i].x()) {
+                if (SkIntToScalar(m_move.x) > rects[i].centerX()) {
+                    m_index = i + 1;
+                } else {
+                    m_index = i;
+                }
+            }
+            width += widths[i];
+        }
+        if (m_index < 0)
+            m_index = 0;
+        if (m_index >= length) {
+            m_index = length;
+            if (length == 0) {
+                caret.x = m_offset.x;
+            } else{
+                caret.x = SkScalarRoundToInt(rects[length - 1].x()) + widths[length - 1];
+            }
+        } else {
+            caret.x = rects[m_index].x();
+        }
+        caret.y = m_offset.y;
+        m_caret->data()->index = m_index;
+        m_caret->set(caret);
+        m_caret->show();
+        delete[] widths;
+        delete[] rects;
+    }
+
+};
+class TestElement : public RelativeElement {
+public:
+    SkPaint paint;
+    TestElement() {
+        paint.setTextSize(15);
+        paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
+        paint.setAntiAlias(true);
+        paint.setColor(SK_ColorBLUE);
+    }
+    int getLogicHeight(EventContext &context) override {
+        return 25;
+    }
+    Display getDisplay() override {
+        return Display::Line;
+    }
+    Element *copy() override {
+        return new LineElement();
+    }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        LineViewer viewer = context.getLineViewer();
+        canvas->translate(0, paint.getTextSize());
+        canvas->drawText(viewer.c_str(), viewer.size(), 4, 4, paint);
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        context.focus();
+        LineViewer viewer = context.getLineViewer();
+        TextCaretService service(Offset(4, 5), &context);
+        service.moveTo(context.relative(x, y));
+        service.commit(viewer.c_str(), viewer.length(), paint);
+    }
+    void onKeyDown(EventContext &context, int code, int status) override {
+        LineViewer viewer = context.getLineViewer();
+        TextCaretService service(Offset(4, 5), &context);
+
+        if (code == VK_LEFT) {
+            service.moveLeft();
+        }
+        if (code == VK_RIGHT) {
+            service.moveRigh();
+        }
+        if (code == VK_UP || code == VK_DOWN) {
+
+        }
+        service.commit(viewer.c_str(), viewer.length(), paint);
+
+    };
+    void onInputChar(EventContext &context, int ch) override {
+
+    }
+    void onFocus(EventContext &context) override {
+        context.redraw();
+    }
+    void onBlur(EventContext &context) override {
+        context.redraw();
     }
 };
 

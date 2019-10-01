@@ -12,12 +12,13 @@ Canvas::Canvas(SkCanvas *mCanvas, EventContext *context) : m_canvas(mCanvas), m_
 //    SkRect rect{};
 //    rect.setXYWH(m_offset.x, m_offset.y, CallEvent(*context, getWidth), CallEvent(*context, getHeight));
     //m_canvas->saveLayer(&rect, nullptr);
+    m_count = m_canvas->save();
     m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
 }
 
 Canvas::~Canvas() {
-    //m_canvas->restore();
-    m_canvas->translate(SkIntToScalar(-m_offset.x), SkIntToScalar(-m_offset.y));
+    m_canvas->restoreToCount(m_count);
+    //m_canvas->translate(SkIntToScalar(-m_offset.x), SkIntToScalar(-m_offset.y));
 }
 
 SkRect Canvas::rect() {

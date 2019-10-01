@@ -26,8 +26,11 @@ public:
     ~CaretManager();
     Element *getFocus ();
     EventContext *getEventContext() { return m_context; }
-    void create() {
-        CreateCaret(m_paintManager->m_hWnd, nullptr, 1, 15);
+    void create(int width = 1, int height = 15) {
+        CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
+    }
+    void destroy() {
+        DestroyCaret();
     }
     inline CaretData *data() {
         return &m_data;
@@ -39,18 +42,12 @@ public:
     void hide() {
         SetCaretPos(-1, -1);
     }
-    void set(Offset pos) {
-        m_current = pos;
-        update();
-    }
+    void set(Offset pos);
     // 设置相对的光标位置
     void set(int x, int y) {
-        m_current.x = x;
-        m_current.y = y;
-        update();
+        set(Offset(x, y));
     }
     void autoSet(int x, int y, int column = 0);
-    Offset get() { return m_current; }
     void update();
     // 当前Focus的EventContext
     bool enter(int index = 0);

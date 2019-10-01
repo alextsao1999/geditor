@@ -96,6 +96,9 @@ public:
         auto &str = string(column);
         return str.length();
     }
+    int size(int column = 0) {
+        return length(column) * 2;
+    }
 
     void append(const GChar *sstr, int length = 0, int column = 0) {
         auto &str = string(column);

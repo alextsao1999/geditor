@@ -1,4 +1,0 @@
-C:/Users/Administrator/Desktop/geditor/build/CMakeFiles/geditor.dir
-C:/Users/Administrator/Desktop/geditor/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/Administrator/Desktop/geditor/build/CMakeFiles/ZERO_CHECK.dir
-C:/Users/Administrator/Desktop/geditor/build/third_party/skia/CMakeFiles/skia.dir

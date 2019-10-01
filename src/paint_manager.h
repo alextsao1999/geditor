@@ -100,6 +100,7 @@ class Canvas {
 public:
     SkCanvas *m_canvas;
     Offset m_offset;
+    EventContext *m_context;
     Canvas(SkCanvas *mCanvas, EventContext *context);
     ~Canvas();
     void drawLine(int x1, int y1, int x2, int y2, SkPaint &paint) {
@@ -120,6 +121,9 @@ public:
         return *m_canvas;
     };
 
+    SkRect rect();
+
+    SkRect size();
 };
 
 class GDITextMetrics {

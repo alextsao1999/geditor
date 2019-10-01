@@ -52,7 +52,7 @@ public:
     void autoSet(int x, int y, int column = 0);
     Offset get() { return m_current; }
     void update();
-
+    // 当前Focus的EventContext
     bool enter(int index = 0);
     void leave();
 };

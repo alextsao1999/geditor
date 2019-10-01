@@ -7,7 +7,7 @@ Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(con
     m_offset = context->current()->getOffset(*context) - context->getRenderManager()->getViewportOffset();
 }
 
-Canvas::Canvas(SkCanvas *mCanvas, EventContext *context) : m_canvas(mCanvas) {
+Canvas::Canvas(SkCanvas *mCanvas, EventContext *context) : m_canvas(mCanvas), m_context(context) {
     m_offset = context->current()->getOffset(*context) - context->getRenderManager()->getViewportOffset();
 //    SkRect rect{};
 //    rect.setXYWH(m_offset.x, m_offset.y, CallEvent(*context, getWidth), CallEvent(*context, getHeight));
@@ -18,5 +18,25 @@ Canvas::Canvas(SkCanvas *mCanvas, EventContext *context) : m_canvas(mCanvas) {
 Canvas::~Canvas() {
     //m_canvas->restore();
     m_canvas->translate(SkIntToScalar(-m_offset.x), SkIntToScalar(-m_offset.y));
+}
+
+SkRect Canvas::rect() {
+    SkRect rect{
+            SkIntToScalar(m_offset.x),
+            SkIntToScalar(m_offset.y),
+            SkIntToScalar(m_offset.x + CallEvent(*m_context, getWidth)),
+            SkIntToScalar(m_offset.y + CallEvent(*m_context, getHeight))
+    };
+    return rect;
+}
+
+SkRect Canvas::size() {
+    SkRect rect{
+            0,
+            0,
+            SkIntToScalar( CallEvent(*m_context, getWidth)),
+            SkIntToScalar(CallEvent(*m_context, getHeight))
+    };
+    return rect;
 }
 

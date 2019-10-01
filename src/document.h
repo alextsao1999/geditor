@@ -69,48 +69,30 @@ struct EventContext {
     EventContext *outer = nullptr;
     int index = 0;
     int line = 0;
-    // free outer
-    void free() {
-        if (!outer)
-            return;
-        outer->free();
-        delete outer;
-        outer = nullptr;
-    }
     inline bool empty() { return buffer == nullptr || doc == nullptr; }
-    bool has() { return buffer!= nullptr && index < buffer->size(); }
+    inline bool has() { return buffer!= nullptr && index < buffer->size(); }
     bool prev();
     bool next();
-    int getLineIndex() {
-        if (outer) {
-            return outer->getLineIndex() + line;
-        } else {
-            return line;
-        }
-    }
+    int getLineIndex() { if (outer) { return outer->getLineIndex() + line; } else { return line; } }
     // 只改变本层次Line
-    void prevLine(int count = 1) {
-        line -= count;
-    }
-    // 只改变本层次Line
-    void nextLine(int count = 1) {
-        line += count;
-    }
+    void prevLine(int count = 1) { line -= count; }
+    void nextLine(int count = 1) { line += count; }
     void reflowBrother();
     void reflow();
     void redraw();
     void focus();
     void combine();
     void push(CommandType type, CommandData data);
-    void insert(int idx, Element *ele) {
-        buffer->insert(idx, ele);
-    }
+    void insert(int idx, Element *ele) { buffer->insert(idx, ele); }
     void notify(int type, int p1, int p2);
+    Offset offset();
+    Offset relative(int x, int y);
+    int width();
+    int height();
+
     void set(Root *obj, int index);
     Element *get(int idx) { return buffer->at(idx); }
-    inline Element *current() {
-        return buffer->at(index);
-    }
+    inline Element *current() { return buffer->at(index); }
     Painter getPainter();
     Canvas getCanvas();
     RenderManager *getRenderManager();
@@ -120,25 +102,26 @@ struct EventContext {
     LineViewer copyLine();
     EventContext() = default;
     explicit EventContext(Document *doc) : doc(doc) {}
-    explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx) : doc(doc),
-                                                                                                buffer(buffer),
-                                                                                                outer(out), index(idx) {}
-    explicit EventContext(const EventContext *context, EventContext *out) : doc(context->doc),
-                                                                            buffer(context->buffer),
-                                                                            index(context->index), line(context->line),
-                                                                            outer(out) {}
-    EventContext start() {
-        return EventContext(doc, buffer, outer, 0);
-    }
-    EventContext *copy() {
-        return new EventContext(this, outer ? outer->copy() : nullptr);
-    }
+    explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx);
+    explicit EventContext(const EventContext *context, EventContext *out);
+    EventContext start() { return EventContext(doc, buffer, outer, 0); }
     EventContext enter();
     void leave() {
         if (outer) {
             outer->nextLine(line);
         }
     }
+    EventContext *copy() {
+        return new EventContext(this, outer ? outer->copy() : nullptr);
+    }
+    void free() {
+        if (!outer)
+            return;
+        outer->free();
+        delete outer;
+        outer = nullptr;
+    }
+
 
 };
 
@@ -150,7 +133,9 @@ public:
 };
 
 // Root 无 父元素
-struct Root {
+class Root {
+public:
+    virtual ~Root() = default;
     ///////////////////////////////////////////////////////////////////
     virtual bool hasChild() { return false; };
     virtual ElementIndex *children() { return nullptr; }

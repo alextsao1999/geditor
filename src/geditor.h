@@ -41,7 +41,7 @@ public:
             GChar str[255];
             auto line = m_data->m_document.appendLine(new LineElement());
             wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
-            line.content().append(str);
+            line.append(str);
         }
         m_data->m_document.append(new TableElement(3, 3));
         m_data->m_document.append(new PosElement());
@@ -51,9 +51,8 @@ public:
             GChar str[255];
             auto line = m_data->m_document.appendLine(new LineElement());
             wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
-            line.content().append(str);
+            line.append(str);
         }
-
 
         m_data->m_document.flow();
 

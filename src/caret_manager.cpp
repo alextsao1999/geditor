@@ -27,7 +27,7 @@ CaretManager::~CaretManager() {
 void CaretManager::update() {
     if (!getFocus())
         return;
-    Offset offset = getFocus()->getOffset(*m_context) + m_current - m_paintManager->getViewportOffset();
+    Offset offset = m_context->offset() + m_current - m_paintManager->getViewportOffset();
     SetCaretPos(offset.x, offset.y);
 }
 
@@ -40,8 +40,8 @@ Element *CaretManager::getFocus() {
 
 void CaretManager::autoSet(int x, int y, int column) {
     auto meter = m_context->getRenderManager()->getTextMetrics();
-    auto &line = m_context->getLineViewer().content(column);
-    int width = meter.measure(line.c_str(), m_data.index);
+    auto line = m_context->getLineViewer();
+    int width = meter.measure(line.str(column), m_data.index);
     set(x + width, y);
 }
 

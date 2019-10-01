@@ -37,10 +37,9 @@ int Element::getLineNumber() {
 int Element::getWidth(EventContext &context) {
     if (getDisplay() == Display::Block || getDisplay() == Display::Line) {
         if (context.outer) {
-            return CallEvent(*context.outer, getWidth) -
-                   (getOffset(context).x - CallEvent(*context.outer, getOffset).x);
-        } else{
-            return context.doc->getWidth(context) - (getOffset(context).x - context.doc->getOffset(context).x);
+            return context.outer->width() - (context.offset().x - context.outer->offset().x);
+        } else {
+            return context.doc->getWidth(context) - (context.offset().x - context.doc->getOffset(context).x);
         }
     }
     return Root::getWidth(context);
@@ -83,7 +82,6 @@ void EventContext::set(Root *obj, int idx = 0) {
 Painter EventContext::getPainter() {
     return doc->getContext()->m_renderManager->getPainter(this);
 }
-
 
 Canvas EventContext::getCanvas() {
     return doc->getContext()->m_renderManager->getCanvas(this);
@@ -136,13 +134,13 @@ void EventContext::combine() {
         return;
     }
     auto &text = doc->getContext()->m_textBuffer;
-    auto ele = buffer->at(next);
+    Element *ele = buffer->at(next);
     int cur = getLineIndex();
     if (current()->getDisplay() == Display::Line && ele->getDisplay() == Display::Line) {
-        text.getLine(cur).content().append(text.getLine(cur + 1).content());
+        text.getLine(cur).append(text.getLine(cur + 1).str());
         buffer->erase(next);
         doc->getContext()->m_textBuffer.deleteLine(cur + 1);
-        delete ele;
+        //delete ele;
     }
 }
 
@@ -175,6 +173,29 @@ void EventContext::reflowBrother() {
 void EventContext::notify(int type, int p1, int p2) {
     current()->onNotify(*this, type, p1, p2);
 }
+
+Offset EventContext::offset() {
+    return current()->getOffset(*this);
+}
+
+Offset EventContext::relative(int x, int y) {
+    return Offset(x, y) - offset();
+}
+
+int EventContext::height() {
+    return current()->getHeight(*this);
+}
+
+int EventContext::width() {
+    return current()->getWidth(*this);
+}
+
+EventContext::EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx) :
+doc(doc), buffer(buffer), outer(out), index(idx) {}
+
+EventContext::EventContext(const EventContext *context, EventContext *out) :
+        doc(context->doc), buffer(context->buffer), index(context->index), line(context->line), outer(out) {}
+
 
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {

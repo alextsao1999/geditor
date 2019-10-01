@@ -41,6 +41,7 @@ auto CreateMyWindow() {
     return hWnd;
 }
 void test() {
+/*
     TextBuffer buffer;
     auto line = buffer.getLine(0);
     line.content(0).append(_GT("abc"));
@@ -56,6 +57,7 @@ void test() {
     //std::wcout << line.content() << _GT(" -> ") << line.content().size();
 
     system("pause");
+*/
 
     exit(0);
 }

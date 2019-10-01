@@ -71,6 +71,39 @@ public:
         return m_buffer->at((unsigned) (m_line)).getNode(column)->content;
     }
 
+    const char *c_str(int column = 0) {
+        return (const char *) string(column).c_str();
+    }
+    const GChar *str(int column = 0) {
+        return (const GChar *) string(column).c_str();
+    }
+    GString &string(int column = 0) {
+        return m_buffer->at((unsigned) (m_line)).getNode(column)->content;
+    }
+    void insert(int pos, int ch, int column = 0) {
+        auto &str = string(column);
+        str.insert(str.begin() + pos, (GChar) ch);
+    }
+    void erase(int pos, int length, int column = 0) {
+        auto &str = string(column);
+        str.erase(str.begin() + pos, str.begin() + pos + length);
+    }
+    void remove(int pos, int column = 0) {
+        auto &str = string(column);
+        str.erase(str.begin() + pos);
+    }
+    int length(int column = 0) {
+        auto &str = string(column);
+        return str.length();
+    }
+
+    void append(const GChar *sstr, int length = 0, int column = 0) {
+        auto &str = string(column);
+        if (length == 0) {
+            length = lstrlen(sstr);
+        }
+        str.append(sstr, length);
+    }
 };
 
 class TextBuffer {

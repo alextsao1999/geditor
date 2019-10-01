@@ -42,3 +42,7 @@ gen### C++ template
 /cmake-build-debug/
 /third_party/
 !/build/
+build/CMakeFiles/3.14.0/CompilerIdC/tmp/
+build/CMakeFiles/3.14.0/CompilerIdCXX/tmp/
+build/CMakeFiles/CMakeTmp/
+build/x64/Debug/ALL_BUILD/

@@ -85,20 +85,23 @@ struct EventContext {
     void push(CommandType type, CommandData data);
     void insert(int idx, Element *ele) { buffer->insert(idx, ele); }
     void notify(int type, int p1, int p2);
+
+    GRect rect();
     Offset offset();
     Offset relative(int x, int y);
     int width();
     int height();
 
-    void set(Root *obj, int index);
+    void set(Root *element, int index);
     Element *get(int idx) { return buffer->at(idx); }
     inline Element *current() { return buffer->at(index); }
     Painter getPainter();
-    Canvas getCanvas();
+    Canvas getCanvas(SkPaint *paint = nullptr);
     RenderManager *getRenderManager();
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
-    LineViewer getLineViewer();
+
+    LineViewer getLineViewer(int column = 0);
     LineViewer copyLine();
     EventContext() = default;
     explicit EventContext(Document *doc) : doc(doc) {}
@@ -111,9 +114,7 @@ struct EventContext {
             outer->nextLine(line);
         }
     }
-    EventContext *copy() {
-        return new EventContext(this, outer ? outer->copy() : nullptr);
-    }
+    EventContext *copy() { return new EventContext(this, outer ? outer->copy() : nullptr); }
     void free() {
         if (!outer)
             return;

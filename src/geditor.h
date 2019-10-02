@@ -44,9 +44,10 @@ public:
             line.append(str);
         }
         m_data->m_document.append(new TableElement(3, 3));
-        m_data->m_document.append(new PosElement());
         m_data->m_document.append(new ButtonElement());
-        m_data->m_document.appendLine(new TestElement()).append(L"this is test string");
+        m_data->m_document.appendLine(new TestElement()).append(L"this is test string1");
+        m_data->m_document.appendLine(new TestElement()).append(L"this is test string2");
+        m_data->m_document.appendLine(new TestElement()).append(L"this is test string3");
 
 
         for (int i = 0; i < 5; ++i) {
@@ -166,12 +167,7 @@ public:
                 MsgCallFocus(onKeyUp, wParam, lParam);
                 break;
             case WM_PAINT:
-                {
-                    PAINTSTRUCT ps;
-                    HDC hdc = BeginPaint(hWnd, &ps);
-                    onPaint(hWnd, hdc, data, context);
-                    EndPaint(hWnd, &ps);
-                }
+                onPaint(hWnd, data, context);
                 break;
             case WM_DESTROY:
                 PostQuitMessage(0);
@@ -225,7 +221,12 @@ public:
 
     }
 
-    static void onPaint(HWND hWnd, HDC hdc, GEditorData *data, EventContext &context) {
+    static void onPaint(HWND hWnd, GEditorData *data, EventContext &context) {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+        GRect rect = GRect::MakeLTRB(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
+        rect.inset(-1, -1);
+        Offset offset = data->m_renderManager.getViewportOffset();
         data->m_renderManager.update();
         while (context.has()) {
             if (context.current()->getDisplay() != Display::None) {
@@ -233,9 +234,9 @@ public:
             }
             context.next();
         }
-        RECT rect;
-        GetWindowRect(hWnd, &rect);
-        data->m_renderManager.copy(hdc, rect.right - rect.left, rect.bottom - rect.top);
+        data->m_renderManager.copy();
+        EndPaint(hWnd, &ps);
+
     }
 };
 

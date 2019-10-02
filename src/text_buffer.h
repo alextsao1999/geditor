@@ -62,50 +62,51 @@ class LineViewer {
 private:
 public:
     int m_line = 0;
+    int column = 0;
     LineBuffer *m_buffer = nullptr;
     LineViewer() = default;
-    LineViewer(int number, LineBuffer *buffer) : m_line(number), m_buffer(buffer) {}
+    LineViewer(int line, int scolumn, LineBuffer *buffer) : m_line(line), column(scolumn), m_buffer(buffer) {}
     inline int getLineNumber() { return m_line; }
     inline bool empty() { return m_buffer == nullptr; }
-    GString &content(int column = 0) {
+    GString &content() {
         return m_buffer->at((unsigned) (m_line)).getNode(column)->content;
     }
 
-    const char *c_str(int column = 0) {
-        return (const char *) string(column).c_str();
+    const char *c_str() {
+        return (const char *) content().c_str();
     }
-    const GChar *str(int column = 0) {
-        return (const GChar *) string(column).c_str();
+    const GChar *str() {
+        return (const GChar *) content().c_str();
     }
-    GString &string(int column = 0) {
-        return m_buffer->at((unsigned) (m_line)).getNode(column)->content;
+    GString &string(int col) {
+        return m_buffer->at((unsigned) (m_line)).getNode(col)->content;
     }
-    void insert(int pos, int ch, int column = 0) {
-        auto &str = string(column);
+    void insert(int pos, int ch) {
+        auto &str = content();
         str.insert(str.begin() + pos, (GChar) ch);
     }
-    void erase(int pos, int length, int column = 0) {
-        auto &str = string(column);
+    void erase(int pos, int length) {
+        auto &str = content();
         str.erase(str.begin() + pos, str.begin() + pos + length);
     }
-    void remove(int pos, int column = 0) {
-        auto &str = string(column);
+    void remove(int pos) {
+        auto &str = content();
         str.erase(str.begin() + pos);
     }
-    int length(int column = 0) {
-        auto &str = string(column);
+    int length() {
+        auto &str = content();
         return str.length();
     }
-    int size(int column = 0) {
-        return length(column) * 2;
+    int size() {
+        return length() * 2;
     }
 
-    void append(const GChar *sstr, int length = 0, int column = 0) {
+    void append(const GChar *text, int length = 0) {
         auto &str = string(column);
         if (length == 0) {
-            length = lstrlen(sstr);
+            length = lstrlen(text);
         }
-        str.append(sstr, length);
+        str.append(text, length);
     }
 };
 
@@ -120,25 +121,25 @@ public:
             return getLine(line);
         }
         m_buffer.insert(m_buffer.begin() + line, TextLine());
-        return {line, &m_buffer};
+        return {line, 0, &m_buffer};
     }
     LineViewer appendLine() {
         m_buffer.emplace_back();
-        return {(int) m_buffer.size() - 1, &m_buffer};
+        return {(int) m_buffer.size() - 1, 0, &m_buffer};
     }
     void deleteLine(int line) {
         if (m_buffer.size() == 1) { return; }
         m_buffer[line].free();
         m_buffer.erase(m_buffer.begin() + line);
     }
-    LineViewer getLine(int line) {
+    LineViewer getLine(int line, int column = 0) {
         if (line >= m_buffer.size()) {
             int rm = line - m_buffer.size() + 1;
             while (rm--) {
                 m_buffer.emplace_back();
             }
         }
-        return {line, &m_buffer};
+        return {line, column, &m_buffer};
     }
 };
 

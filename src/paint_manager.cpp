@@ -4,15 +4,15 @@
 
 #include "document.h"
 Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(context) {
-    m_offset = context->current()->getOffset(*context) - context->getRenderManager()->getViewportOffset();
+    m_offset = context->offset() - context->getRenderManager()->getViewportOffset();
 }
 
-Canvas::Canvas(SkCanvas *mCanvas, EventContext *context) : m_canvas(mCanvas), m_context(context) {
-    m_offset = context->current()->getOffset(*context) - context->getRenderManager()->getViewportOffset();
-//    SkRect rect{};
-//    rect.setXYWH(m_offset.x, m_offset.y, CallEvent(*context, getWidth), CallEvent(*context, getHeight));
-    //m_canvas->saveLayer(&rect, nullptr);
-    m_count = m_canvas->save();
+Canvas::Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint) : m_canvas(canvas), m_context(context) {
+    m_offset = context->offset() - context->getRenderManager()->getViewportOffset();
+    //m_count = m_canvas->save();
+    GRect rect = GRect::MakeXYWH(m_offset.x, m_offset.y, context->width(), context->height());
+    rect.inset(-1, -1);
+    m_count = m_canvas->saveLayer(&rect, paint);
     m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
 }
 
@@ -21,23 +21,23 @@ Canvas::~Canvas() {
     //m_canvas->translate(SkIntToScalar(-m_offset.x), SkIntToScalar(-m_offset.y));
 }
 
-SkRect Canvas::rect() {
-    SkRect rect{
-            SkIntToScalar(m_offset.x),
-            SkIntToScalar(m_offset.y),
-            SkIntToScalar(m_offset.x + CallEvent(*m_context, getWidth)),
-            SkIntToScalar(m_offset.y + CallEvent(*m_context, getHeight))
-    };
-    return rect;
-}
-
 SkRect Canvas::size() {
     SkRect rect{
             0,
             0,
-            SkIntToScalar( CallEvent(*m_context, getWidth)),
-            SkIntToScalar(CallEvent(*m_context, getHeight))
+            SkIntToScalar(m_context->width() - 1),
+            SkIntToScalar(m_context->height() - 1)
     };
+
     return rect;
 }
 
+void RenderManager::redraw(EventContext *ctx) {
+    Offset offset = ctx->offset() - getViewportOffset();
+    RECT rect;
+    rect.left = offset.x;
+    rect.top = offset.y;
+    rect.right = rect.left + ctx->width();
+    rect.bottom = rect.top + ctx->height();
+    InvalidateRect(m_hWnd, &rect, false);
+}

@@ -68,13 +68,13 @@ void Element::onPreMouseMove(EventContext &context, int x, int y) {
 
 }
 
-LineViewer EventContext::getLineViewer() {
-    return doc->getContext()->m_textBuffer.getLine(getLineIndex());
+LineViewer EventContext::getLineViewer(int column) {
+    return doc->getContext()->m_textBuffer.getLine(getLineIndex(), column);
 }
 
-void EventContext::set(Root *obj, int idx = 0) {
-    if (obj->hasChild()) {
-        buffer = obj->children();
+void EventContext::set(Root *element, int idx = 0) {
+    if (element->hasChild()) {
+        buffer = element->children();
         index = idx;
     }
 }
@@ -83,8 +83,8 @@ Painter EventContext::getPainter() {
     return doc->getContext()->m_renderManager->getPainter(this);
 }
 
-Canvas EventContext::getCanvas() {
-    return doc->getContext()->m_renderManager->getCanvas(this);
+Canvas EventContext::getCanvas(SkPaint *paint) {
+    return doc->getContext()->m_renderManager->getCanvas(this, paint);
 }
 
 EventContext EventContext::enter() {
@@ -104,6 +104,7 @@ CaretManager *EventContext::getCaretManager() {
 }
 
 bool EventContext::prev() {
+    // prev失败时 并不会改变索引 因此不需要next
     if (index > 0) {
         index--;
         if (current()->getDisplay() == Display::Line) {
@@ -115,6 +116,7 @@ bool EventContext::prev() {
 }
 
 bool EventContext::next() {
+    // next失败时 要prev一下 因为当前的索引已经改变为下一个index
     nextLine(current()->getLineNumber());
     index++;
     return index < buffer->size();
@@ -149,7 +151,7 @@ void EventContext::combine() {
 
 void EventContext::redraw() {
     // onRedraw 需要更新宽度!!!
-    doc->getContext()->m_renderManager->refresh();
+    doc->getContext()->m_renderManager->redraw(this);
 }
 
 LineViewer EventContext::copyLine() {
@@ -181,6 +183,11 @@ Offset EventContext::offset() {
     return current()->getOffset(*this);
 }
 
+GRect EventContext::rect() {
+    Offset pos = offset();
+    return GRect::MakeXYWH(pos.x, pos.y, width(), height());
+}
+
 Offset EventContext::relative(int x, int y) {
     return Offset(x, y) - offset();
 }
@@ -198,7 +205,6 @@ doc(doc), buffer(buffer), outer(out), index(idx) {}
 
 EventContext::EventContext(const EventContext *context, EventContext *out) :
         doc(context->doc), buffer(context->buffer), index(context->index), line(context->line), outer(out) {}
-
 
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
@@ -225,7 +231,9 @@ EventContext Root::getContainEventContext(EventContext &context, int x, int y) {
 void Root::onRedraw(EventContext &context) {
     EventContext ctx = context.enter();
     while (ctx.has()) {
-        ctx.current()->onRedraw(ctx);
+        if (ctx.current()->getDisplay() != Display::None) {
+            ctx.current()->onRedraw(ctx);
+        }
         ctx.next();
     }
 }

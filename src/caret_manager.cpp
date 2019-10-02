@@ -45,8 +45,8 @@ void CaretManager::set(Offset pos) {
 
 void CaretManager::autoSet(int x, int y, int column) {
     auto meter = m_context->getRenderManager()->getTextMetrics();
-    auto line = m_context->getLineViewer();
-    int width = meter.measure(line.str(column), m_data.index);
+    auto line = m_context->getLineViewer(column);
+    int width = meter.measure(line.str(), m_data.index);
     set(x + width, y);
 }
 

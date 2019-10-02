@@ -5,6 +5,14 @@
 #ifndef GEDITOR_TABLE_H
 #define GEDITOR_TABLE_H
 
+#include <SkBlurDrawLooper.h>
+#include <SkColorFilter.h>
+#include <SkMaskFilter.h>
+#include <SkBlurMaskFilter.h>
+#include <SkImageFilter.h>
+#include <SkTypeface.h>
+#include <SkBlurImageFilter.h>
+#include <thread>
 #include "document.h"
 class LineElement : public RelativeElement {
 public:
@@ -131,137 +139,6 @@ public:
         context.redraw();
     }
 };
-class PosElement : public RelativeElement {
-private:
-    GString m_data;
-    int m_min = 50;
-public:
-    int m_width = 0;
-    int m_height = 25;
-    explicit PosElement() {}
-    int getLogicHeight(EventContext &context) override {
-        return m_height;
-    }
-    int getLogicWidth(EventContext &context) override {
-        int width = context.getRenderManager()->getTextMetrics().measure(m_data.c_str(), m_data.size()) + 8;
-        return width > m_min ? width : m_min;
-    }
-    Display getDisplay() override {
-        return Display::Block;
-    }
-    void onRedraw(EventContext &context) override {
-        auto painter = context.getPainter();
-        LineViewer line = context.getLineViewer();
-        //painter.drawRect(0, 0, getWidth(context), getHeight(context));
-        //paint.measureText(m_data.c_str(), m_data.size() * 2);
-        painter.drawText(4, 4, m_data.c_str(), m_data.size());
-
-        Canvas canvas = context.getCanvas();
-        SkPaint style;
-        style.setColor(SK_ColorBLACK);
-        style.setTextSize(15);
-        style.setTextEncoding(SkPaint::kUTF16_TextEncoding);
-        style.setColor(SK_ColorRED);
-        style.setLinearText(true);
-        canvas->save();
-        canvas->translate(0, style.getTextSize());
-        canvas->drawText(m_data.c_str(), m_data.size() * 2, 4, 4 , style);
-        canvas->restore();
-
-        SkRect rect{};
-        rect.setXYWH(0, 0, getWidth(context), getHeight(context));
-
-        SkPath path;
-        float radiusArray[8];
-        for (auto &arr : radiusArray) {
-            arr = 7.0f;
-        }
-        SkPaint paint;
-        path.addRoundRect(rect, radiusArray);
-        paint.setColor(SK_ColorRED);
-        paint.setStrokeWidth(3);
-        paint.setStyle(SkPaint::kStroke_Style);
-        //paint.setAntiAlias(true);
-        canvas->drawPath(path, paint);
-        //canvas.drawText(4, 4, m_data.c_str(), m_data.size(), paint);
-    }
-    void onLeftButtonDown(EventContext &context, int x, int y) override {
-        context.focus();
-        Offset textOffset = getRelOffset(context, x, y) - Offset(4, 4);
-        auto line = context.getLineViewer();
-        auto meter = context.getRenderManager()->getTextMetrics();
-        auto caret = context.getCaretManager();
-        caret->data()->index = meter.getTextIndex(m_data.c_str(), m_data.size(), textOffset.x);
-        caret->set(4 + textOffset.x, 4);
-        caret->show();
-    }
-    void onKeyDown(EventContext &context, int code, int status) override {
-        auto caret = context.getCaretManager();
-        auto ctx = caret->getEventContext();
-        auto meter = context.getRenderManager()->getTextMetrics();
-        if (code == VK_RIGHT || code == VK_LEFT) {
-            if (code == VK_RIGHT) {
-                caret->data()->index++;
-                if (caret->data()->index > m_data.size()) {
-                    if (!context.next()) {
-                        context.prev();
-                        caret->data()->index = m_data.size();
-                        return;
-                    }
-                    caret->data()->index = 0;
-                }
-            }
-            if (code == VK_LEFT) {
-                caret->data()->index--;
-                if (caret->data()->index < 0) {
-                    caret->data()->index = 0;
-                }
-            }
-        }
-        if (code == VK_UP || code == VK_DOWN) {
-
-        }
-
-        int x = meter.measure(m_data.c_str(), caret->data()->index);
-        caret->set(x + 4, 4);
-        caret->show();
-    };
-    void onInputChar(EventContext &context, int ch) override {
-        auto caret = context.getCaretManager();
-        switch (ch) {
-            case VK_BACK:
-                if (caret->data()->index > 0) {
-                    int index = --caret->data()->index;
-                    if (index >= 0) {
-                        m_data.erase(m_data.begin() + index);
-                    }
-                }
-                break;
-            case VK_RETURN:
-                break;
-            default:
-                context.push(CommandType::Add, CommandData(caret->data()->index, ch));
-                m_data.insert(m_data.begin() + caret->data()->index++, (GChar) ch);
-                break;
-        }
-        context.reflow();
-        context.redraw();
-        auto meter = context.getRenderManager()->getTextMetrics();
-        int x = meter.measure(m_data.c_str(), caret->data()->index);
-        caret->set(x + 4, 4);
-        caret->show();
-
-    }
-
-    void onMouseMove(EventContext &context, int x, int y) override {
-        Offset rel = getRelOffset(context, x, y);
-        GChar str[255];
-        wsprintf(str, _GT("your x: %d, y: %d\0"), rel.x, rel.y);
-        m_data.clear();
-        m_data.append(str);
-        context.redraw();
-    }
-};
 class TextElement : public RelativeElement {
 private:
     GString m_data;
@@ -378,8 +255,8 @@ public:
         return m_height;
     }
     int getLogicWidth(EventContext &context) override {
-        auto line = context.getLineViewer();
-        int width = context.getRenderManager()->getTextMetrics().measure(line.str(m_column), line.length(m_column)) + 8;
+        auto line = context.getLineViewer(m_column);
+        int width = context.getRenderManager()->getTextMetrics().measure(line.str(), line.length()) + 8;
 
         return width > m_min ? width : m_min;
     }
@@ -395,17 +272,17 @@ public:
     }
     void onRedraw(EventContext &context) override {
         Painter painter = context.getPainter();
-        LineViewer line = context.getLineViewer();
+        LineViewer line = context.getLineViewer(m_column);
         painter.drawRect(0, 0, getWidth(context), getHeight(context));
-        painter.drawText(4, 4, line.str(m_column), line.length(m_column));
+        painter.drawText(4, 4, line.str(), line.length());
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
         Offset textOffset = context.relative(x, y) - Offset(4, 4);
-        auto line = context.getLineViewer();
+        auto line = context.getLineViewer(m_column);
         auto meter = context.getRenderManager()->getTextMetrics();
         auto caret = context.getCaretManager();
-        caret->data()->index = meter.getTextIndex(line.str(m_column), line.length(m_column), textOffset.x);
+        caret->data()->index = meter.getTextIndex(line.str(), line.length(), textOffset.x);
         caret->set(4 + textOffset.x, 4);
         caret->show();
     }
@@ -415,13 +292,13 @@ public:
         auto meter = context.getRenderManager()->getTextMetrics();
         LineViewer line;
         if (code == VK_RIGHT || code == VK_LEFT) {
-            line = ctx->getLineViewer();
+            line = ctx->getLineViewer(m_column);
             if (code == VK_RIGHT) {
                 caret->data()->index++;
-                if (caret->data()->index > line.length(m_column)) {
+                if (caret->data()->index > line.length()) {
                     if (!context.next()) {
                         context.prev();
-                        caret->data()->index = line.length(m_column);
+                        caret->data()->index = line.length();
                         return;
                     }
                     caret->data()->index = 0;
@@ -439,19 +316,19 @@ public:
         }
         if (line.empty())
             return;
-        int x = meter.measure(line.str(m_column), caret->data()->index);
+        int x = meter.measure(line.str(), caret->data()->index);
         caret->set(x + 4, 4);
         caret->show();
     };
     void onInputChar(EventContext &context, int ch) override {
         auto caret = context.getCaretManager();
-        auto line = context.getLineViewer();
+        auto line = context.getLineViewer(m_column);
         switch (ch) {
             case VK_BACK:
                 if (caret->data()->index > 0) {
                     int index = --caret->data()->index;
                     if (index >= 0) {
-                        line.remove(index, m_column);
+                        line.remove(index);
                     }
                 }
                 break;
@@ -461,7 +338,7 @@ public:
                 break;
             default:
                 context.push(CommandType::Add, CommandData(caret->data()->index, ch));
-                line.insert(caret->data()->index++, ch, m_column);
+                line.insert(caret->data()->index++, ch);
                 context.reflowBrother();
                 break;
         }
@@ -532,66 +409,93 @@ class TextCaretService {
 private:
     Offset m_offset;
     Offset m_move;
-    CaretManager *m_caret;
     EventContext *m_context = nullptr;
     int m_index = 0;
 public:
     TextCaretService(const Offset &offset, EventContext *context) : m_offset(offset), m_context(context) {
-        m_caret = context->getCaretManager();
-        m_index = m_caret->data()->index;
+        m_index = m_context->getCaretManager()->data()->index;
     }
     void setTextOffset(Offset offset) { m_offset = offset; }
+    int &index() { return m_index; }
     void moveLeft() { m_index--; }
-    void moveRigh() { m_index++; }
+    void moveRight() { m_index++; }
     void moveToIndex(int index) { m_index = index; }
     void moveTo(Offset offset) { m_move = offset; }
-    void commit(const char *text, int length, SkPaint &paint) {
+
+    bool commit(SkPaint &paint, SkRect *bound = nullptr, int column = 0) {
+        LineViewer viewer = m_context->getLineViewer(column);
+        return commit(viewer.c_str(), viewer.size(), paint, bound);
+    }
+    bool commit(const char *text, int bytelength, SkPaint &paint, SkRect *bound = nullptr) {
+        bool res = true;
         Offset caret;
+        int length = paint.countText(text, bytelength);
         auto *widths = new SkScalar[length];
         auto *rects = new SkRect[length];
-        int count = paint.getTextWidths(text, length, widths, rects);
+        int count = paint.getTextWidths(text, bytelength, widths, rects);
         SkScalar size = paint.getTextSize();
         int width = 0;
         for (int i = 0; i < length; ++i) {
             rects[i].offset(m_offset.x + width, size + (SkScalar) m_offset.y);
-            if (SkIntToScalar(m_move.x) > rects[i].x()) {
+            if (SkIntToScalar(m_move.x) >= rects[i].x()) {
                 if (SkIntToScalar(m_move.x) > rects[i].centerX()) {
                     m_index = i + 1;
                 } else {
                     m_index = i;
                 }
+            } else {
+                //break;
             }
             width += widths[i];
         }
-        if (m_index < 0)
+        if (m_index < 0) {
             m_index = 0;
+            res = false;
+        }
         if (m_index >= length) {
             m_index = length;
             if (length == 0) {
                 caret.x = m_offset.x;
-            } else{
-                caret.x = SkScalarRoundToInt(rects[length - 1].x()) + widths[length - 1];
+            } else {
+                if (rects[length - 1].width() == 0) {
+                    rects[length - 1].fRight += widths[length - 1];
+                }
+                caret.x = rects[length - 1].right();
+                res = false;
+            }
+            if (bound) {
+                // TODO 当字符为空格的时候未作处理
+                *bound = rects[length - 1];
             }
         } else {
-            caret.x = rects[m_index].x();
+            caret.x = rects[m_index].left();
+            if (bound) {
+                *bound = rects[m_index];
+            }
         }
         caret.y = m_offset.y;
+        CaretManager *m_caret = m_context->getCaretManager();
         m_caret->data()->index = m_index;
         m_caret->set(caret);
         m_caret->show();
         delete[] widths;
         delete[] rects;
+        m_move = caret;
+        return res;
     }
-
 };
 class TestElement : public RelativeElement {
 public:
     SkPaint paint;
+    SkPaint style;
     TestElement() {
-        paint.setTextSize(15);
+        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setTextSize(18);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
-        paint.setColor(SK_ColorBLUE);
+        paint.setColor(SK_ColorBLACK);
+        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorGRAY, 5, 4, 4));
+
     }
     int getLogicHeight(EventContext &context) override {
         return 25;
@@ -603,42 +507,82 @@ public:
         return new LineElement();
     }
     void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas();
+        Canvas canvas = context.getCanvas(&style);
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.size(), border);
         LineViewer viewer = context.getLineViewer();
         canvas->translate(0, paint.getTextSize());
-        canvas->drawText(viewer.c_str(), viewer.size(), 4, 4, paint);
+        canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, paint);
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
-        LineViewer viewer = context.getLineViewer();
-        TextCaretService service(Offset(4, 5), &context);
+        TextCaretService service(Offset(4, 6), &context);
         service.moveTo(context.relative(x, y));
-        service.commit(viewer.c_str(), viewer.length(), paint);
+        service.commit(paint);
     }
     void onKeyDown(EventContext &context, int code, int status) override {
-        LineViewer viewer = context.getLineViewer();
         TextCaretService service(Offset(4, 5), &context);
-
-        if (code == VK_LEFT) {
+        if (code == VK_LEFT)
             service.moveLeft();
+        if (code == VK_RIGHT)
+            service.moveRight();
+        service.commit(paint);
+        if (code == VK_UP) {
+            context.prev();
+            service.commit(paint);
         }
-        if (code == VK_RIGHT) {
-            service.moveRigh();
+        if (code == VK_DOWN) {
+            if (!context.next()) {
+                context.prev();
+            }
+            service.commit(paint);
         }
-        if (code == VK_UP || code == VK_DOWN) {
-
-        }
-        service.commit(viewer.c_str(), viewer.length(), paint);
 
     };
     void onInputChar(EventContext &context, int ch) override {
+        TextCaretService service(Offset(4, 6), &context);
+        auto line = context.getLineViewer();
+        switch (ch) {
+            case VK_BACK:
+                if (service.index() > 0) {
+                    line.remove(service.index() - 1);
+                    service.moveLeft();
+                }
+                break;
+            case VK_RETURN:
 
+                break;
+            default:
+                line.insert(service.index(), ch);
+                service.moveRight();
+                break;
+        }
+        service.commit(paint);
+        context.redraw();
     }
     void onFocus(EventContext &context) override {
+        style.setColorFilter(nullptr);
+        style.setAlpha(230);
         context.redraw();
     }
+
     void onBlur(EventContext &context) override {
-        context.redraw();
+        for (int i = 0; i < 255; ++i) {
+            LARGE_INTEGER time ;
+            double dDlay=0;
+            QueryPerformanceCounter(&time) ;
+            LONGLONG start = time.QuadPart ;
+            while (dDlay - 1000.0 < 0.1) // Delay 5ms
+            {
+                QueryPerformanceCounter(&time) ;
+                dDlay= (time.QuadPart - start);
+            }
+            style.setAlpha(255 - i);
+            context.redraw();
+
+        }
     }
 };
 
@@ -761,6 +705,7 @@ public:
         }
         setColumnWidth(p2, width);
         context.getLayoutManager()->reflowEnter(context.start());
+        ctx.redraw();
     }
     void onLeaveReflow(EventContext &context) override {
         if (m_init) {

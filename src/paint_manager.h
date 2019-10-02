@@ -6,13 +6,16 @@
 #define _PAINT_MANAGER_H
 
 #include <iostream>
+#include <map>
 #include <SkBitmap.h>
 #include <SkCanvas.h>
 #include <SkSurface.h>
 #include <SkString.h>
 #include "common.h"
 #include "layout.h"
-#define GColor COLORREF
+struct EventContext;
+typedef SkColor GColor;
+typedef SkRect GRect;
 struct Offset {
     int x = 0;
     int y = 0;
@@ -35,29 +38,31 @@ struct Offset {
         return *this;
     }
 };
-
-struct Rect {
-    int left = 0;
-    int top = 0;
-    int right = 0;
-    int bottom = 0;
-    Rect() = default;
-    Rect(int left, int top, int width, int height) : left(left), top(top), right(left + width), bottom(top + height) {}
-    Rect(Offset offset, int width, int height) : left(offset.x), top(offset.y), right(offset.x + width), bottom(offset.y + height) {}
-    inline int width() const { return bottom - top; }
-    inline int height() const { return right - left; }
-    void dump() {
-        // std::cout << "{ " << m_left << " , " << m_top << " , " << right << " , " << bottom << " }" << std::endl;
-        std::cout << "{ x: " << left << " , y: " << top << " , w: " << right - left << " , h: " << bottom - top << " }" << std::endl;
-    }
-};
 struct Size {
     int width;
     int height;
     Size(int width, int height) : width(width), height(height) {}
 };
-struct EventContext;
-
+enum {
+    StyleDeafault,
+};
+class StyleManager {
+private:
+    std::map<int, SkPaint> m_map;
+public:
+    StyleManager() {
+        add(StyleDeafault, SkPaint());
+    }
+    void add(int id, const SkPaint& paint) {
+        m_map.emplace(std::pair<int, SkPaint>(id, paint));
+    }
+    SkPaint &get(int id) {
+        return m_map[id];
+    }
+    bool has(int id) {
+        return m_map.count(id) > 0;
+    }
+};
 class Painter {
 private:
     HDC m_HDC{};
@@ -102,7 +107,8 @@ public:
     Offset m_offset;
     EventContext *m_context;
     int m_count = 0;
-    Canvas(SkCanvas *mCanvas, EventContext *context);
+
+    Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint = nullptr);
     ~Canvas();
     void drawLine(int x1, int y1, int x2, int y2, SkPaint &paint) {
         m_canvas->drawLine(x1, y1, x2, y2, paint);
@@ -121,10 +127,7 @@ public:
     inline SkCanvas &operator*() {
         return *m_canvas;
     };
-
-    SkRect rect();
-
-    SkRect size();
+    GRect size();
 };
 
 class GDITextMetrics {
@@ -160,7 +163,7 @@ public:
     HDC m_hMemDC = nullptr;
     HDC m_hWndDC = nullptr;
     HBITMAP m_hBitmap = nullptr;
-    Offset m_offset;
+    Offset m_offset{-10, -10};
     SkBitmap m_bitmap;
     std::shared_ptr<SkCanvas> canvas;
 
@@ -200,7 +203,7 @@ public:
         m_bitmap.installPixels(info, bits, info.minRowBytes());
         canvas = std::make_shared<SkCanvas>(m_bitmap);
     }
-
+    virtual void redraw(EventContext *ctx);
     static HBITMAP createBitmap(int nWid, int nHei, void **ppBits) {
         BITMAPINFO bmi;
         memset(&bmi, 0, sizeof(bmi));
@@ -211,24 +214,17 @@ public:
         bmi.bmiHeader.biBitCount = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
         bmi.bmiHeader.biSizeImage = 0;
-        HDC hdc = GetDC(NULL);
-        LPVOID pBits = NULL;
+        HDC hdc = GetDC(nullptr);
+        LPVOID pBits = nullptr;
         HBITMAP hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, ppBits, nullptr, 0);
-        ReleaseDC(NULL, hdc);
+        ReleaseDC(nullptr, hdc);
         return hBmp;
     }
-
-    virtual Painter getPainter(EventContext *ctx) {
-        return Painter(m_hMemDC, ctx);
-    }
-    virtual Canvas getCanvas(EventContext *ctx) {
-        return Canvas(canvas.get(), ctx);
-    }
+    virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
+    virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) { return Canvas(ctx, canvas.get(), paint); }
     virtual TextMetrics getTextMetrics() { return TextMetrics(m_hMemDC); }
     inline Offset getViewportOffset() { return m_offset; }
-    virtual void setViewportOffset(Offset offset) {
-        m_offset = offset;
-    }
+    virtual void setViewportOffset(Offset offset) { m_offset = offset; }
     virtual void updateViewport(LayoutManager *layoutManager) {
         Offset offset;
         offset.x = GetScrollPos(m_hWnd, SB_HORZ);
@@ -238,16 +234,16 @@ public:
         SCROLLINFO info;
         GetScrollInfo(m_hWnd, SB_VERT, &info);
         //info.nPage
-        auto realWidth = (float) (layoutManager->getWidth() - size.width + 20);
-        auto realHeight = (float) (layoutManager->getHeight() - size.height + 20);
+        auto realWidth = (float) (layoutManager->getWidth() - size.width + 20) + 10;
+        auto realHeight = (float) (layoutManager->getHeight() - size.height + 20) + 10;
         if (realWidth < 0.0) {
             realWidth = 0.0;
         }
         if (realHeight < 0.0) {
             realHeight = 0.0;
         }
-        m_offset.x = (int) (realWidth * ((float) offset.x / 100));
-        m_offset.y = (int) (realHeight * ((float) offset.y / 100));
+        m_offset.x = (int) (realWidth * ((float) offset.x / 100)) - 10;
+        m_offset.y = (int) (realHeight * ((float) offset.y / 100)) - 10;
         refresh();
     }
     virtual Size getViewportSize() {
@@ -255,8 +251,9 @@ public:
         GetWindowRect(m_hWnd, &rect);
         return {rect.right - rect.left, rect.bottom - rect.top};
     }
-    bool copy(HDC hdc, int nWidth, int nHeight) {
-        return (bool) BitBlt(hdc, 0, 0, nWidth, nHeight, m_hMemDC, 0, 0, SRCCOPY);
+    bool copy() {
+        Size size = getViewportSize();
+        return (bool) BitBlt(m_hWndDC, 0, 0, size.width, size.height, m_hMemDC, 0, 0, SRCCOPY);
     }
 
 };

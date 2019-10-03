@@ -373,15 +373,44 @@ public:
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.size(), border);
         LineViewer viewer = context.getLineViewer();
+        canvas->save();
         canvas->translate(0, paint.getTextSize());
         canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, paint);
+        canvas->restore();
+        if (down) {
+            SkPaint select;
+            select.setColor(SK_ColorLTGRAY);
+            select.setXfermodeMode(SkXfermode::Mode::kSrcOut_Mode);
+            canvas->drawRect(SkRect::MakeLTRB(start, 1, end, context.height()), select);
+
+        }
     }
+
+    int start = 0;
+    int end = 0;
+
+    bool down = false;
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
         TextCaretService service(Offset(4, 6), &context);
         service.moveTo(context.relative(x, y));
         service.commit(paint);
+
+        down = true;
+        start = context.relative(x, y).x;
+        end = start;
     }
+    void onMouseMove(EventContext &context, int x, int y) override {
+        if (down) {
+            end = context.relative(x, y).x;
+            context.redraw();
+        }
+    }
+
+    void onLeftButtonUp(EventContext &context, int x, int y) override {
+        down = false;
+    }
+
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 5), &context);

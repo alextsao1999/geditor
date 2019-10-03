@@ -72,7 +72,7 @@ LineViewer EventContext::getLineViewer(int column) {
     return doc->getContext()->m_textBuffer.getLine(getLineIndex(), column);
 }
 
-void EventContext::set(Root *element, int idx = 0) {
+void EventContext::init(Root *element, int idx = 0) {
     if (element->hasChild()) {
         buffer = element->children();
         index = idx;
@@ -107,9 +107,7 @@ bool EventContext::prev() {
     // prev失败时 并不会改变索引 因此不需要next
     if (index > 0) {
         index--;
-        if (current()->getDisplay() == Display::Line) {
-            prevLine();
-        }
+        prevLine(current()->getLineNumber());
         return true;
     }
     return false;
@@ -122,12 +120,32 @@ bool EventContext::next() {
     return index < buffer->size();
 }
 
+bool EventContext::outerNext() {
+    if (outer) {
+        outer->next();
+        buffer = outer->current()->children();
+    }
+    return index < buffer->size();
+}
+bool EventContext::outerPrev() {
+    if (outer) {
+        outer->prev();
+        buffer = outer->current()->children();
+    }
+    return index < buffer->size();
+}
+
 void EventContext::reflow() {
     doc->m_context.m_layoutManager.reflow(*this);
 }
 
 void EventContext::focus() {
     doc->m_context.m_caretManager.focus(this);
+}
+
+void EventContext::remove(Root *element) {
+    element->onRemove(*this);
+    delete element;
 }
 
 void EventContext::combine() {
@@ -142,10 +160,7 @@ void EventContext::combine() {
         text.getLine(cur).append(text.getLine(cur + 1).str());
         doc->getContext()->m_textBuffer.deleteLine(cur + 1);
         buffer->erase(next);
-        if (ele == doc->getContext()->m_mouseEnter) {
-            doc->getContext()->m_mouseEnter = nullptr;
-        }
-        delete ele;
+        remove(ele);
     }
 }
 
@@ -206,6 +221,11 @@ doc(doc), buffer(buffer), outer(out), index(idx) {}
 EventContext::EventContext(const EventContext *context, EventContext *out) :
         doc(context->doc), buffer(context->buffer), index(context->index), line(context->line), outer(out) {}
 
+void EventContext::post() {
+    doc->getContext()->m_animator.push(copy());
+
+}
+
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
         return this;
@@ -235,5 +255,12 @@ void Root::onRedraw(EventContext &context) {
             ctx.current()->onRedraw(ctx);
         }
         ctx.next();
+    }
+}
+
+void Root::onRemove(EventContext &context) {
+    if ((Root *) context.doc->getContext()->m_mouseEnter == this) {
+        context.doc->getContext()->m_mouseEnter->onMouseLeave(0, 0);
+        context.doc->getContext()->m_mouseEnter = nullptr;
     }
 }

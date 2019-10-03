@@ -58,7 +58,7 @@ void LayoutManager::reflow(EventContext context) {
 
 void LayoutManager::reflowAll(Document *doc) {
     EventContext context = EventContextBuilder::build(doc);
-    context.set(doc, 0);
+    context.init(doc, 0);
     reflowEnter(context);
 }
 

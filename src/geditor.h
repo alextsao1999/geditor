@@ -8,6 +8,8 @@
 #include "utils.h"
 #include "paint_manager.h"
 #include "table.h"
+#include "document.h"
+#include <thread>
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
@@ -58,7 +60,6 @@ public:
         }
 
         m_data->m_document.flow();
-
     }
     ~GEditor() {
         delete m_data;
@@ -116,7 +117,7 @@ public:
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
         EventContext context = EventContextBuilder::build(&data->m_document);
         //EventContext doc = context.enter();
-        context.set(&data->m_document, 0);
+        context.init(&data->m_document, 0);
 
         // int idx = (pos.y / data->m_document.getContext()->m_layoutManager.getMinHeight()); \
         // std::cout << "predict : " << idx << std::endl;

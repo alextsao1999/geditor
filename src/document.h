@@ -5,7 +5,7 @@
 #ifndef _DOCUMENT_H
 #define _DOCUMENT_H
 
-#include <vector>
+#include <queue>
 #include "common.h"
 #include "layout.h"
 #include "paint_manager.h"
@@ -35,6 +35,7 @@ enum class Display {
 };
 
 struct Context {
+    std::queue<EventContext *> m_animator;
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
     CaretManager m_caretManager;
@@ -73,6 +74,8 @@ struct EventContext {
     inline bool has() { return buffer!= nullptr && index < buffer->size(); }
     bool prev();
     bool next();
+    bool outerNext();
+    bool outerPrev();
     int getLineIndex() { if (outer) { return outer->getLineIndex() + line; } else { return line; } }
     // 只改变本层次Line
     void prevLine(int count = 1) { line -= count; }
@@ -85,14 +88,15 @@ struct EventContext {
     void push(CommandType type, CommandData data);
     void insert(int idx, Element *ele) { buffer->insert(idx, ele); }
     void notify(int type, int p1, int p2);
-
+    void post();
     GRect rect();
     Offset offset();
     Offset relative(int x, int y);
     int width();
     int height();
 
-    void set(Root *element, int index);
+    void remove(Root *element);
+    void init(Root *element, int index);
     Element *get(int idx) { return buffer->at(idx); }
     inline Element *current() { return buffer->at(index); }
     Painter getPainter();
@@ -116,11 +120,16 @@ struct EventContext {
     }
     EventContext *copy() { return new EventContext(this, outer ? outer->copy() : nullptr); }
     void free() {
-        if (!outer)
-            return;
-        outer->free();
-        delete outer;
-        outer = nullptr;
+        if (outer) {
+            outer->free();
+        }
+        delete this;
+    }
+    void dump() {
+        if (outer) {
+            outer->dump();
+        }
+        printf(" { index = %d, line = %d }", index, line);
     }
 };
 
@@ -181,6 +190,7 @@ public:
      */
     /////////////////////////////////////////
     virtual void onRedraw(EventContext &context);
+    virtual void onRemove(EventContext &context);
     /////////////////////////////////////////
 };
 
@@ -200,7 +210,7 @@ public:
     virtual void onMouseMove(EventContext &context, int x, int y){}
     virtual void onMouseEnter(EventContext &context, int x, int y) {}
     virtual void onMouseLeave(int x, int y) {}
-
+    virtual bool onNextFrame(EventContext &context) { return false; }
     DEFINE_EVENT(onFocus);
     DEFINE_EVENT(onBlur);
     DEFINE_EVENT(onKeyDown, int code, int status);

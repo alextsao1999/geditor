@@ -12,8 +12,9 @@
 #include <SkImageFilter.h>
 #include <SkTypeface.h>
 #include <SkBlurImageFilter.h>
-#include <thread>
 #include "document.h"
+#include "utils.h"
+
 class LineElement : public RelativeElement {
 public:
     int getLogicHeight(EventContext &context) override {
@@ -312,7 +313,6 @@ public:
             }
         }
         if (code == VK_UP || code == VK_DOWN) {
-
         }
         if (line.empty())
             return;
@@ -421,14 +421,13 @@ public:
     void moveRight() { m_index++; }
     void moveToIndex(int index) { m_index = index; }
     void moveTo(Offset offset) { m_move = offset; }
-
     bool commit(SkPaint &paint, SkRect *bound = nullptr, int column = 0) {
         LineViewer viewer = m_context->getLineViewer(column);
         return commit(viewer.c_str(), viewer.size(), paint, bound);
     }
     bool commit(const char *text, int bytelength, SkPaint &paint, SkRect *bound = nullptr) {
-        bool res = true;
-        Offset caret;
+        bool res = true; // 是否越界
+        int index = m_index;
         int length = paint.countText(text, bytelength);
         auto *widths = new SkScalar[length];
         auto *rects = new SkRect[length];
@@ -439,21 +438,26 @@ public:
             rects[i].offset(m_offset.x + width, size + (SkScalar) m_offset.y);
             if (SkIntToScalar(m_move.x) >= rects[i].x()) {
                 if (SkIntToScalar(m_move.x) > rects[i].centerX()) {
-                    m_index = i + 1;
+                    index = i + 1;
                 } else {
-                    m_index = i;
+                    index = i;
                 }
-            } else {
-                //break;
             }
             width += widths[i];
         }
-        if (m_index < 0) {
-            m_index = 0;
-            res = false;
+        while (index < 0) {
+            index = length + index + 1;
+            res = false; // 小于0为越界
         }
-        if (m_index >= length) {
-            m_index = length;
+        Offset caret;
+        if (index < length) {
+            caret.x = rects[index].left();
+            if (bound) {
+                *bound = rects[index];
+            }
+        } else {
+            res = index == length; // 大于length 为越界
+            index = length;
             if (length == 0) {
                 caret.x = m_offset.x;
             } else {
@@ -461,40 +465,40 @@ public:
                     rects[length - 1].fRight += widths[length - 1];
                 }
                 caret.x = rects[length - 1].right();
-                res = false;
-            }
-            if (bound) {
-                // TODO 当字符为空格的时候未作处理
-                *bound = rects[length - 1];
-            }
-        } else {
-            caret.x = rects[m_index].left();
-            if (bound) {
-                *bound = rects[m_index];
+                if (bound) {
+                    *bound = rects[length - 1];
+                }
             }
         }
         caret.y = m_offset.y;
-        CaretManager *m_caret = m_context->getCaretManager();
-        m_caret->data()->index = m_index;
-        m_caret->set(caret);
-        m_caret->show();
+        show(caret, index);
         delete[] widths;
         delete[] rects;
-        m_move = caret;
+        if (res) {
+            m_move = caret;
+        }
         return res;
+    }
+
+    void show(Offset offset, int index) {
+        CaretManager *m_caret = m_context->getCaretManager();
+        m_caret->data()->index = index;
+        m_caret->set(offset);
+        m_caret->show();
     }
 };
 class TestElement : public RelativeElement {
 public:
     SkPaint paint;
     SkPaint style;
+    int type{0};
     TestElement() {
         paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
-        paint.setTextSize(18);
+        paint.setTextSize(15);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
-        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorGRAY, 5, 4, 4));
+        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorBLUE, 5, 4, 4));
 
     }
     int getLogicHeight(EventContext &context) override {
@@ -523,21 +527,41 @@ public:
         service.commit(paint);
     }
     void onKeyDown(EventContext &context, int code, int status) override {
+        auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 5), &context);
-        if (code == VK_LEFT)
+        if (code == VK_LEFT) {
             service.moveLeft();
-        if (code == VK_RIGHT)
+            if (!service.commit(paint)) {
+                printf("lcommit failed!\n");
+/*
+                caret->prev();
+                service.moveToIndex(-1);
+                service.commit(paint);
+*/
+            }
+        }
+        if (code == VK_RIGHT) {
             service.moveRight();
-        service.commit(paint);
+            if (!service.commit(paint)) {
+                printf("rcommit failed!\n");
+
+/*
+                caret->next();
+                service.moveToIndex(0);
+                service.commit(paint);
+*/
+            }
+        }
         if (code == VK_UP) {
-            context.prev();
+            service.commit(paint);
+            caret->prev();
             service.commit(paint);
         }
         if (code == VK_DOWN) {
-            if (!context.next()) {
-                context.prev();
-            }
             service.commit(paint);
+            caret->next();
+            service.commit(paint);
+
         }
 
     };
@@ -561,28 +585,6 @@ public:
         }
         service.commit(paint);
         context.redraw();
-    }
-    void onFocus(EventContext &context) override {
-        style.setColorFilter(nullptr);
-        style.setAlpha(230);
-        context.redraw();
-    }
-
-    void onBlur(EventContext &context) override {
-        for (int i = 0; i < 255; ++i) {
-            LARGE_INTEGER time ;
-            double dDlay=0;
-            QueryPerformanceCounter(&time) ;
-            LONGLONG start = time.QuadPart ;
-            while (dDlay - 1000.0 < 0.1) // Delay 5ms
-            {
-                QueryPerformanceCounter(&time) ;
-                dDlay= (time.QuadPart - start);
-            }
-            style.setAlpha(255 - i);
-            context.redraw();
-
-        }
     }
 };
 

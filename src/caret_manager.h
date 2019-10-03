@@ -50,6 +50,10 @@ public:
     void autoSet(int x, int y, int column = 0);
     void update();
     // 当前Focus的EventContext
+    void next();
+    void prev();
+    void outerNext();
+    void outerPrev();
     bool enter(int index = 0);
     void leave();
 };

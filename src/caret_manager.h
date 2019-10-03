@@ -1,5 +1,5 @@
 //
-// Created by Administrator on 2019/9/3.
+// Created by Alex on 2019/9/3.
 //
 
 #ifndef GEDITOR_CARET_MANAGER_H
@@ -50,8 +50,8 @@ public:
     void autoSet(int x, int y, int column = 0);
     void update();
     // 当前Focus的EventContext
-    void next();
-    void prev();
+    bool next();
+    bool prev();
     void outerNext();
     void outerPrev();
     bool enter(int index = 0);

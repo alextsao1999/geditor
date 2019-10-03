@@ -294,15 +294,9 @@ public:
     }
     void setLogicWidth(int width) override { m_width = width; }
     void setLogicHeight(int height) override { m_height = height; }
-    int getLogicWidth(EventContext &context) override {
-        return m_width;
-    }
-    int getLogicHeight(EventContext &context) override {
-        return m_height;
-    }
-    int getHeight(EventContext &context) override {
-        return getLogicHeight(context);
-    }
+    int getLogicWidth(EventContext &context) override { return m_width; }
+    int getLogicHeight(EventContext &context) override { return m_height; }
+    int getHeight(EventContext &context) override { return getLogicHeight(context); }
     int getWidth(EventContext &context) override {
         return getLogicWidth(context);
     }

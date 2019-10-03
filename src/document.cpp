@@ -158,7 +158,7 @@ void EventContext::combine() {
     int cur = getLineIndex();
     if (current()->getDisplay() == Display::Line && ele->getDisplay() == Display::Line) {
         text.getLine(cur).append(text.getLine(cur + 1).str());
-        doc->getContext()->m_textBuffer.deleteLine(cur + 1);
+        text.deleteLine(cur + 1);
         buffer->erase(next);
         remove(ele);
     }

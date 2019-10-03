@@ -47,10 +47,9 @@ public:
         }
         m_data->m_document.append(new TableElement(3, 3));
         m_data->m_document.append(new ButtonElement());
-        m_data->m_document.appendLine(new TestElement()).append(L"this is test string1");
-        m_data->m_document.appendLine(new TestElement()).append(L"this is test string2");
-        m_data->m_document.appendLine(new TestElement()).append(L"this is test string3");
-
+        m_data->m_document.appendLine(new LineElement()).append(L"this is test string1");
+        m_data->m_document.appendLine(new LineElement()).append(L"this is test string2");
+        m_data->m_document.appendLine(new LineElement()).append(L"this is test string3");
 
         for (int i = 0; i < 5; ++i) {
             GChar str[255];

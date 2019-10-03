@@ -25,8 +25,8 @@ SkRect Canvas::size() {
     SkRect rect{
             0,
             0,
-            SkIntToScalar(m_context->width() - 1),
-            SkIntToScalar(m_context->height() - 1)
+            SkIntToScalar(m_context->width()),
+            SkIntToScalar(m_context->height())
     };
 
     return rect;

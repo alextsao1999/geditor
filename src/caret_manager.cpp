@@ -64,24 +64,30 @@ void CaretManager::leave() {
     m_context = outer;
 }
 
-void CaretManager::next() {
+bool CaretManager::next() {
     if (m_context) {
-        m_context->current()->onBlur(*m_context);
+        EventContext cur = *m_context;
         if (!m_context->next()) {
             m_context->prev();
+            return false;
         }
+        cur.current()->onBlur(cur);
         m_context->current()->onFocus(*m_context);
+        return true;
     }
+    return false;
 }
 
-void CaretManager::prev() {
+bool CaretManager::prev() {
     if (m_context) {
         EventContext last = *m_context;
         if (m_context->prev()) {
             last.current()->onBlur(last);
             m_context->current()->onFocus(*m_context);
+            return true;
         }
     }
+    return false;
 }
 
 void CaretManager::outerNext() {

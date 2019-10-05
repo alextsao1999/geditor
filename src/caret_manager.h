@@ -47,6 +47,7 @@ public:
     void set(int x, int y) {
         set(Offset(x, y));
     }
+    inline Offset getCurrent() { return m_current; }
     void autoSet(int x, int y, int column = 0);
     void update();
     // 当前Focus的EventContext

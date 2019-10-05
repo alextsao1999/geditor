@@ -112,17 +112,17 @@ public:
     }
     /////////////////////////////////////////////////////
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-        GEditorData *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
         EventContext context = EventContextBuilder::build(&data->m_document);
-        //EventContext doc = context.enter();
-        context.init(&data->m_document, 0);
-
-        // int idx = (pos.y / data->m_document.getContext()->m_layoutManager.getMinHeight()); \
-        // std::cout << "predict : " << idx << std::endl;
+        context.init(&data->m_document);
         switch (message) {
             case WM_MOUSEMOVE:
                 MsgCallEvent(onPreMouseMove);
+                if (data->m_document.getContext()->m_selecting) {
+                    data->m_document.getContext()->selecting();
+                    data->m_renderManager.refresh();
+                }
                 break;
             case WM_MOUSEWHEEL:
             case WM_VSCROLL:
@@ -135,13 +135,15 @@ public:
                 data->m_renderManager.resize();
                 break;
             case WM_LBUTTONUP: // 鼠标左键放开
-                ReleaseCapture();
                 MsgCallEvent(onLeftButtonUp);
+                data->m_document.getContext()->endSelect();
+                ReleaseCapture();
                 break;
             case WM_LBUTTONDOWN: // 鼠标左键按下
                 SetCapture(hWnd);
                 SetFocus(hWnd);
                 MsgCallEvent(onLeftButtonDown);
+                data->m_document.getContext()->startSelect();
                 break;
             case WM_LBUTTONDBLCLK: // 鼠标左键双击
                 MsgCallEvent(onLeftDoubleClick);
@@ -176,7 +178,7 @@ public:
                 data->m_document.getContext()->m_caretManager.create();
                 break;
             case WM_KILLFOCUS:
-                // DestroyCaret();
+                data->m_document.getContext()->m_caretManager.destroy();
                 break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
@@ -218,22 +220,43 @@ public:
         SetScrollPos(hWnd, nBar, prev, true);
         data->m_renderManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
         data->m_document.getContext()->m_caretManager.update();
-
     }
 
     static void onPaint(HWND hWnd, GEditorData *data, EventContext &context) {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
         GRect rect = GRect::MakeLTRB(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
-        rect.inset(-1, -1);
+        GRect select = data->m_document.getContext()->getSelectRect();
         Offset offset = data->m_renderManager.getViewportOffset();
         data->m_renderManager.update();
         while (context.has()) {
             if (context.current()->getDisplay() != Display::None) {
                 context.current()->onRedraw(context);
+                if (context.rect().intersect(select)) {
+                    SkPaint paint_select;
+                    //paint_select.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorBLACK, SkXfermode::Mode::kSrcOut_Mode));
+                    Canvas canvas = context.getCanvas(&paint_select);
+                    SkPaint color;
+                    color.setColor(SK_ColorCYAN);
+                    color.setAlpha(150);
+                    auto bound = context.relative(select.x(), select.y());
+
+                    canvas->drawRect(GRect::MakeXYWH(bound.x, bound.y, select.width(), select.height()), color);
+
+                }
             }
             context.next();
         }
+
+/*
+        auto canvas = data->m_renderManager.m_canvas.get();
+        SkPaint paint;
+        paint.setColor(SK_ColorBLUE);
+        paint.setAlpha(40);
+        canvas->drawRect(select, paint);
+*/
+        //canvas->drawTextBlob()
+
         data->m_renderManager.copy();
         EndPaint(hWnd, &ps);
 

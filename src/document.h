@@ -42,6 +42,30 @@ struct Context {
     CommandQueue m_queue;
     TextBuffer m_textBuffer;
     Element *m_mouseEnter = nullptr;
+    //////////////////////////
+    bool m_selecting = false;
+    Offset m_selectStart;
+    Offset m_selectEnd;
+    void startSelect() {
+        m_selecting = true;
+        m_selectStart = m_caretManager.getCurrent();
+        m_selectEnd = m_selectStart;
+    }
+    void endSelect() {
+        m_selecting = false;
+    }
+    void selecting() {
+        m_selectEnd = m_caretManager.getCurrent();
+    }
+
+    inline GRect getSelectRect() {
+        Offset start = m_selectStart;
+        Offset end = m_selectEnd;
+
+        SkRect rect{};
+        rect.set({(SkScalar) start.x, (SkScalar) start.y}, {(SkScalar) end.x, (SkScalar) end.y});
+        return rect;
+    }
     explicit Context(RenderManager *renderManager) : m_renderManager(renderManager),
                                                      m_caretManager(CaretManager(renderManager)) {}
 };
@@ -70,6 +94,7 @@ struct EventContext {
     EventContext *outer = nullptr;
     int index = 0;
     int line = 0;
+    Context *getDocContext();
     inline bool empty() { return buffer == nullptr || doc == nullptr; }
     inline bool has() { return buffer!= nullptr && index < buffer->size(); }
     bool prev();
@@ -91,12 +116,13 @@ struct EventContext {
     void post();
     GRect rect();
     Offset offset();
+    GRect viewportRect();
+    Offset viewportOffset();
     Offset relative(int x, int y);
     int width();
     int height();
-
     void remove(Root *element);
-    void init(Root *element, int index);
+    void init(Root *element, int index = 0);
     Element *get(int idx) { return buffer->at(idx); }
     inline Element *current() { return buffer->at(index); }
     Painter getPainter();
@@ -104,7 +130,6 @@ struct EventContext {
     RenderManager *getRenderManager();
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
-
     LineViewer getLineViewer(int column = 0);
     LineViewer copyLine();
     EventContext() = default;
@@ -131,6 +156,9 @@ struct EventContext {
         }
         printf(" { index = %d, line = %d }", index, line);
     }
+    bool selecting() {
+        return getDocContext()->m_selecting;
+    }
 };
 
 class EventContextBuilder {
@@ -156,7 +184,6 @@ public:
     virtual Offset getLogicOffset() { return {0, 0}; }
     // 获取实际的偏移
     virtual Offset getOffset(EventContext &context) { return {0, 0}; }
-
     virtual int getLogicWidth(EventContext &context) { return 0; };
     virtual int getLogicHeight(EventContext &context) { return 0; };
     virtual void setLogicWidth(int width) {};
@@ -170,20 +197,13 @@ public:
      * @return bool
      */
     virtual bool contain(EventContext &context, int x, int y) {
-        Offset offset = getOffset(context);
-        return (offset.x < x) && (offset.x + getWidth(context) > x) && (offset.y < y) &&
-               (offset.y + getHeight(context) > y);
+        return context.rect().round().contains(x, y);
     };
     /**
      * 获取绝对坐标所包含的最底层的元素
      * @return Root *
      */
     Root *getContain(EventContext &context, int x, int y);
-    /**
-     * 获取绝对坐标所在的子元素
-     * @return EventContext
-     */
-    static EventContext getContainEventContext(EventContext &context, int x, int y);
     /**
      * 获取相对坐标所在的子元素
      * @return EventContext
@@ -281,7 +301,6 @@ public:
 public:
     Display m_display = Display::Block;
     Container() = default;
-
     ~Container() override {
         for (auto element : m_index) {
             // FIXME mouseEnter可能和element指向同一个元素
@@ -297,20 +316,11 @@ public:
     int getLogicWidth(EventContext &context) override { return m_width; }
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getHeight(EventContext &context) override { return getLogicHeight(context); }
-    int getWidth(EventContext &context) override {
-        return getLogicWidth(context);
-    }
-    ElementIndex *children() override {
-        return &m_index;
-    }
-    Display getDisplay() override {
-        return m_display;
-    }
+    int getWidth(EventContext &context) override { return getLogicWidth(context); }
+    ElementIndex *children() override { return &m_index; }
+    Display getDisplay() override { return m_display; }
     inline void setDisplay(Display display) { m_display = display; }
-    virtual void append(Element *element) {
-        m_index.append(element);
-    }
-
+    virtual void append(Element *element) { m_index.append(element); }
 };
 
 class Document : public Container {

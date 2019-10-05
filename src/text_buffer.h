@@ -85,7 +85,8 @@ public:
         auto &str = content();
         str.insert(str.begin() + pos, (GChar) ch);
     }
-    void erase(int pos, int length) {
+
+    void erase(int pos, int length = 1) {
         auto &str = content();
         str.erase(str.begin() + pos, str.begin() + pos + length);
     }

@@ -24,3 +24,6 @@ add_executable(geditor ${sources} ${headers})
 
 set(LINK_STATIC_LIB opengl32.lib usp10.lib skia)
 target_link_libraries(geditor ${LINK_STATIC_LIB})
+
+add_executable(test third_party/test.cpp)
+target_link_libraries(test ${LINK_STATIC_LIB})

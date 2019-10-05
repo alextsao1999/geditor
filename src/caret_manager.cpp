@@ -27,15 +27,13 @@ CaretManager::~CaretManager() {
 void CaretManager::update() {
     if (!getFocus())
         return;
+    // 设置光标的位置为实际偏移(光标偏移 减去 可视区偏移)
     Offset offset = m_current - m_paintManager->getViewportOffset();
     SetCaretPos(offset.x, offset.y);
 }
 
 Element *CaretManager::getFocus() {
-    if (!m_context) {
-        return nullptr;
-    }
-    return m_context->current();
+    return m_context ? m_context->current() : nullptr;
 }
 
 void CaretManager::set(Offset pos) {

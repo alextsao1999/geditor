@@ -3,12 +3,14 @@
 //
 
 #include "document.h"
+#include "paint_manager.h"
+
 Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(context) {
     m_offset = context->offset() - context->getRenderManager()->getViewportOffset();
 }
 
 Canvas::Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint) : m_canvas(canvas), m_context(context) {
-    m_offset = context->offset() - context->getRenderManager()->getViewportOffset();
+    m_offset = context->viewportOffset();
     //m_count = m_canvas->save();
     GRect rect = GRect::MakeXYWH(m_offset.x, m_offset.y, context->width(), context->height());
     rect.inset(-1, -1);
@@ -21,7 +23,7 @@ Canvas::~Canvas() {
     //m_canvas->translate(SkIntToScalar(-m_offset.x), SkIntToScalar(-m_offset.y));
 }
 
-SkRect Canvas::size() {
+SkRect Canvas::bound() {
     SkRect rect{
             0,
             0,
@@ -41,3 +43,5 @@ void RenderManager::redraw(EventContext *ctx) {
     rect.bottom = rect.top + ctx->height();
     InvalidateRect(m_hWnd, &rect, false);
 }
+
+

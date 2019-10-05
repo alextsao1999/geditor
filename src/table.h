@@ -135,7 +135,7 @@ public:
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.size(), border);
+        canvas->drawRect(canvas.bound(), border);
 
         canvas->translate(0, paint.getTextSize());
         canvas->drawText((const char *) m_data.c_str(), m_data.length() * 2, 4, 2, paint);
@@ -184,108 +184,87 @@ public:
 };
 class ColumnElement : public RelativeElement {
 private:
+    SkPaint paint;
     int m_column = 0;
     int m_min = 50;
 public:
     int m_width = 0;
     int m_height = 25;
-    explicit ColumnElement(int column) : m_column(column) {}
+    explicit ColumnElement(int column) : m_column(column) {
+        //paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setTextSize(14);
+        paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
+        paint.setAntiAlias(true);
+        paint.setColor(SK_ColorBLACK);
+    }
     int getLogicHeight(EventContext &context) override {
         return m_height;
     }
     int getLogicWidth(EventContext &context) override {
         auto line = context.getLineViewer(m_column);
-        int width = context.getRenderManager()->getTextMetrics().measure(line.str(), line.length()) + 8;
-
+        int width = paint.measureText(line.str(), line.size()) + 8;
         return width > m_min ? width : m_min;
     }
+    void setLogicWidth(int width) override { m_width = width; }
+    void setLogicHeight(int height) override { m_height = height; }
     int getWidth(EventContext& context) override {
         if (m_width) { return m_width; }
         return getLogicWidth(context);
     }
-    void setLogicWidth(int width) override { m_width = width; }
-    void setLogicHeight(int height) override { m_height = height; }
-
     Display getDisplay() override {
         return Display::Inline;
     }
     void onRedraw(EventContext &context) override {
-        Painter painter = context.getPainter();
-        LineViewer line = context.getLineViewer(m_column);
-        painter.drawRect(0, 0, getWidth(context), getHeight(context));
-        painter.drawText(4, 4, line.str(), line.length());
+        Canvas canvas = context.getCanvas();
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.bound(), border);
+
+        auto line = context.getLineViewer(m_column);
+        canvas->translate(0, paint.getTextSize());
+        canvas->drawText(line.c_str(), line.size(), 4, 2, paint);
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
-        Offset textOffset = context.relative(x, y) - Offset(4, 4);
-        auto line = context.getLineViewer(m_column);
-        auto meter = context.getRenderManager()->getTextMetrics();
-        auto caret = context.getCaretManager();
-        caret->data()->index = meter.getTextIndex(line.str(), line.length(), textOffset.x);
-        caret->set(4 + textOffset.x, 4);
-        caret->show();
+        TextCaretService service(Offset(4, 4), &context);
+        service.moveTo(context.relative(x, y));
+        service.commit(paint, nullptr, m_column);
     }
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
-        auto ctx = caret->getEventContext();
-        auto meter = context.getRenderManager()->getTextMetrics();
-        LineViewer line;
-        if (code == VK_RIGHT || code == VK_LEFT) {
-            line = ctx->getLineViewer(m_column);
-            if (code == VK_RIGHT) {
-                caret->data()->index++;
-                if (caret->data()->index > line.length()) {
-                    if (!context.next()) {
-                        context.prev();
-                        caret->data()->index = line.length();
-                        return;
-                    }
-                    caret->data()->index = 0;
-                }
-            }
-            if (code == VK_LEFT) {
-                caret->data()->index--;
-                if (caret->data()->index < 0) {
-                    caret->data()->index = 0;
-                }
-            }
+        TextCaretService service(Offset(4, 4), &context);
+        if (code == VK_LEFT) {
+            service.moveLeft();
         }
-        if (code == VK_UP || code == VK_DOWN) {
+        if (code == VK_RIGHT) {
+            service.moveRight();
         }
-        if (line.empty())
-            return;
-        int x = meter.measure(line.str(), caret->data()->index);
-        caret->set(x + 4, 4);
-        caret->show();
+        service.commit(paint, nullptr, m_column);
     };
     void onInputChar(EventContext &context, int ch) override {
-        auto caret = context.getCaretManager();
         auto line = context.getLineViewer(m_column);
+        TextCaretService service(Offset(4, 4), &context);
         switch (ch) {
             case VK_BACK:
-                if (caret->data()->index > 0) {
-                    int index = --caret->data()->index;
-                    if (index >= 0) {
-                        line.remove(index);
-                    }
+                if (service.index() > 0) {
+                    line.erase(service.index() - 1);
+                    service.moveLeft();
                 }
                 break;
             case VK_RETURN:
-                m_height += 10;
-                context.start().reflow();
                 break;
             default:
-                context.push(CommandType::Add, CommandData(caret->data()->index, ch));
-                line.insert(caret->data()->index++, ch);
-                context.reflowBrother();
+                line.insert(service.index(), ch);
+                service.moveRight();
                 break;
         }
         if (context.outer) {
             context.outer->notify(WidthChange, 0, m_column);
         }
-
+        service.commit(paint, nullptr, m_column);
         context.redraw();
-        caret->autoSet(4, 4, m_column);
+
     }
 
 };
@@ -349,66 +328,44 @@ public:
     SkPaint style;
     int i = 0;
     LineElement() {
-        paint.setTypeface(SkTypeface::CreateFromName("Monoca", SkTypeface::Style::kNormal));
-        paint.setTextSize(15);
+        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setTextSize(18);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
-        //paint.setLooper(SkBlurDrawLooper::Create(SK_ColorGRAY, 20, 4, 4));
+        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorGRAY, 20, 4, 4));
 
     }
-    int getLogicHeight(EventContext &context) override {
-        return 25;
-    }
-    Display getDisplay() override {
-        return Display::Line;
-    }
+    int getLogicHeight(EventContext &context) override { return 25; }
+    Display getDisplay() override { return Display::Line; }
     Element *copy() override {
         return new LineElement();
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas(&style);
+/*
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.size(), border);
+*/
         LineViewer viewer = context.getLineViewer();
-        canvas->save();
         canvas->translate(0, paint.getTextSize());
         canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, paint);
-        canvas->restore();
-        if (down) {
-            SkPaint select;
-            select.setColor(SK_ColorLTGRAY);
-            select.setXfermodeMode(SkXfermode::Mode::kSrcOut_Mode);
-            canvas->drawRect(SkRect::MakeLTRB(start, 1, end, context.height()), select);
-
-        }
     }
-
-    int start = 0;
-    int end = 0;
-
-    bool down = false;
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
         TextCaretService service(Offset(4, 6), &context);
         service.moveTo(context.relative(x, y));
         service.commit(paint);
-
-        down = true;
-        start = context.relative(x, y).x;
-        end = start;
     }
     void onMouseMove(EventContext &context, int x, int y) override {
-        if (down) {
-            end = context.relative(x, y).x;
-            context.redraw();
+        if (context.selecting()) {
+            context.focus();
+            TextCaretService service(Offset(4, 6), &context);
+            service.moveTo(context.relative(x, y));
+            service.commit(paint);
         }
-    }
-
-    void onLeftButtonUp(EventContext &context, int x, int y) override {
-        down = false;
     }
 
     void onKeyDown(EventContext &context, int code, int status) override {
@@ -489,7 +446,8 @@ public:
         // 设置背景
         //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kColorDodge_Mode));
         style.setColorFilter(
-                SkColorFilter::CreateModeFilter(SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
+                SkColorFilter::CreateModeFilter(
+                        SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
 
     }
 

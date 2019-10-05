@@ -72,7 +72,7 @@ LineViewer EventContext::getLineViewer(int column) {
     return doc->getContext()->m_textBuffer.getLine(getLineIndex(), column);
 }
 
-void EventContext::init(Root *element, int idx = 0) {
+void EventContext::init(Root *element, int idx) {
     if (element->hasChild()) {
         buffer = element->children();
         index = idx;
@@ -203,6 +203,15 @@ GRect EventContext::rect() {
     return GRect::MakeXYWH(pos.x, pos.y, width(), height());
 }
 
+GRect EventContext::viewportRect() {
+    Offset pos = viewportOffset();
+    return GRect::MakeXYWH(pos.x, pos.y, width(), height());
+}
+
+Offset EventContext::viewportOffset() {
+    return offset() - doc->getContext()->m_renderManager->getViewportOffset();
+}
+
 Offset EventContext::relative(int x, int y) {
     return Offset(x, y) - offset();
 }
@@ -222,32 +231,28 @@ EventContext::EventContext(const EventContext *context, EventContext *out) :
         doc(context->doc), buffer(context->buffer), index(context->index), line(context->line), outer(out) {}
 
 void EventContext::post() {
-    doc->getContext()->m_animator.push(copy());
 
+    doc->getContext()->m_animator.push(copy());
+}
+
+Context *EventContext::getDocContext() {
+    return doc->getContext();
 }
 
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
         return this;
     }
-    for (auto ele : *children()) {
-        if (ele->contain(context, x, y)) {
-            return ele->getContain(context, x, y);
+    EventContext event = context.enter();
+    while (event.has()) {
+        if (event.current()->contain(event, x, y)) {
+            return event.current()->getContain(event, x, y);
         }
+        event.next();
     }
     return nullptr;
 }
-EventContext Root::getContainEventContext(EventContext &context, int x, int y) {
-     EventContext event = context.enter();
-     while (event.has()) {
-         if (event.current()->contain(event, x, y)) {
-             return event;
-         }
-         event.next();
-     }
 
-     return {};
-}
 void Root::onRedraw(EventContext &context) {
     EventContext ctx = context.enter();
     while (ctx.has()) {

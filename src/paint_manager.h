@@ -127,7 +127,7 @@ public:
     inline SkCanvas &operator*() {
         return *m_canvas;
     };
-    GRect size();
+    GRect bound();
 };
 
 class GDITextMetrics {
@@ -165,7 +165,7 @@ public:
     HBITMAP m_hBitmap = nullptr;
     Offset m_offset{-10, -10};
     SkBitmap m_bitmap;
-    std::shared_ptr<SkCanvas> canvas;
+    std::shared_ptr<SkCanvas> m_canvas;
 
 public:
     RenderManager() = default;
@@ -187,7 +187,7 @@ public:
         InvalidateRect(m_hWnd, nullptr, false);
     }
     virtual void update() {
-        canvas->clear(SK_ColorWHITE);
+        m_canvas->clear(SK_ColorWHITE);
     }
     virtual void resize() {
         RECT rect;
@@ -201,7 +201,7 @@ public:
 
         SkImageInfo info = SkImageInfo::Make(w, h, kN32_SkColorType, kPremul_SkAlphaType);
         m_bitmap.installPixels(info, bits, info.minRowBytes());
-        canvas = std::make_shared<SkCanvas>(m_bitmap);
+        m_canvas = std::make_shared<SkCanvas>(m_bitmap);
     }
     virtual void redraw(EventContext *ctx);
     static HBITMAP createBitmap(int nWid, int nHei, void **ppBits) {
@@ -221,7 +221,7 @@ public:
         return hBmp;
     }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
-    virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) { return Canvas(ctx, canvas.get(), paint); }
+    virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) { return Canvas(ctx, m_canvas.get(), paint); }
     virtual TextMetrics getTextMetrics() { return TextMetrics(m_hMemDC); }
     inline Offset getViewportOffset() { return m_offset; }
     virtual void setViewportOffset(Offset offset) { m_offset = offset; }

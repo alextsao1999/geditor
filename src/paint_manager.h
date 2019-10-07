@@ -10,6 +10,8 @@
 #include <SkBitmap.h>
 #include <SkCanvas.h>
 #include <SkString.h>
+#include <SkTypeface.h>
+#include <SkParse.h>
 #include "common.h"
 #include "layout.h"
 struct EventContext;
@@ -47,7 +49,11 @@ struct Size {
 };
 enum {
     StyleDeafault,
+    StyleErrorFont,
     StyleDeafaultFont,
+    StyleOperatorFont,
+    StyleStringFont,
+    StyleNumberFont,
     StyleBorder,
     StyleKeyword,
     StyleTableFont,
@@ -59,6 +65,7 @@ private:
 public:
     StyleManager() {
         SkPaint paint;
+        paint.reset();
         add(StyleDeafault, paint);
 
         paint.reset();
@@ -66,22 +73,32 @@ public:
         add(StyleBorder, paint);
 
         paint.reset();
-        paint.setTextSize(14);
+        //paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setTextSize(18);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
-        paint.setAntiAlias(true);
+        //paint.setAntiAlias(true);
+
         paint.setColor(SK_ColorBLACK);
         add(StyleDeafaultFont, paint);
 
-        paint.reset();
-        paint.setColor(SK_ColorBLUE);
-        paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
-        paint.setAntiAlias(true);
-        paint.setTextSize(14);
+        paint.setColor(ParseColor("#FF8C00"));
+        add(StyleErrorFont, paint);
+
+        paint.setColor(ParseColor("#27408B"));
         add(StyleKeyword, paint);
 
-        //paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setColor(ParseColor("#8B7D7B"));
+        add(StyleOperatorFont, paint);
+
+        paint.setColor(ParseColor("#008B8B"));
+        add(StyleStringFont, paint);
+
+        paint.setColor(ParseColor("#9400D3"));
+        add(StyleNumberFont, paint);
+
         paint.reset();
-        paint.setTextSize(14);
+        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setTextSize(18);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
@@ -91,6 +108,11 @@ public:
         paint.setStyle(SkPaint::Style::kStroke_Style);
         paint.setColor(SK_ColorLTGRAY);
         add(StyleTableBorder, paint);
+    }
+    static SkColor ParseColor(const char *str) {
+        SkColor color;
+        SkParse::FindColor(str, &color);
+        return color;
     }
     void add(int id, const SkPaint& paint) {
         m_map.emplace(std::pair<int, SkPaint>(id, paint));

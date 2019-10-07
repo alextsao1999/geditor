@@ -14,7 +14,7 @@ bool IsAlpha(GChar ch) {
     return (ch >= _HM_C('a') && ch <= _HM_C('z')) || (ch >= _HM_C('A') && ch <= _HM_C('Z'));
 }
 bool IsCodeChar(GChar ch) {
-    return IsAlpha(ch) || ch == _HM_C('_');
+    return IsAlpha(ch) || ch == _HM_C('_') || (ch > _GT('\u4E00') && ch < _GT('\u9FA5'));
 }
 
 void Lexer::enter(EventContext *ctx, int column, Offset off) {
@@ -54,8 +54,13 @@ void Lexer::ParseString() {
     NEXT();
     do {
         NEXT();
-    } while (CURRENT_CHAR != first && has());
-    TOKEN_END(TokenString, StyleDeafaultFont);
+        if (!has()) {
+            TOKEN_END(TokenString, StyleErrorFont);
+            return;
+        }
+    } while (CURRENT_CHAR != first);
+    NEXT();
+    TOKEN_END(TokenString, StyleStringFont);
 }
 
 void Lexer::ParseNumber() {
@@ -63,7 +68,7 @@ void Lexer::ParseNumber() {
     do {
         NEXT();
     } while (IsNumber(CURRENT_CHAR) || CURRENT_CHAR == _HM_C('.'));
-    TOKEN_END(TokenNumber, StyleDeafaultFont);
+    TOKEN_END(TokenNumber, StyleNumberFont);
 }
 
 Token Lexer::next() {
@@ -80,7 +85,7 @@ Token Lexer::next() {
             if (NEXT_CHAR == _HM_C('/') || NEXT_CHAR == _HM_C('*')) {
                 NEXT();
             }
-            TOKEN_END(TokenOperator, StyleDeafaultFont);
+            TOKEN_END(TokenOperator, StyleOperatorFont);
             break;
         default:
             if (IsCodeChar(CURRENT_CHAR)) {

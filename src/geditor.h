@@ -47,14 +47,14 @@ public:
         }
         m_data->m_document.append(new TableElement(3, 3));
         m_data->m_document.append(new ButtonElement());
-        m_data->m_document.appendLine(new LineElement()).append(L"this is test string1");
-        m_data->m_document.appendLine(new LineElement()).append(L"this is test string2");
+        m_data->m_document.appendLine(new SyntaxLineElement()).append(L"var a = 100;");
+        m_data->m_document.appendLine(new SyntaxLineElement()).append(L"this");
         m_data->m_document.appendLine(new SyntaxLineElement()).append(L"if (a == 2)");
-        m_data->m_document.appendLine(new LineElement()).append(L"this is test string3");
+        m_data->m_document.appendLine(new SyntaxLineElement()).append(L"class YourClass");
 
         for (int i = 0; i < 5; ++i) {
             GChar str[255];
-            auto line = m_data->m_document.appendLine(new LineElement());
+            auto line = m_data->m_document.appendLine(new SyntaxLineElement());
             wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
             line.append(str);
         }
@@ -222,7 +222,6 @@ public:
         data->m_renderManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
         data->m_document.getContext()->m_caretManager.update();
     }
-
     static void onPaint(HWND hWnd, GEditorData *data, EventContext &context) {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);

@@ -18,12 +18,13 @@
 #define NEXT_CHAR string[position + 1]
 #define NEXT() position++
 #define TOKEN_START() {current.start = &CURRENT_CHAR;current.offset = offset;}
-#define TOKEN_OFFSET() offset.x += context->getStyle(StyleDeafaultFont).measureText((char *) current.start, current.length*2);
+#define TOKEN_OFFSET(endstyle) offset.x += context->getStyle(endstyle).measureText((char *) current.start, current.length*2);
+
 #define TOKEN_END(tok_type, end_style) {\
 current.type = tok_type; \
 current.style = end_style; \
 current.length = int(&string[CURRENT_POS] - current.start); \
-TOKEN_OFFSET(); \
+TOKEN_OFFSET(end_style); \
 }
 
 class EventContext;
@@ -50,10 +51,16 @@ struct Token {
 static GString symbols = _GT("+-*/");
 static std::map<GString, int> keywords = {
         {_GT("if"), StyleKeyword},
+        {_GT("while"), StyleKeyword},
+        {_GT("var"), StyleKeyword},
+        {_GT("this"), StyleKeyword},
+        {_GT("break"), StyleKeyword},
+        {_GT("do"), StyleKeyword},
+        {_GT("class"), StyleKeyword},
 };
 
 class Lexer {
-    EventContext *context;
+    EventContext *context{};
     LineViewer viewer;
     const GChar *string{};
     int position = 0;

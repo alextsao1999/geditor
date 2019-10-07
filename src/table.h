@@ -15,6 +15,7 @@
 #include <SkTypeface.h>
 #include <SkBlurImageFilter.h>
 #include <SkPathOps.h>
+#include <SkParse.h>
 #include "document.h"
 #include "utils.h"
 
@@ -527,22 +528,12 @@ public:
 };
 class SyntaxLineElement : public RelativeElement {
 public:
-    SkPaint paint;
     SkPaint style;
-    int i = 0;
-    SyntaxLineElement() {
-        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
-        paint.setTextSize(18);
-        paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
-        paint.setAntiAlias(true);
-        paint.setColor(SK_ColorBLACK);
-        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorGRAY, 10, 4, 4));
-
-    }
+    SyntaxLineElement() = default;
     int getLogicHeight(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
     Element *copy() override {
-        return new LineElement();
+        return new SyntaxLineElement();
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas(&style);
@@ -553,7 +544,7 @@ public:
         canvas->drawRect(canvas.bound(), border);
 
         LineViewer viewer = context.getLineViewer();
-        canvas->translate(0, paint.getTextSize());
+        canvas->translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
         //canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, paint);
 
         auto *lexer = context.getLexer(Offset(4, 2));
@@ -561,6 +552,7 @@ public:
         while (lexer->has()) {
             Token token = lexer->next();
             GString string(token.start, token.length);
+            //printf("token x:%d y:%d   %ls\n", token.offset.x, token.offset.y, string.c_str());
             canvas->drawText((char *) string.c_str(), token.length * 2, token.offset.x, token.offset.y,
                              context.getStyle(token.style));
 
@@ -574,18 +566,19 @@ public:
         context.focus();
         TextCaretService service(Offset(4, 6), &context);
         service.moveTo(context.relative(x, y));
-        service.commit(paint);
+        service.commit(context.getStyle(StyleDeafaultFont));
     }
     void onMouseMove(EventContext &context, int x, int y) override {
         if (context.selecting()) {
             context.focus();
             TextCaretService service(Offset(4, 6), &context);
             service.moveTo(context.relative(x, y));
-            service.commit(paint);
+            service.commit(context.getStyle(StyleDeafaultFont));
         }
     }
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
+        auto &paint = context.getStyle(StyleDeafaultFont);
         TextCaretService service(Offset(4, 5), &context);
         if (code == VK_LEFT) {
             service.moveLeft();
@@ -627,7 +620,7 @@ public:
                 } else {
                     if (caret->prev()) {
                         service.moveToIndex(-1);
-                        service.commit(paint);
+                        service.commit(context.getStyle(StyleDeafaultFont));
                         context.combine(); // 因为combine要delete本对象 之后paint就不存在了 所以移动要在之前调用
                         context.reflow();
                         context.redraw();
@@ -650,7 +643,7 @@ public:
                 service.moveRight();
                 break;
         }
-        service.commit(paint);
+        service.commit(context.getStyle(StyleDeafaultFont));
         context.redraw();
     }
     void onFocus(EventContext &context) override {

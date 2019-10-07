@@ -12,7 +12,7 @@
 #include "command_queue.h"
 #include "text_buffer.h"
 #include "caret_manager.h"
-
+#include "lexer.h"
 #define CallChildEvent(name) \
     EventContext event = context.enter(); \
     while (event.has()) { \
@@ -41,8 +41,10 @@ struct Context {
     std::queue<EventContext *> m_animator;
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
+    StyleManager m_styleManager;
     CaretManager m_caretManager;
     CommandQueue m_queue;
+    Lexer m_lexer;
     TextBuffer m_textBuffer;
     Element *m_enterElement = nullptr;
     GRect m_enterRect;
@@ -137,6 +139,12 @@ struct EventContext {
     RenderManager *getRenderManager();
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
+    StyleManager *getStyleManager();
+    inline GPaint &getStyle(int id) { return getStyleManager()->get(id); }
+    Lexer *getLexer(Offset offset, int column = 0) {
+        getDocContext()->m_lexer.enter(this, column, offset);
+        return &getDocContext()->m_lexer;
+    }
     LineViewer getLineViewer(int column = 0);
     LineViewer copyLine();
     EventContext() = default;

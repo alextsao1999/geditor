@@ -18,7 +18,7 @@ Canvas::Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint) : m_canv
 }
 
 Canvas::~Canvas() {
-    m_canvas->restoreToCount(m_count);
+    restore();
 }
 
 SkRect Canvas::bound(Offset inset) {

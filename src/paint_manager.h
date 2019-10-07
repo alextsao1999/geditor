@@ -16,6 +16,7 @@ struct EventContext;
 typedef SkColor GColor;
 typedef SkRect GRect;
 typedef SkPath GPath;
+typedef SkPaint GPaint;
 
 struct Offset {
     int x = 0;
@@ -46,15 +47,50 @@ struct Size {
 };
 enum {
     StyleDeafault,
+    StyleDeafaultFont,
     StyleBorder,
+    StyleKeyword,
+    StyleTableFont,
+    StyleTableBorder,
 };
 class StyleManager {
 private:
     std::map<int, SkPaint> m_map;
 public:
     StyleManager() {
-        add(StyleDeafault, SkPaint());
-        add(StyleBorder, SkPaint());
+        SkPaint paint;
+        add(StyleDeafault, paint);
+
+        paint.reset();
+        paint.setColor(SK_ColorLTGRAY);
+        add(StyleBorder, paint);
+
+        paint.reset();
+        paint.setTextSize(14);
+        paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
+        paint.setAntiAlias(true);
+        paint.setColor(SK_ColorBLACK);
+        add(StyleDeafaultFont, paint);
+
+        paint.reset();
+        paint.setColor(SK_ColorBLUE);
+        paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
+        paint.setAntiAlias(true);
+        paint.setTextSize(14);
+        add(StyleKeyword, paint);
+
+        //paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.reset();
+        paint.setTextSize(14);
+        paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
+        paint.setAntiAlias(true);
+        paint.setColor(SK_ColorBLACK);
+        add(StyleTableFont, paint);
+
+        paint.reset();
+        paint.setStyle(SkPaint::Style::kStroke_Style);
+        paint.setColor(SK_ColorLTGRAY);
+        add(StyleTableBorder, paint);
     }
     void add(int id, const SkPaint& paint) {
         m_map.emplace(std::pair<int, SkPaint>(id, paint));
@@ -113,6 +149,13 @@ public:
 
     Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint = nullptr);
     ~Canvas();
+
+    void restore() {
+        if (m_count) {
+            m_canvas->restoreToCount(m_count);
+            m_count = 0;
+        }
+    }
     void drawLine(int x1, int y1, int x2, int y2, SkPaint &paint) {
         m_canvas->drawLine(x1, y1, x2, y2, paint);
     };

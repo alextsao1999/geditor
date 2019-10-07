@@ -49,6 +49,7 @@ public:
         m_data->m_document.append(new ButtonElement());
         m_data->m_document.appendLine(new LineElement()).append(L"this is test string1");
         m_data->m_document.appendLine(new LineElement()).append(L"this is test string2");
+        m_data->m_document.appendLine(new SyntaxLineElement()).append(L"if (a == 2)");
         m_data->m_document.appendLine(new LineElement()).append(L"this is test string3");
 
         for (int i = 0; i < 5; ++i) {
@@ -240,7 +241,6 @@ public:
                     color.setColor(SK_ColorCYAN);
                     color.setAlpha(150);
                     auto bound = context.relative(select.x(), select.y());
-
                     canvas->drawRect(GRect::MakeXYWH(bound.x, bound.y, select.width(), select.height()), color);
 
                 }

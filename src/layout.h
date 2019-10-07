@@ -29,12 +29,8 @@ public:
     void reflow(EventContext context);
     void reflowAll(Document *doc);
     void reflowEnter(EventContext context);
-    int getHeight() {
-        return m_height;
-    }
-    int getWidth() {
-        return m_width;
-    }
+    int getHeight() { return m_height; }
+    int getWidth() { return m_width; }
 };
 
 

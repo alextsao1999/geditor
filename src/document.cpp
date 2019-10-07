@@ -254,6 +254,10 @@ Context *EventContext::getDocContext() {
     return doc->getContext();
 }
 
+StyleManager *EventContext::getStyleManager() {
+    return &getDocContext()->m_styleManager;
+}
+
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!hasChild()) {
         return this;

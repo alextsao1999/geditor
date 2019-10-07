@@ -14,9 +14,9 @@ void LayoutManager::reflow(EventContext context) {
         current->onEnterReflow(context, offset);
         current->setLogicOffset(offset);
         switch (current->getDisplay()) {
-            case Display::None:
+            case DisplayNone:
                 break;
-            case Display::Inline:
+            case DisplayInline:
                 blockMaxWidth = 0;
                 offset.x += current->getWidth(context);
                 value = current->getHeight(context);
@@ -24,8 +24,8 @@ void LayoutManager::reflow(EventContext context) {
                     lineMaxHeight = value;
                 }
                 break;
-            case Display::Line:
-            case Display::Block:
+            case DisplayLine:
+            case DisplayBlock:
                 lineMaxHeight = 0;
                 value = current->getWidth(context);
                 if (value > blockMaxWidth) {
@@ -58,7 +58,7 @@ void LayoutManager::reflow(EventContext context) {
 
 void LayoutManager::reflowAll(Document *doc) {
     EventContext context = EventContextBuilder::build(doc);
-    context.init(doc, 0);
+    context.init(doc);
     reflowEnter(context);
 }
 
@@ -70,9 +70,9 @@ void LayoutManager::reflowEnter(EventContext context) {
         current->onEnterReflow(context, offset);
         current->setLogicOffset(offset);
         switch (current->getDisplay()) {
-            case Display::None:
+            case DisplayNone:
                 break;
-            case Display::Inline:
+            case DisplayInline:
                 blockMaxWidth = 0;
                 if (current->hasChild()) {
                     EventContext ctx = context.enter();
@@ -86,8 +86,8 @@ void LayoutManager::reflowEnter(EventContext context) {
                     lineMaxHeight = value;
                 }
                 break;
-            case Display::Line:
-            case Display::Block:
+            case DisplayLine:
+            case DisplayBlock:
                 lineMaxHeight = 0;
                 if (current->hasChild()) {
                     EventContext ctx = context.enter();

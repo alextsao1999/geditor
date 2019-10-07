@@ -14,7 +14,7 @@ foreach(inc_dir ${inc_dirs})
 endforeach()
 add_subdirectory(third_party/skia)
 
-add_definitions(-DUNICODE -D_UNICODE)
+add_definitions(-DUNICODE -D_UNICODE -D_MT -D_Debug)
 include_directories(src/)
 file(GLOB_RECURSE headers RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.h)
 aux_source_directory(src/ sources)
@@ -25,5 +25,6 @@ add_executable(geditor ${sources} ${headers})
 set(LINK_STATIC_LIB opengl32.lib usp10.lib skia)
 target_link_libraries(geditor ${LINK_STATIC_LIB})
 
-add_executable(test third_party/test.cpp)
+add_executable(test third_party/test.cpp src/memory.cpp)
+
 target_link_libraries(test ${LINK_STATIC_LIB})

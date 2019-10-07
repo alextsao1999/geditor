@@ -12,18 +12,16 @@ Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(con
 Canvas::Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint) : m_canvas(canvas), m_context(context) {
     m_offset = context->viewportOffset();
     //m_count = m_canvas->save();
-    GRect rect = GRect::MakeXYWH(m_offset.x, m_offset.y, context->width(), context->height());
-    rect.inset(-1, -1);
+    GRect rect = GRect::MakeXYWH(m_offset.x, m_offset.y, context->width() + 1, context->height() + 1);
     m_count = m_canvas->saveLayer(&rect, paint);
     m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
 }
 
 Canvas::~Canvas() {
     m_canvas->restoreToCount(m_count);
-    //m_canvas->translate(SkIntToScalar(-m_offset.x), SkIntToScalar(-m_offset.y));
 }
 
-SkRect Canvas::bound() {
+SkRect Canvas::bound(Offset inset) {
     SkRect rect{
             0,
             0,
@@ -31,6 +29,7 @@ SkRect Canvas::bound() {
             SkIntToScalar(m_context->height())
     };
 
+    rect.inset(inset.x, inset.y);
     return rect;
 }
 

@@ -41,13 +41,6 @@ void CaretManager::set(Offset pos) {
     update();
 }
 
-void CaretManager::autoSet(int x, int y, int column) {
-    auto meter = m_context->getRenderManager()->getTextMetrics();
-    auto line = m_context->getLineViewer(column);
-    int width = meter.measure(line.str(), m_data.index);
-    set(x + width, y);
-}
-
 bool CaretManager::enter(int index) {
     if (m_context && m_context->current()->hasChild()) {
         m_context = new EventContext(m_context->doc, m_context->current()->children(), m_context, index);

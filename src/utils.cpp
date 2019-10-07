@@ -15,10 +15,21 @@ void GSleep(double d) {
     }
 }
 
-void DoEvents() {
+void DoEvents(HWND hWnd) {
     MSG msg;
-    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-        DispatchMessage(&msg);
-        TranslateMessage(&msg);
+    BOOL result;
+    while ( ::PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE ) )
+    {
+        result = ::GetMessage(&msg, NULL, 0, 0);
+        if (result == 0) // WM_QUIT
+        {
+            ::PostQuitMessage(msg.wParam);
+            break;
+        }
+        else
+        {
+            ::TranslateMessage(&msg);
+            :: DispatchMessage(&msg);
+        }
     }
 }

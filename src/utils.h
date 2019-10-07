@@ -7,5 +7,5 @@
 
 #include "common.h"
 void GSleep(double d);
-void DoEvents();
+void DoEvents(HWND hWnd = nullptr);
 #endif //GEDITOR_UTILS_H

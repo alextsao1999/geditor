@@ -26,12 +26,15 @@
 #define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
 #define DEFINE_EVENT2(event) virtual void event(EventContext &context, int x, int y) {CallChildEvent(event);}
 #define CallEvent(context, event, ...) ((context).current()->event(context, ##__VA_ARGS__))
+#define context_for(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
+#define context_cur(ctx, method, ...) ((ctx).current()->method(ctx, ##__VA_ARGS__))
+#define context_on(ctx, method, ...) ((ctx).current()->on##method(ctx, ##__VA_ARGS__))
 
-enum class Display {
-    None,
-    Inline,
-    Block,
-    Line,
+enum Display {
+    DisplayNone,
+    DisplayInline,
+    DisplayBlock,
+    DisplayLine,
 };
 
 struct Context {
@@ -41,7 +44,8 @@ struct Context {
     CaretManager m_caretManager;
     CommandQueue m_queue;
     TextBuffer m_textBuffer;
-    Element *m_mouseEnter = nullptr;
+    Element *m_enterElement = nullptr;
+    GRect m_enterRect;
     //////////////////////////
     bool m_selecting = false;
     Offset m_selectStart;
@@ -105,7 +109,7 @@ struct EventContext {
     // 只改变本层次Line
     void prevLine(int count = 1) { line -= count; }
     void nextLine(int count = 1) { line += count; }
-    void reflowBrother();
+    void reflowEnter();
     void reflow();
     void redraw();
     void focus();
@@ -114,7 +118,10 @@ struct EventContext {
     void insert(int idx, Element *ele) { buffer->insert(idx, ele); }
     void notify(int type, int p1, int p2);
     void post();
+
+    GPath path();
     GRect rect();
+    GRect logicRect();
     Offset offset();
     GRect viewportRect();
     Offset viewportOffset();
@@ -137,7 +144,7 @@ struct EventContext {
     explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx);
     explicit EventContext(const EventContext *context, EventContext *out);
     EventContext start() { return EventContext(doc, buffer, outer, 0); }
-    EventContext enter();
+    EventContext enter(int idx = 0);
     void leave() {
         if (outer) {
             outer->nextLine(line);
@@ -156,9 +163,7 @@ struct EventContext {
         }
         printf(" { index = %d, line = %d }", index, line);
     }
-    bool selecting() {
-        return getDocContext()->m_selecting;
-    }
+    bool selecting() { return getDocContext()->m_selecting; }
 };
 
 class EventContextBuilder {
@@ -225,12 +230,11 @@ public:
     }
     Offset getOffset(EventContext &context) override;
     virtual void setLogicOffset(Offset offset) {}
-    virtual Display getDisplay() { return Display::None; };
+    virtual Display getDisplay() { return DisplayNone; };
     virtual void onPreMouseMove(EventContext &context, int x, int y);
     virtual void onMouseMove(EventContext &context, int x, int y){}
     virtual void onMouseEnter(EventContext &context, int x, int y) {}
     virtual void onMouseLeave(int x, int y) {}
-    virtual bool onNextFrame(EventContext &context) { return false; }
     DEFINE_EVENT(onFocus);
     DEFINE_EVENT(onBlur);
     DEFINE_EVENT(onKeyDown, int code, int status);
@@ -255,23 +259,23 @@ public:
         WidthChange,
         Update,
     };
-    DEFINE_EVENT(onNotify, int type, int p1, int p2);
+    DEFINE_EVENT(onNotify, int type, int param, int other);
     virtual Element *copy() { return nullptr; }
     int getLineNumber();
     int getWidth(EventContext &context) override;
     void dump() override {
         std::cout << "Display : ";
         switch (getDisplay()) {
-            case Display::None:
+            case DisplayNone:
                 std::cout << "None";
                 break;
-            case Display::Inline:
+            case DisplayInline:
                 std::cout << "Inline";
                 break;
-            case Display::Block:
+            case DisplayBlock:
                 std::cout << "Block";
                 break;
-            case Display::Line:
+            case DisplayLine:
                 std::cout << "Line";
                 break;
         }
@@ -299,7 +303,7 @@ public:
     int m_width = 0;
     int m_height = 0;
 public:
-    Display m_display = Display::Block;
+    Display m_display = DisplayBlock;
     Container() = default;
     ~Container() override {
         for (auto element : m_index) {
@@ -321,6 +325,10 @@ public:
     Display getDisplay() override { return m_display; }
     inline void setDisplay(Display display) { m_display = display; }
     virtual void append(Element *element) { m_index.append(element); }
+
+    virtual void append(EventContext &context, Element *element) {
+        m_index.append(element);
+    }
 };
 
 class Document : public Container {
@@ -331,7 +339,7 @@ public:
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
     LineViewer appendLine(Element *element) {
-        if (element->getDisplay() != Display::Line) {
+        if (element->getDisplay() != DisplayLine) {
             return {};
         }
         m_index.append(element);

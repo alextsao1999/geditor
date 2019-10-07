@@ -11,8 +11,86 @@
 #include "memory.h"
 #include <vector>
 #include <iostream>
-
 #define GString std::wstring
+template <typename T>
+struct Buffer {
+    // this is just a buffer
+    T *data = nullptr;
+    int count = 0;
+    int capacity = 0;
+    class BufferIter {
+        Buffer *m_data;
+        int m_index = 0;
+    public:
+        explicit BufferIter(Buffer *data) : m_data(data) {}
+        inline bool has() { return m_index < m_data->size(); }
+        inline void next() { m_index++; }
+        inline int index() { return m_index; }
+        inline T &current() { return m_data->operator[](m_index); }
+    };
+    inline BufferIter iter() { return BufferIter(this); }
+    inline void fill(const T &value, int num) {
+        ensureCapacity(count + num);
+        for (int i = 0; i < num; ++i) {
+            data[count++] = value;
+        }
+    };
+    inline int push(const T &data = T()) {
+        fill(data, 1);
+        return count - 1;
+    };
+    inline const T &back() { return data[count - 1]; }
+    inline T pop() { return std::move(data[--count]); }
+    inline void erase(int index) { memcpy(&data[index], &data[index  + 1], (--count - index) * sizeof(T)); };
+    inline void erase(int pos, int npos) {
+        int n = npos - pos + 1;
+        for (int i = 0; i < n; ++i) {
+            erase(pos);
+        }
+    }
+    inline bool insert(int index, const T &value = T()) {
+        if (index >= count)
+            fill(T(), index - count + 1);
+        else {
+            ensureCapacity(++count);
+            memmove(&data[index + 1], &data[index], (count - index - 1) * sizeof(T));
+        }
+        data[index] = value;
+        return true;
+    };
+    inline void set(int index, const T &value = T()) {
+        ensureIndex(index);
+        data[index] = value;
+    };
+    inline T &at(int index) {
+        ensureIndex(index);
+        return data[index];
+    }
+    inline int size() {
+        return count;
+    };
+    inline void clear() {
+        ge_free(data);
+        data = nullptr;
+    }
+    // 确保容量
+    inline void ensureCapacity(int newCapacity) {
+        if (newCapacity > capacity) {
+            // size_t oldSize = capacity * sizeof(T);
+            capacity = CeilToPowerOf2(newCapacity);
+            data = (T *) ge_realloc(data, capacity * sizeof(T));
+        }
+    }
+    inline void ensureIndex(int index) {
+        if (index >= count)
+            fill(T(), index - count + 1);
+    }
+    inline T &operator[](const int &index) {
+        ensureIndex(index);
+        return data[index];
+    }
+};
+
 struct ColumnNode {
     GString content;
     ColumnNode *next = nullptr;
@@ -86,7 +164,7 @@ public:
         str.insert(str.begin() + pos, (GChar) ch);
     }
 
-    void erase(int pos, int length = 1) {
+    void erase(int pos, int length) {
         auto &str = content();
         str.erase(str.begin() + pos, str.begin() + pos + length);
     }
@@ -99,7 +177,7 @@ public:
         return str.length();
     }
     int size() {
-        return length() * 2;
+        return length() * sizeof(GChar);
     }
 
     void append(const GChar *text, int length = 0) {

@@ -26,7 +26,7 @@ public:
     ~CaretManager();
     Element *getFocus ();
     EventContext *getEventContext() { return m_context; }
-    void create(int width = 1, int height = 15) {
+    void create(int width = 2, int height = 17) {
         CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
     }
     void destroy() {
@@ -48,7 +48,6 @@ public:
         set(Offset(x, y));
     }
     inline Offset getCurrent() { return m_current; }
-    void autoSet(int x, int y, int column = 0);
     void update();
     // 当前Focus的EventContext
     bool next();

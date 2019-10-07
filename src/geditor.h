@@ -84,7 +84,7 @@ public:
         wcex.hIconSm = nullptr;
         return RegisterClassEx(&wcex);
     }
-    static GEditor build(HWND parent, int x = 0, int y = 0, int nWidth = 400,int nHeight = 400) {
+    static GEditor build(HWND parent, int x = 0, int y = 0, int nWidth = 850,int nHeight = 500) {
         if (!isInit && init()) {
             isInit = true;
         }
@@ -230,7 +230,7 @@ public:
         Offset offset = data->m_renderManager.getViewportOffset();
         data->m_renderManager.update();
         while (context.has()) {
-            if (context.current()->getDisplay() != Display::None) {
+            if (context.current()->getDisplay() != DisplayNone) {
                 context.current()->onRedraw(context);
                 if (context.rect().intersect(select)) {
                     SkPaint paint_select;

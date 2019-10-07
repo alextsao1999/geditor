@@ -8,10 +8,13 @@
 #include <SkBlurDrawLooper.h>
 #include <SkColorFilter.h>
 #include <SkMaskFilter.h>
+#include <SkDashPathEffect.h>
 #include <SkBlurMaskFilter.h>
+#include <SkGradientShader.h>
 #include <SkImageFilter.h>
 #include <SkTypeface.h>
 #include <SkBlurImageFilter.h>
+#include <SkPathOps.h>
 #include "document.h"
 #include "utils.h"
 
@@ -127,9 +130,7 @@ public:
         if (m_width) { return m_width; }
         return getLogicWidth(context);
     }
-    Display getDisplay() override {
-        return Display::Inline;
-    }
+    Display getDisplay() override { return DisplayInline; }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         SkPaint border;
@@ -146,6 +147,15 @@ public:
         service.moveTo(context.relative(x, y));
         service.commit((const char*)m_data.c_str(), m_data.length() * 2, paint);
     }
+    void onMouseMove(EventContext &context, int x, int y) override {
+        if (context.selecting()) {
+            context.focus();
+            TextCaretService service(Offset(4, 4), &context);
+            service.moveTo(context.relative(x, y));
+            service.commit((const char*)m_data.c_str(), m_data.length() * 2, paint);
+        }
+    }
+
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 4), &context);
@@ -191,7 +201,6 @@ public:
     int m_width = 0;
     int m_height = 25;
     explicit ColumnElement(int column) : m_column(column) {
-        //paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
         paint.setTextSize(14);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
@@ -212,13 +221,16 @@ public:
         return getLogicWidth(context);
     }
     Display getDisplay() override {
-        return Display::Inline;
+        return DisplayInline;
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
-        border.setColor(SK_ColorLTGRAY);
+        border.setColor(SK_ColorBLACK);
+        float internal[] = {2.0, 4.0};
+        //border.setPathEffect(SkDashPathEffect::Create(internal, 2, 1));
+
         canvas->drawRect(canvas.bound(), border);
 
         auto line = context.getLineViewer(m_column);
@@ -231,6 +243,13 @@ public:
         service.moveTo(context.relative(x, y));
         service.commit(paint, nullptr, m_column);
     }
+
+    void onMouseMove(EventContext &context, int x, int y) override {
+        if (context.selecting()) {
+            onLeftButtonDown(context, x, y);
+        }
+    }
+
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 4), &context);
@@ -248,7 +267,7 @@ public:
         switch (ch) {
             case VK_BACK:
                 if (service.index() > 0) {
-                    line.erase(service.index() - 1);
+                    line.remove(service.index() - 1);
                     service.moveLeft();
                 }
                 break;
@@ -270,24 +289,26 @@ public:
 };
 class ButtonElement : public RelativeElement {
 public:
-    GString m_data;
-    Display getDisplay() override {
-        return Display::Block;
-    }
-    int getLogicHeight(EventContext &context) override {
-        return 50;
-    }
-    int getWidth(EventContext &context) override {
-        return 50;
+    SkBitmap bitmap;
+    ButtonElement() {
+        bitmap.allocN32Pixels(200, 100);
+        draw(0, 0, 0,
+             SkColorSetRGB(191, 191, 191), SkColorSetRGB(242, 242, 242));
     }
 
+    Display getDisplay() override {
+        return DisplayBlock;
+    }
+    int getLogicHeight(EventContext &context) override {
+        return 100;
+    }
+    int getWidth(EventContext &context) override {
+        return 200;
+    }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        SkPaint line;
-        line.setColor(SK_ColorBLUE);
-        for (int i = 0; i < 30; ++i) {
-            canvas->drawLine(10, 4, 10 + i * 4, 4, line);
-        }
+        canvas->drawBitmap(bitmap, 0, 0);
+/*
         SkPaint style;
         style.setColor(SK_ColorBLACK);
         style.setTextSize(15);
@@ -295,31 +316,105 @@ public:
         style.setColor(SK_ColorRED);
         canvas->drawText(m_data.c_str(), m_data.size() * 2, 4, 4 + 15, style);
 
-        SkRect rect{};
-        rect.setXYWH(0, 0, getWidth(context), getHeight(context));
 
-        SkPath path;
-        float radiusArray[8];
-        for (auto &arr : radiusArray) {
-            arr = 6.0f;
-        }
         SkPaint paint;
-        path.addRoundRect(rect, radiusArray);
-        paint.setColor(SK_ColorRED);
-        paint.setStrokeWidth(1);
+        //paint.setColor(SK_ColorLTGRAY);
+        SkPoint points[2] = {{0.0f, 0.0f}, {256.0f, 256.0f}};
+        SkColor colors[2] = {SkColorSetRGB(66,133,244), SkColorSetRGB(15,157,88)};
+        paint.setShader(
+                SkGradientShader::CreateLinear(
+                        points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL));
+        paint.setStrokeWidth(4);
         paint.setStyle(SkPaint::kStroke_Style);
+
         paint.setAntiAlias(true);
-        canvas->drawPath(path, paint);
+        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorBLACK, 3, 0, 0));
+        canvas->drawRoundRect(canvas.bound({10, 10}), 4, 4, paint);
 
+        SkPath mystar = star(3, 35, 20);
+        mystar.offset(15, 15);
+        canvas->drawPath(mystar, paint);
+*/
+    }
+    static float rad(float deg) {
+        return (float) (deg * 3.1415926 / 180);
+    }
+    static GPath star(int num, float R, float r) {
+        GPath path;
+        float perDeg = 360 / num;
+        float degA = perDeg / 2 / 2;
+        float degB = 360 / (num - 1) / 2 - degA / 2 + degA;
+        path.moveTo(
+                (float) (cos(rad(degA + perDeg * 0)) * R + R * cos(rad(degA))),
+                (float) (-sin(rad(degA + perDeg * 0)) * R + R));
+        for (int i = 0; i < num; i++) {
+            path.lineTo(
+                    (float) (cos(rad(degA + perDeg * i)) * R + R * cos(rad(degA))),
+                    (float) (-sin(rad(degA + perDeg * i)) * R + R));
+            path.lineTo(
+                    (float) (cos(rad(degB + perDeg * i)) * r + R * cos(rad(degA))),
+                    (float) (-sin(rad(degB + perDeg * i)) * r + R));
+        }
+        path.close();
+        return path;
+    }
+    void draw(int sigma, int posx = 0, int posy = 0, SkColor border = 0, SkColor color = 0) {
+
+        SkRect rect{};
+        bitmap.getBounds(&rect);
+        rect.inset(20, 20);
+
+        SkCanvas canvas(bitmap);
+        canvas.clear(SK_ColorWHITE);
+
+        SkPaint paint;
+        paint.setStyle(SkPaint::Style::kFill_Style);
+        paint.setColor(color);
+        paint.setAntiAlias(true);
+        paint.setLooper(SkBlurDrawLooper::Create(color, sigma, posx, posy));
+        canvas.drawRoundRect(rect, 4, 4, paint);
+
+        paint.reset();
+        paint.setColor(border);
+        paint.setStyle(SkPaint::Style::kStroke_Style);
+        paint.setStrokeWidth(0.5);
+        paint.setAntiAlias(true);
+        canvas.drawRoundRect(rect, 4, 4, paint);
+
+        SkPaint font;
+        font.setColor(SK_ColorBLACK);
+        char str[255] = {'\0'};
+        sprintf(str, "first button");
+        canvas.drawText(str, strlen(str), 90, 35, font);
 
     }
-
+    EventContext *ctx{nullptr};
     void onMouseEnter(EventContext &context, int x, int y) override {
-
+        ctx = context.copy();
+        draw(1, 0, 0,
+                SkColorSetRGB(161, 161, 161), SkColorSetRGB(222, 222, 222));
+        context.getRenderManager()->refresh();
     }
-
     void onMouseLeave(int x, int y) override {
-
+        draw(0, 0, 0,
+             SkColorSetRGB(191, 191, 191), SkColorSetRGB(242, 242, 242));
+        ctx->getRenderManager()->refresh();
+        ctx->free();
+    }
+    void onMouseMove(EventContext &context, int x, int y) override {
+        draw(11, 0, 0,
+             SkColorSetRGB(161, 161, 161), SkColorSetRGB(222, 222, 222));
+        context.getRenderManager()->refresh();
+    }
+    void onLeftButtonUp(EventContext &context, int x, int y) override {
+        draw(1, 0, 0,
+             SkColorSetRGB(161, 161, 161), SkColorSetRGB(222, 222, 222));
+        context.getRenderManager()->refresh();
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        draw(11, 0, 0,
+             SkColorSetRGB(166, 166, 166), SkColorSetRGB(204, 204, 204));
+        context.getRenderManager()->refresh();
     }
 };
 class LineElement : public RelativeElement {
@@ -333,25 +428,26 @@ public:
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
-        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorGRAY, 20, 4, 4));
+        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorGRAY, 10, 4, 4));
 
     }
     int getLogicHeight(EventContext &context) override { return 25; }
-    Display getDisplay() override { return Display::Line; }
+    Display getDisplay() override { return DisplayLine; }
     Element *copy() override {
         return new LineElement();
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas(&style);
-/*
+
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.size(), border);
-*/
+        canvas->drawRect(canvas.bound(), border);
+
         LineViewer viewer = context.getLineViewer();
         canvas->translate(0, paint.getTextSize());
         canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, paint);
+
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
@@ -367,7 +463,6 @@ public:
             service.commit(paint);
         }
     }
-
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 5), &context);
@@ -437,7 +532,6 @@ public:
         service.commit(paint);
         context.redraw();
     }
-
     void onFocus(EventContext &context) override {
         // 选中
         //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode));
@@ -448,9 +542,9 @@ public:
         style.setColorFilter(
                 SkColorFilter::CreateModeFilter(
                         SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
+        context.redraw();
 
     }
-
     void onBlur(EventContext &context) override {
         style.setColorFilter(nullptr);
         context.redraw();
@@ -486,7 +580,7 @@ public:
 };
 class InlineTableElement : public Container {
 public:
-    InlineTableElement(int line, int column) : Container(Display::Inline) {
+    InlineTableElement(int line, int column) : Container(DisplayInline) {
         for (int i = 0; i < line; ++i) {
             append(new InlineRowElement(column));
         }
@@ -514,10 +608,11 @@ public:
             context.outer->notify(WidthChange, 0, context.index);
         }
     }
+
 };
 class RowElement : public Container {
 public:
-    explicit RowElement(int column) : Container(Display::Line) {
+    explicit RowElement(int column) : Container(DisplayLine) {
         for (int i = 0; i < column; ++i) {
             Element *element = new ColumnElement(i);
             m_index.append(element);
@@ -529,17 +624,9 @@ public:
             ele->setLogicHeight(m_height);
         }
     }
-    int getColumnWidth(EventContext &context, int column) {
-        return m_index.at(column)->getLogicWidth(context);
-    }
-    void setColumnWidth(int column, int width) {
-        m_index.at(column)->setLogicWidth(width);
-    }
-    void onNotify(EventContext &context, int type, int p1, int p2) override {
-        if (type == WidthChange || type == SizeChange) {
-            if (context.outer) {
-                context.outer->notify(WidthChange, 0, p2);
-            }
+    void onNotify(EventContext &context, int type, int param1, int param2) override {
+        if (context.outer) {
+            context.outer->notify(type, param1, param2);
         }
     }
 };
@@ -552,6 +639,9 @@ public:
             append(element);
         }
     }
+    int getLogicHeight(EventContext &context) override {
+        return Container::getLogicHeight(context) + 1;
+    }
     void replace(int line, int column, Element *element) {
         auto *row = (RowElement *) m_index.at(line);
         auto *old = row->m_index.at(column);
@@ -559,54 +649,55 @@ public:
         delete old;
     }
     void setColumnWidth(int column, int width) {
-        for (auto *ele : m_index) {
-            auto *row = (RowElement *) ele;
-            row->setColumnWidth(column, width);
+        for (auto & i : m_index) {
+            if (i->hasChild()) {
+                auto col = i->children()->at(column);
+                col->setLogicWidth(width);
+            }
         }
     }
-    void onNotify(EventContext &ctx, int type, int p1, int p2) override {
-        EventContext context = ctx.enter();
+    void onNotify(EventContext &context, int type, int p1, int p2) override {
+        EventContext row = context.enter();
         int width = 0;
-        while (context.has()) {
-            auto *element = (RowElement *) context.current();
-            int cur_width = element->getColumnWidth(context, p2);
+        while (row.has()) {
+            EventContext column = row.enter(p2);
+            int cur_width = column.current()->getLogicWidth(column);
             if (cur_width > width)
                 width = cur_width;
-            context.next();
+            row.next();
         }
         setColumnWidth(p2, width);
-        context.getLayoutManager()->reflowEnter(context.start());
-        ctx.redraw();
+        row.getLayoutManager()->reflowEnter(row.start());
+        context.redraw();
     }
+    void onEnterReflow(EventContext &context, Offset &offset) override {
+
+    }
+
     void onLeaveReflow(EventContext &context) override {
-        if (m_init) {
-            return;
-        }
-        m_init = true;
-        int i = 0;
-        int colMaxWidth[63] = {0};
-        // 排列完成之后更新高度
+        printf("leave reflow\n");
+        Buffer<int> maxWidthBuffer;
         EventContext row = context.enter();
         while (row.has()) {
             EventContext col = row.enter();
-            i = 0;
             while (col.has()) {
-                int width = CallEvent(col, getWidth);
-                if (width > colMaxWidth[i]) {
-                    colMaxWidth[i] = width;
+                int width = col.width();
+                if (width > maxWidthBuffer[col.index]) {
+                    maxWidthBuffer[col.index] = width;
                 }
-                i++;
                 col.next();
             }
             row.next();
         }
-        for (int j = 0; j < i; ++j) {
-            setColumnWidth(j, colMaxWidth[j]);
+        for (auto iter = maxWidthBuffer.iter(); iter.has(); iter.next()) {
+            setColumnWidth(iter.index(), iter.current());
         }
-        context.getLayoutManager()->reflowEnter(row.start());
-
+        maxWidthBuffer.clear();
+        row.start().reflowEnter();
     }
 
+
 };
+
 
 #endif //GEDITOR_TABLE_H

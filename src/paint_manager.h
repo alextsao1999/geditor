@@ -9,13 +9,14 @@
 #include <map>
 #include <SkBitmap.h>
 #include <SkCanvas.h>
-#include <SkSurface.h>
 #include <SkString.h>
 #include "common.h"
 #include "layout.h"
 struct EventContext;
 typedef SkColor GColor;
 typedef SkRect GRect;
+typedef SkPath GPath;
+
 struct Offset {
     int x = 0;
     int y = 0;
@@ -45,6 +46,7 @@ struct Size {
 };
 enum {
     StyleDeafault,
+    StyleBorder,
 };
 class StyleManager {
 private:
@@ -52,6 +54,7 @@ private:
 public:
     StyleManager() {
         add(StyleDeafault, SkPaint());
+        add(StyleBorder, SkPaint());
     }
     void add(int id, const SkPaint& paint) {
         m_map.emplace(std::pair<int, SkPaint>(id, paint));
@@ -127,35 +130,9 @@ public:
     inline SkCanvas &operator*() {
         return *m_canvas;
     };
-    GRect bound();
-};
 
-class GDITextMetrics {
-public:
-    HDC m_HDC{};
-    explicit GDITextMetrics(HDC HDC) : m_HDC(HDC) {}
-    int measure(const GChar *text, int length) {
-        SIZE size;
-        GetTextExtentPoint32(m_HDC, text, length, &size);
-        return size.cx;
-    }
-    int meterChar(GChar ch) {
-        return measure(&ch, 1);
-    }
-    int getTextIndex(const GChar *text, int length, int &x) {
-        for (int i = 0; i < length; ++i) {
-            int ch = meterChar(text[i]) / 2;
-            int width = measure(text, i + 1);
-            if (x < width - ch) {
-                x = width - ch * 2;
-                return i;
-            }
-        }
-        x = measure(text, length);
-        return length;
-    }
+    GRect bound(Offset inset = Offset());
 };
-typedef GDITextMetrics TextMetrics;
 
 class RenderManager {
 public:
@@ -180,15 +157,9 @@ public:
             DeleteObject(m_hBitmap);
         ////////////////////////////////
     }
-    static RenderManager *FromWindow(HWND hwnd) {
-        return new RenderManager(hwnd);
-    }
-    virtual void refresh() {
-        InvalidateRect(m_hWnd, nullptr, false);
-    }
-    virtual void update() {
-        m_canvas->clear(SK_ColorWHITE);
-    }
+    static RenderManager *FromWindow(HWND hwnd) { return new RenderManager(hwnd); }
+    virtual void refresh() { InvalidateRect(m_hWnd, nullptr, false); }
+    virtual void update() { m_canvas->clear(SK_ColorWHITE); }
     virtual void resize() {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);
@@ -222,7 +193,6 @@ public:
     }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
     virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) { return Canvas(ctx, m_canvas.get(), paint); }
-    virtual TextMetrics getTextMetrics() { return TextMetrics(m_hMemDC); }
     inline Offset getViewportOffset() { return m_offset; }
     virtual void setViewportOffset(Offset offset) { m_offset = offset; }
     virtual void updateViewport(LayoutManager *layoutManager) {
@@ -255,7 +225,6 @@ public:
         Size size = getViewportSize();
         return (bool) BitBlt(m_hWndDC, 0, 0, size.width, size.height, m_hMemDC, 0, 0, SRCCOPY);
     }
-
 };
 
 

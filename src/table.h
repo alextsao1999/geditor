@@ -22,7 +22,7 @@
 class TextCaretService {
 private:
     Offset m_offset;
-    Offset m_move;
+    GPoint m_move;
     EventContext* m_context = nullptr;
     int m_index = 0;
 public:
@@ -34,7 +34,7 @@ public:
     void moveLeft() { m_index--; }
     void moveRight() { m_index++; }
     void moveToIndex(int index) { m_index = index; }
-    void moveTo(Offset offset) { m_move = offset; }
+    void moveTo(GPoint offset) { m_move = offset; }
     bool commit(SkPaint& paint, SkRect* bound = nullptr, int column = 0) {
         LineViewer viewer = m_context->getLineViewer(column);
         return commit(viewer.c_str(), viewer.size(), paint, bound);
@@ -64,27 +64,27 @@ public:
             index = length + index + 1;
             res = false; // 小于0为越界
         }
-        Offset caret;
+        GPoint caret;
         if (index < length) {
-            caret.x = rects[index].left();
+            caret.fX = rects[index].left();
             if (bound) {
                 *bound = rects[index];
             }
         } else {
             index = length;
             if (length == 0) {
-                caret.x = m_offset.x;
+                caret.fX = m_offset.x;
             } else {
                 if (rects[length - 1].width() == 0) {
                     rects[length - 1].fRight += widths[length - 1];
                 }
-                caret.x = rects[length - 1].right();
+                caret.fX = rects[length - 1].right();
                 if (bound) {
                     *bound = rects[length - 1];
                 }
             }
         }
-        caret.y = m_offset.y;
+        caret.fY = m_offset.y;
         show(caret, index);
         delete[] widths;
         delete[] rects;
@@ -94,10 +94,10 @@ public:
         return res;
     }
 
-    void show(Offset offset, int index) {
+    void show(GPoint offset, int index) {
         CaretManager* m_caret = m_context->getCaretManager();
         m_caret->data()->index = index;
-        m_caret->set(offset);
+        m_caret->set(offset.fX, offset.fY);
         m_caret->show();
     }
 };
@@ -126,7 +126,7 @@ public:
     Display getDisplay() override { return DisplayInline; }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        canvas->drawRect(canvas.bound(), context.getStyle(StyleTableBorder));
+        canvas->drawRect(canvas.bound(0.5, 0.5), context.getStyle(StyleTableBorder));
 
         canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
         canvas->drawText((const char *) m_data.c_str(), m_data.length() * 2, 4, 2, context.getStyle(StyleTableFont));
@@ -207,7 +207,7 @@ public:
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        canvas->drawRect(canvas.bound(), context.getStyle(StyleTableBorder));
+        canvas->drawRect(canvas.bound(0.5, 0.5), context.getStyle(StyleTableBorder));
 
         auto line = context.getLineViewer(m_column);
         canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
@@ -272,15 +272,9 @@ public:
              SkColorSetRGB(191, 191, 191), SkColorSetRGB(242, 242, 242));
     }
 
-    Display getDisplay() override {
-        return DisplayBlock;
-    }
-    int getLogicHeight(EventContext &context) override {
-        return 100;
-    }
-    int getWidth(EventContext &context) override {
-        return 200;
-    }
+    Display getDisplay() override { return DisplayBlock; }
+    int getLogicHeight(EventContext &context) override { return 100; }
+    int getWidth(EventContext &context) override { return 200; }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         canvas->drawBitmap(bitmap, 0, 0);
@@ -338,7 +332,7 @@ public:
 
         SkRect rect{};
         bitmap.getBounds(&rect);
-        rect.inset(20, 20);
+        rect.inset(20.5, 20.5);
 
         SkCanvas canvas(bitmap);
         canvas.clear(SK_ColorWHITE);
@@ -353,7 +347,7 @@ public:
         paint.reset();
         paint.setColor(border);
         paint.setStyle(SkPaint::Style::kStroke_Style);
-        paint.setStrokeWidth(0.5);
+        paint.setStrokeWidth(1);
         paint.setAntiAlias(true);
         canvas.drawRoundRect(rect, 4, 4, paint);
 
@@ -367,30 +361,25 @@ public:
     EventContext *ctx{nullptr};
     void onMouseEnter(EventContext &context, int x, int y) override {
         ctx = context.copy();
-        draw(1, 0, 0,
+        draw(11, 0, 0,
                 SkColorSetRGB(161, 161, 161), SkColorSetRGB(222, 222, 222));
-        context.getRenderManager()->refresh();
+        context.redraw();
     }
     void onMouseLeave(int x, int y) override {
         draw(0, 0, 0,
              SkColorSetRGB(191, 191, 191), SkColorSetRGB(242, 242, 242));
-        ctx->getRenderManager()->refresh();
+        ctx->redraw();
         ctx->free();
     }
-    void onMouseMove(EventContext &context, int x, int y) override {
+    void onLeftButtonUp(EventContext &context, int x, int y) override {
         draw(11, 0, 0,
              SkColorSetRGB(161, 161, 161), SkColorSetRGB(222, 222, 222));
-        context.getRenderManager()->refresh();
-    }
-    void onLeftButtonUp(EventContext &context, int x, int y) override {
-        draw(1, 0, 0,
-             SkColorSetRGB(161, 161, 161), SkColorSetRGB(222, 222, 222));
-        context.getRenderManager()->refresh();
+        context.redraw();
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         draw(11, 0, 0,
              SkColorSetRGB(166, 166, 166), SkColorSetRGB(204, 204, 204));
-        context.getRenderManager()->refresh();
+        context.redraw();
     }
 };
 class LineElement : public RelativeElement {
@@ -418,7 +407,7 @@ public:
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.bound(), border);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
 
         LineViewer viewer = context.getLineViewer();
         canvas->translate(0, paint.getTextSize());
@@ -530,7 +519,7 @@ class SyntaxLineElement : public RelativeElement {
 public:
     SkPaint style;
     SyntaxLineElement() = default;
-    int getLogicHeight(EventContext &context) override { return 25; }
+    int getLogicHeight(EventContext &context) override { return 28; }
     Display getDisplay() override { return DisplayLine; }
     Element *copy() override {
         return new SyntaxLineElement();
@@ -541,7 +530,7 @@ public:
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.bound(), border);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
 
         LineViewer viewer = context.getLineViewer();
         canvas->translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
@@ -555,9 +544,6 @@ public:
             //printf("token x:%d y:%d   %ls\n", token.offset.x, token.offset.y, string.c_str());
             canvas->drawText((char *) string.c_str(), token.length * 2, token.offset.x, token.offset.y,
                              context.getStyle(token.style));
-
-
-
 
         }
 
@@ -657,7 +643,6 @@ public:
                 SkColorFilter::CreateModeFilter(
                         SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
         context.redraw();
-
     }
     void onBlur(EventContext &context) override {
         style.setColorFilter(nullptr);
@@ -758,7 +743,7 @@ public:
         return Container::getLogicHeight(context) + 1;
     }
     void replace(int line, int column, Element *element) {
-        auto *row = (RowElement *) m_index.at(line);
+        auto *row = (Container *) m_index.at(line);
         auto *old = row->m_index.at(column);
         row->m_index.at(column) = element;
         delete old;
@@ -805,7 +790,6 @@ public:
         maxWidthBuffer.clear();
         row.start().reflowEnter();
     }
-
 };
 
 #endif //GEDITOR_TABLE_H

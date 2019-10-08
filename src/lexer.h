@@ -47,6 +47,7 @@ struct Token {
     int type{TokenNone};
     const GChar *start{nullptr};
     int length{0};
+    SkScalar width{0};
 };
 static GString symbols = _GT("+-*/");
 static std::map<GString, int> keywords = {

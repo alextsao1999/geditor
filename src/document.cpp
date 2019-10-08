@@ -204,10 +204,6 @@ GPath EventContext::path() {
     return path;
 }
 
-Offset EventContext::offset() {
-    return current()->getOffset(*this);
-}
-
 GRect EventContext::logicRect() {
     Offset pos = current()->getLogicOffset();
     return GRect::MakeXYWH(pos.x, pos.y, width(), height());
@@ -220,15 +216,19 @@ GRect EventContext::rect() {
 
 GRect EventContext::viewportRect() {
     Offset pos = viewportOffset();
-    return GRect::MakeXYWH(pos.x, pos.y, width(), height());
+    return GRect::MakeXYWH(SkIntToScalar(pos.x), SkIntToScalar(pos.y), SkIntToScalar(width()), SkIntToScalar(height()));
 }
 
 Offset EventContext::viewportOffset() {
     return offset() - doc->getContext()->m_renderManager->getViewportOffset();
 }
 
-Offset EventContext::relative(int x, int y) {
-    return Offset(x, y) - offset();
+GPoint EventContext::offset() {
+    return current()->getOffset(*this);
+}
+
+GPoint EventContext::relative(int x, int y) {
+    return {SkIntToScalar(x), SkIntToScalar(y)} - offset();
 }
 
 int EventContext::height() {

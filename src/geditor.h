@@ -17,7 +17,13 @@ struct GEditorData {
     HWND m_hwnd{};
     Document m_document;
     RenderManager m_renderManager;
-    explicit GEditorData(HWND hwnd) : m_hwnd(hwnd), m_document(Document(&m_renderManager)), m_renderManager(hwnd) {}
+    EventContext m_begin;
+
+    explicit GEditorData(HWND hwnd) :
+            m_hwnd(hwnd), m_document(Document(&m_renderManager)), m_renderManager(hwnd),
+            m_begin(&m_document) {
+
+    }
 };
 class GEditor {
 public:
@@ -39,7 +45,7 @@ public:
         table->replace(1, 1, intable);
         m_data->m_document.append(table);
 
-        for (int i = 0; i < 1; ++i) {
+        for (int i = 0; i < 100; ++i) {
             GChar str[255];
             auto line = m_data->m_document.appendLine(new LineElement());
             wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
@@ -115,8 +121,8 @@ public:
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
-        EventContext context = EventContextBuilder::build(&data->m_document);
-        context.init(&data->m_document);
+        data->m_begin.init(&data->m_document);
+        EventContext context = data->m_begin;
         switch (message) {
             case WM_MOUSEMOVE:
                 MsgCallEvent(onPreMouseMove);
@@ -226,39 +232,9 @@ public:
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
         GRect rect = GRect::MakeLTRB(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
-        GRect select = data->m_document.getContext()->getSelectRect();
-        Offset offset = data->m_renderManager.getViewportOffset();
-        data->m_renderManager.update();
-        while (context.has()) {
-            if (context.current()->getDisplay() != DisplayNone) {
-                context.current()->onRedraw(context);
-                if (context.rect().intersect(select)) {
-                    SkPaint paint_select;
-                    //paint_select.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorBLACK, SkXfermode::Mode::kSrcOut_Mode));
-                    Canvas canvas = context.getCanvas(&paint_select);
-                    SkPaint color;
-                    color.setColor(SK_ColorCYAN);
-                    color.setAlpha(150);
-                    auto bound = context.relative(select.x(), select.y());
-                    canvas->drawRect(GRect::MakeXYWH(bound.x, bound.y, select.width(), select.height()), color);
-
-                }
-            }
-            context.next();
-        }
-
-/*
-        auto canvas = data->m_renderManager.m_canvas.get();
-        SkPaint paint;
-        paint.setColor(SK_ColorBLUE);
-        paint.setAlpha(40);
-        canvas->drawRect(select, paint);
-*/
-        //canvas->drawTextBlob()
-
+        data->m_renderManager.redraw(data, context, rect);
         data->m_renderManager.copy();
         EndPaint(hWnd, &ps);
-
     }
 };
 

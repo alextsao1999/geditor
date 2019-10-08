@@ -14,11 +14,14 @@
 #include <SkParse.h>
 #include "common.h"
 #include "layout.h"
+
 struct EventContext;
+class GEditorData;
 typedef SkColor GColor;
 typedef SkRect GRect;
 typedef SkPath GPath;
 typedef SkPaint GPaint;
+typedef SkPoint GPoint;
 
 struct Offset {
     int x = 0;
@@ -73,8 +76,9 @@ public:
         add(StyleBorder, paint);
 
         paint.reset();
-        //paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
-        paint.setTextSize(18);
+        paint.setTypeface(
+                SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setTextSize(20);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         //paint.setAntiAlias(true);
 
@@ -178,17 +182,6 @@ public:
             m_count = 0;
         }
     }
-    void drawLine(int x1, int y1, int x2, int y2, SkPaint &paint) {
-        m_canvas->drawLine(x1, y1, x2, y2, paint);
-    };
-    void drawRect(int x1, int y1, int x2, int y2, SkPaint &paint) {
-        SkRect rect{};
-        rect.set(x1, y1, x2, y2);
-        m_canvas->drawRect(rect, paint);
-    }
-    void drawText(int x, int y, const GChar *str, int count, SkPaint &paint) {
-        m_canvas->drawText(str, count * 2, x, y + paint.getTextSize(), paint);
-    }
     inline SkCanvas *operator->() {
         return m_canvas;
     }
@@ -197,6 +190,9 @@ public:
     };
 
     GRect bound(Offset inset = Offset());
+
+    GRect bound(SkScalar dx = 0, SkScalar dy = 0);
+
 };
 
 class RenderManager {
@@ -238,7 +234,9 @@ public:
         SkImageInfo info = SkImageInfo::Make(w, h, kN32_SkColorType, kPremul_SkAlphaType);
         m_bitmap.installPixels(info, bits, info.minRowBytes());
         m_canvas = std::make_shared<SkCanvas>(m_bitmap);
+        update();
     }
+    virtual void redraw(GEditorData *data, EventContext &context, GRect &rect);
     virtual void redraw(EventContext *ctx);
     static HBITMAP createBitmap(int nWid, int nHei, void **ppBits) {
         BITMAPINFO bmi;
@@ -279,6 +277,7 @@ public:
         }
         m_offset.x = (int) (realWidth * ((float) offset.x / 100)) - 10;
         m_offset.y = (int) (realHeight * ((float) offset.y / 100)) - 10;
+        update();
         refresh();
     }
     virtual Size getViewportSize() {

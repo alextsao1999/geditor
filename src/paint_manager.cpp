@@ -3,6 +3,7 @@
 //
 
 #include "document.h"
+#include "geditor.h"
 #include "paint_manager.h"
 
 Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(context) {
@@ -33,6 +34,18 @@ SkRect Canvas::bound(Offset inset) {
     return rect;
 }
 
+GRect Canvas::bound(SkScalar dx, SkScalar dy) {
+    SkRect rect{
+            0,
+            0,
+            SkIntToScalar(m_context->width() + 1),
+            SkIntToScalar(m_context->height() + 1)
+    };
+
+    rect.inset(dx, dy);
+    return rect;
+}
+
 void RenderManager::redraw(EventContext *ctx) {
     Offset offset = ctx->offset() - getViewportOffset();
     RECT rect;
@@ -40,7 +53,34 @@ void RenderManager::redraw(EventContext *ctx) {
     rect.top = offset.y;
     rect.right = rect.left + ctx->width();
     rect.bottom = rect.top + ctx->height();
-    InvalidateRect(m_hWnd, &rect, false);
+//    InvalidateRect(m_hWnd, &rect, false);
+    InvalidateRect(m_hWnd, nullptr, false);
+}
+
+void RenderManager::redraw(GEditorData *data, EventContext &context, GRect &rect) {
+    GRect select = data->m_document.getContext()->getSelectRect();
+    update();
+    while (context.has()) {
+        if (context.current()->getDisplay() != DisplayNone) {
+            context.current()->onRedraw(context);
+            if (GRect::Intersects(context.rect(), select)) {
+                Canvas canvas = context.getCanvas();
+                SkPaint color;
+                color.setColor(SK_ColorCYAN);
+                color.setAlpha(150);
+                auto bound = context.relative(select.x(), select.y());
+                canvas->drawRect(GRect::MakeXYWH(bound.x, bound.y, select.width(), select.height()), color);
+            }
+        }
+        context.next();
+    }
+    SkPaint paint;
+    paint.setColor(SK_ColorBLACK);
+    paint.setStyle(SkPaint::Style::kStroke_Style);
+    paint.setStrokeWidth(1);
+    rect.inset(0.5, 0.5);
+    m_canvas->drawRect(rect, paint);
+
 }
 
 

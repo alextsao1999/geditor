@@ -205,6 +205,14 @@ public:
     virtual int getWidth(EventContext &context) { return getLogicWidth(context); };
     // 获取实际高度
     virtual int getHeight(EventContext &context) { return getLogicHeight(context); };
+    virtual void setWidth(EventContext &context, int width) {
+        setLogicWidth(width);
+        context.reflow();
+    }
+    virtual void setHeight(EventContext &context, int height) {
+        setLogicHeight(height);
+        context.reflow();
+    }
     /**
      * 绝对坐标是否包含在元素中
      * @return bool

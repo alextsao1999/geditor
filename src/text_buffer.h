@@ -176,7 +176,8 @@ public:
         auto &str = content();
         return str.length();
     }
-    int size() {
+
+    size_t size() {
         return length() * sizeof(GChar);
     }
 
@@ -213,7 +214,7 @@ public:
     }
     LineViewer getLine(int line, int column = 0) {
         if (line >= m_buffer.size()) {
-            int rm = line - m_buffer.size() + 1;
+            int rm = line - (int) m_buffer.size() + 1;
             while (rm--) {
                 m_buffer.emplace_back();
             }

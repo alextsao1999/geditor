@@ -18,11 +18,10 @@
 #include <SkParse.h>
 #include "document.h"
 #include "utils.h"
-
 class TextCaretService {
-private:
+protected:
     Offset m_offset;
-    GPoint m_move;
+    Offset m_move;
     EventContext* m_context = nullptr;
     int m_index = 0;
 public:
@@ -34,18 +33,18 @@ public:
     void moveLeft() { m_index--; }
     void moveRight() { m_index++; }
     void moveToIndex(int index) { m_index = index; }
-    void moveTo(GPoint offset) { m_move = offset; }
+    void moveTo(Offset offset) { m_move = offset; }
     bool commit(SkPaint& paint, SkRect* bound = nullptr, int column = 0) {
         LineViewer viewer = m_context->getLineViewer(column);
         return commit(viewer.c_str(), viewer.size(), paint, bound);
     }
-    bool commit(const char* text, int bytelength, SkPaint& paint, SkRect* bound = nullptr) {
+    bool commit(const void* text, size_t bytelength, SkPaint& paint, SkRect* bound = nullptr, int index_start = 0) {
         bool res; // 是否越界
-        int index = m_index;
+        int index = m_index - index_start;
         int length = paint.countText(text, bytelength);
-        auto* widths = new SkScalar[length];
-        auto* rects = new SkRect[length];
-        int count = paint.getTextWidths(text, bytelength, widths, rects);
+        Buffer<SkScalar> widths(length);
+        Buffer<SkRect> rects(length);
+        int count = paint.getTextWidths(text, bytelength, widths.data, rects.data);
         SkScalar size = paint.getTextSize();
         int width = 0;
         for (int i = 0; i < length; ++i) {
@@ -64,44 +63,56 @@ public:
             index = length + index + 1;
             res = false; // 小于0为越界
         }
-        GPoint caret;
+        Offset caret;
         if (index < length) {
-            caret.fX = rects[index].left();
+            caret.x = rects[index].left();
             if (bound) {
                 *bound = rects[index];
             }
         } else {
             index = length;
             if (length == 0) {
-                caret.fX = m_offset.x;
+                caret.x = m_offset.x;
             } else {
                 if (rects[length - 1].width() == 0) {
                     rects[length - 1].fRight += widths[length - 1];
                 }
-                caret.fX = rects[length - 1].right();
+                caret.x = rects[length - 1].right();
                 if (bound) {
                     *bound = rects[length - 1];
                 }
             }
         }
-        caret.fY = m_offset.y;
-        show(caret, index);
-        delete[] widths;
-        delete[] rects;
+        caret.y = m_offset.y;
+        show(caret, index + index_start);
+        widths.clear();
+        rects.clear();
         if (res) {
             m_move = caret;
         }
         return res;
     }
 
-    void show(GPoint offset, int index) {
+    void show(Offset offset, int index) {
         CaretManager* m_caret = m_context->getCaretManager();
         m_caret->data()->index = index;
-        m_caret->set(offset.fX, offset.fY);
+        m_caret->set(offset.x, offset.y);
         m_caret->show();
     }
 };
-
+class TokenCaretService : public TextCaretService{
+public:
+    Offset m_init;
+    TokenCaretService(const Offset &offset, EventContext *context) : m_init(offset), TextCaretService(offset, context) {}
+    void commit(int column = 0) {
+        Lexer *lexer = m_context->getLexer(column);
+        Offset offset = m_init;
+        while (lexer->has()) {
+            Token token = lexer->next();
+            offset.x += m_context->getStyle(token.style).measureText(token.c_str(), token.size());
+        }
+    }
+};
 class TextElement : public RelativeElement {
 private:
     GString m_data;
@@ -113,8 +124,7 @@ public:
     explicit TextElement(int column) : m_column(column) {}
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getLogicWidth(EventContext &context) override {
-        int width =
-                context.getStyle(StyleTableFont).measureText((const char *) m_data.c_str(), m_data.length() * 2) + 8;
+        int width = context.getStyle(StyleTableFont).measureText(m_data.c_str(), m_data.length() * 2) + 8;
         return width > m_min ? width : m_min;
     }
     void setLogicWidth(int width) override { m_width = width; }
@@ -129,20 +139,20 @@ public:
         canvas->drawRect(canvas.bound(0.5, 0.5), context.getStyle(StyleTableBorder));
 
         canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas->drawText((const char *) m_data.c_str(), m_data.length() * 2, 4, 2, context.getStyle(StyleTableFont));
+        canvas->drawText(m_data.c_str(), m_data.length() * 2, 4, 2, context.getStyle(StyleTableFont));
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
         TextCaretService service(Offset(4, 4), &context);
         service.moveTo(context.relative(x, y));
-        service.commit((const char *) m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
+        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
     }
     void onMouseMove(EventContext &context, int x, int y) override {
         if (context.selecting()) {
             context.focus();
             TextCaretService service(Offset(4, 4), &context);
             service.moveTo(context.relative(x, y));
-            service.commit((const char *) m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
+            service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
         }
     }
 
@@ -155,7 +165,7 @@ public:
         if (code == VK_RIGHT) {
             service.moveRight();
         }
-        service.commit((const char *) m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
+        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
     };
     void onInputChar(EventContext &context, int ch) override {
         TextCaretService service(Offset(4, 4), &context);
@@ -176,7 +186,7 @@ public:
         if (context.outer) {
             context.outer->notify(WidthChange, 0, m_column);
         }
-        service.commit((const char *) m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
+        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
         context.redraw();
 
     }
@@ -193,7 +203,7 @@ public:
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getLogicWidth(EventContext &context) override {
         auto line = context.getLineViewer(m_column);
-        int width = (int) context.getStyle(StyleTableFont).measureText(line.str(), line.size()) + 8;
+        int width = (int) context.getStyle(StyleTableFont).measureText(line.c_str(), line.size()) + 8;
         return width > m_min ? width : m_min;
     }
     void setLogicWidth(int width) override { m_width = width; }
@@ -533,18 +543,19 @@ public:
         canvas->drawRect(canvas.bound(0.5, 0.5), border);
 
         LineViewer viewer = context.getLineViewer();
-        canvas->translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
+        //canvas->translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
         //canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, paint);
 
-        auto *lexer = context.getLexer(Offset(4, 2));
+        auto *lexer = context.getLexer();
+        Offset offset(4, context.height());
 
         while (lexer->has()) {
             Token token = lexer->next();
+            SkPaint &token_style = context.getStyle(token.style);
             GString string(token.start, token.length);
             //printf("token x:%d y:%d   %ls\n", token.offset.x, token.offset.y, string.c_str());
-            canvas->drawText((char *) string.c_str(), token.length * 2, token.offset.x, token.offset.y,
-                             context.getStyle(token.style));
-
+            canvas->drawText(token.c_str(), token.size(), offset.x, offset.y, token_style);
+            offset.x += token_style.measureText(token.c_str(), token.size());
         }
 
     }
@@ -633,6 +644,7 @@ public:
         context.redraw();
     }
     void onFocus(EventContext &context) override {
+        context.getCaretManager()->create(2, context.height() - 4);
         // 选中
         //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode));
         // 设置文字
@@ -645,6 +657,7 @@ public:
         context.redraw();
     }
     void onBlur(EventContext &context) override {
+        context.getCaretManager()->create();
         style.setColorFilter(nullptr);
         context.redraw();
     }

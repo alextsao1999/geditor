@@ -18,6 +18,8 @@ struct Buffer {
     T *data = nullptr;
     int count = 0;
     int capacity = 0;
+    Buffer() = default;
+    explicit Buffer(int init_capicity) { ensureCapacity(init_capicity); }
     class BufferIter {
         Buffer *m_data;
         int m_index = 0;
@@ -149,11 +151,7 @@ public:
     GString &content() {
         return m_buffer->at((unsigned) (m_line)).getNode(column)->content;
     }
-
-    const char *c_str() {
-        return (const char *) content().c_str();
-    }
-    const GChar *str() {
+    const GChar *c_str() {
         return (const GChar *) content().c_str();
     }
     GString &string(int col) {

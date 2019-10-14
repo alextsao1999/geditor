@@ -223,12 +223,12 @@ Offset EventContext::viewportOffset() {
     return offset() - doc->getContext()->m_renderManager->getViewportOffset();
 }
 
-GPoint EventContext::offset() {
+Offset EventContext::offset() {
     return current()->getOffset(*this);
 }
 
-GPoint EventContext::relative(int x, int y) {
-    return {SkIntToScalar(x), SkIntToScalar(y)} - offset();
+Offset EventContext::relative(int x, int y) {
+    return Offset{x, y}  - offset();
 }
 
 int EventContext::height() {

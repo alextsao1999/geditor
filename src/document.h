@@ -141,8 +141,8 @@ struct EventContext {
     CaretManager *getCaretManager();
     StyleManager *getStyleManager();
     inline GPaint &getStyle(int id) { return getStyleManager()->get(id); }
-    Lexer *getLexer(Offset offset, int column = 0) {
-        getDocContext()->m_lexer.enter(this, column, offset);
+    Lexer *getLexer(int column = 0) {
+        getDocContext()->m_lexer.enter(this, column);
         return &getDocContext()->m_lexer;
     }
     LineViewer getLineViewer(int column = 0);

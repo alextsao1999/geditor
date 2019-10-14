@@ -76,9 +76,8 @@ public:
         add(StyleBorder, paint);
 
         paint.reset();
-        paint.setTypeface(
-                SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
-        paint.setTextSize(20);
+//        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setTextSize(18.5);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         //paint.setAntiAlias(true);
 
@@ -101,7 +100,7 @@ public:
         add(StyleNumberFont, paint);
 
         paint.reset();
-        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
+        paint.setTypeface(SkTypeface::CreateFromName("Monoca", SkTypeface::Style::kNormal));
         paint.setTextSize(18);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);

@@ -157,7 +157,7 @@ void EventContext::combine() {
     Element *ele = buffer->at(next);
     int cur = getLineIndex();
     if (current()->getDisplay() == DisplayLine && ele->getDisplay() == DisplayLine) {
-        text.getLine(cur).append(text.getLine(cur + 1).str());
+        text.getLine(cur).append(text.getLine(cur + 1).c_str());
         text.deleteLine(cur + 1);
         buffer->erase(next);
         remove(ele);

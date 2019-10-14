@@ -42,9 +42,9 @@ public:
         bool res; // 是否越界
         int index = m_index - index_start;
         int length = paint.countText(text, bytelength);
-        Buffer<SkScalar> widths(length);
-        Buffer<SkRect> rects(length);
-        int count = paint.getTextWidths(text, bytelength, widths.data, rects.data);
+        auto *widths = new SkScalar[length];
+        auto *rects = new SkRect[length];
+        int count = paint.getTextWidths(text, bytelength, widths, rects);
         SkScalar size = paint.getTextSize();
         int width = 0;
         for (int i = 0; i < length; ++i) {
@@ -85,8 +85,8 @@ public:
         }
         caret.y = m_offset.y;
         show(caret, index + index_start);
-        widths.clear();
-        rects.clear();
+        delete[] widths;
+        delete[] rects;
         if (res) {
             m_move = caret;
         }
@@ -494,7 +494,7 @@ public:
                 context.reflow();
                 if (caret->next()) {
                     int idx = service.index();
-                    context.getLineViewer().append(line.str() + idx, line.length() - idx);
+                    context.getLineViewer().append(line.c_str() + idx, line.length() - idx);
                     line.erase(idx, line.length() - idx);
                     service.moveToIndex(0);
                 }
@@ -630,7 +630,7 @@ public:
                 context.reflow();
                 if (caret->next()) {
                     int idx = service.index();
-                    context.getLineViewer().append(line.str() + idx, line.length() - idx);
+                    context.getLineViewer().append(line.c_str() + idx, line.length() - idx);
                     line.erase(idx, line.length() - idx);
                     service.moveToIndex(0);
                 }

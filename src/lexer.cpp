@@ -51,13 +51,13 @@ void Lexer::ParseString() {
     TOKEN_START();
     GChar first = CURRENT_CHAR;
     NEXT();
-    do {
+    while (CURRENT_CHAR != first) {
         NEXT();
         if (!has()) {
             TOKEN_END(TokenString, StyleErrorFont);
             return;
         }
-    } while (CURRENT_CHAR != first);
+    }
     NEXT();
     TOKEN_END(TokenString, StyleStringFont);
 }

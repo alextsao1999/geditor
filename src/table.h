@@ -100,19 +100,6 @@ public:
         m_caret->show();
     }
 };
-class TokenCaretService : public TextCaretService{
-public:
-    Offset m_init;
-    TokenCaretService(const Offset &offset, EventContext *context) : m_init(offset), TextCaretService(offset, context) {}
-    void commit(int column = 0) {
-        Lexer *lexer = m_context->getLexer(column);
-        Offset offset = m_init;
-        while (lexer->has()) {
-            Token token = lexer->next();
-            offset.x += m_context->getStyle(token.style).measureText(token.c_str(), token.size());
-        }
-    }
-};
 class TextElement : public RelativeElement {
 private:
     GString m_data;
@@ -536,24 +523,15 @@ public:
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas(&style);
-
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.bound(0.5, 0.5), border);
-
-        LineViewer viewer = context.getLineViewer();
-        //canvas->translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
-        //canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, paint);
-
         auto *lexer = context.getLexer();
-        Offset offset(4, context.height());
-
+        Offset offset(4, context.height() - 4);
         while (lexer->has()) {
             Token token = lexer->next();
             SkPaint &token_style = context.getStyle(token.style);
-            GString string(token.start, token.length);
-            //printf("token x:%d y:%d   %ls\n", token.offset.x, token.offset.y, string.c_str());
             canvas->drawText(token.c_str(), token.size(), offset.x, offset.y, token_style);
             offset.x += token_style.measureText(token.c_str(), token.size());
         }
@@ -644,7 +622,7 @@ public:
         context.redraw();
     }
     void onFocus(EventContext &context) override {
-        context.getCaretManager()->create(2, context.height() - 4);
+        context.getCaretManager()->create(2, context.height() - 7);
         // 选中
         //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode));
         // 设置文字
@@ -783,6 +761,7 @@ public:
         row.getLayoutManager()->reflowEnter(row.start());
         context.redraw();
     }
+
     void onLeaveReflow(EventContext &context) override {
         Buffer<int> maxWidthBuffer;
         EventContext row = context.enter();

@@ -44,7 +44,7 @@ public:
         table->replace(0, 2, new InlineTableElement(2, 2));
         m_data->m_document.append(table);
 
-        for (int i = 0; i < 100; ++i) {
+        for (int i = 0; i < 2; ++i) {
             GChar str[255];
             auto line = m_data->m_document.appendLine(new LineElement());
             wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());

@@ -8,7 +8,7 @@
 #include <queue>
 #include "common.h"
 
-struct Element;
+class Element;
 struct EventContext;
 
 enum class CommandType {

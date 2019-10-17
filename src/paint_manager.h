@@ -77,7 +77,7 @@ public:
 
         paint.reset();
 //        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
-        paint.setTextSize(18.5);
+        paint.setTextSize(18);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         //paint.setAntiAlias(true);
 
@@ -226,7 +226,7 @@ public:
         int w = rect.right - rect.left, h = rect.bottom - rect.top;
         //m_hBitmap = CreateCompatibleBitmap(m_hWndDC, rect.right - rect.left, rect.bottom - rect.top);
         void *bits = nullptr;
-        m_hBitmap = createBitmap(w, h, &bits);
+        m_hBitmap = CreateBitmap(w, h, &bits);
         HGDIOBJ hOldBitmap = SelectObject(m_hMemDC, m_hBitmap);
         DeleteObject(hOldBitmap);
 
@@ -237,7 +237,7 @@ public:
     }
     virtual void redraw(GEditorData *data, EventContext &context, GRect &rect);
     virtual void redraw(EventContext *ctx);
-    static HBITMAP createBitmap(int nWid, int nHei, void **ppBits) {
+    static HBITMAP CreateBitmap(int nWid, int nHei, void **ppBits) {
         BITMAPINFO bmi;
         memset(&bmi, 0, sizeof(bmi));
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);

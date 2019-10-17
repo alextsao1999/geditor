@@ -17,7 +17,7 @@
 #define CURRENT_TOKEN current
 #define NEXT_CHAR string[position + 1]
 #define NEXT() position++
-#define TOKEN_START() {current.start = &CURRENT_CHAR;}
+#define TOKEN_START() {current.start = &CURRENT_CHAR;current.index = CURRENT_POS;}
 #define TOKEN_END(tok_type, end_style) {\
 current.type = tok_type; \
 current.style = end_style; \
@@ -44,6 +44,7 @@ struct Token {
     int type{TokenNone};
     const GChar *start{nullptr};
     int length{0};
+    int index;
     int next;
     const GChar *c_str() { return start; }
     size_t size() { return length * sizeof(GChar); }

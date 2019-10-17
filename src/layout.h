@@ -12,7 +12,7 @@ class RelativeElement;
 class Document;
 class Element;
 struct EventContext;
-
+void (*LayoutFunc)(EventContext context);
 enum class SelectionState {
     SelectionNone,
     SelectionStart,
@@ -24,7 +24,6 @@ class LayoutManager {
 private:
     int m_width = 500;
     int m_height = 500;
-    int m_nStartIndex = 0;
 public:
     void reflow(EventContext context);
     void reflowAll(Document *doc);

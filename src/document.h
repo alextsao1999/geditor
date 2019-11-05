@@ -104,8 +104,7 @@ struct EventContext {
     // 只改变本层次Line
     void prevLine(int count = 1) { line -= count; }
     void nextLine(int count = 1) { line += count; }
-    void reflowEnter();
-    void reflow();
+    void reflow(bool init = false);
     void redraw();
     void focus();
     void combine();

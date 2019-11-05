@@ -131,12 +131,11 @@ bool EventContext::outerPrev() {
     return index < buffer->size();
 }
 
-void EventContext::reflowEnter() {
-    doc->getContext()->m_layoutManager.reflowEnter(*this);
-}
-
-void EventContext::reflow() {
-    doc->m_context.m_layoutManager.reflow(*this);
+void EventContext::reflow(bool init) {
+    doc->m_context.m_layoutManager.reflow(*this, init);
+    if (init) {
+        doc->m_context.m_layoutManager.reflow(*this, false);
+    }
 }
 
 void EventContext::focus() {

@@ -14,7 +14,6 @@
 #include <SkParse.h>
 #include "common.h"
 #include "layout.h"
-
 struct EventContext;
 class GEditorData;
 typedef SkColor GColor;

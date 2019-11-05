@@ -6,7 +6,7 @@
 #define GEDITOR_CARET_MANAGER_H
 
 #include "paint_manager.h"
-
+class Element;
 struct CaretData {
     int index = 0;
     void *data = nullptr;

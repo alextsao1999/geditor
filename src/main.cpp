@@ -1,5 +1,6 @@
 #include <iostream>
 #include <SkGraphics.h>
+#include <cstdio>
 #include "common.h"
 #include "text_buffer.h"
 #include "geditor.h"
@@ -41,6 +42,9 @@ auto CreateMyWindow() {
     return hWnd;
 }
 int main() {
+    using test = Cached<int>;
+    printf("%d %d", test::chunks.start, test::chunks.end);
+
     if (MyRegisterClass(nullptr) == 0) {
         MessageBox(nullptr, _GT("注册窗口类名失败"), _GT("错误"), 0);
         exit(1);

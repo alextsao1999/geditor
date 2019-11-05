@@ -41,8 +41,10 @@ public:
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
         auto *table = new TableElement(4, 5);
-        table->replace(0, 2, new InlineTableElement(2, 2));
+        table->replace(0, 2, new NewTableElement(2, 2));
         m_data->m_document.append(table);
+
+        m_data->m_document.append(new NewTableElement(2, 2));
 
         for (int i = 0; i < 2; ++i) {
             GChar str[255];

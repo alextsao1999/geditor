@@ -111,7 +111,8 @@ public:
     explicit TextElement(int column) : m_column(column) {}
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getLogicWidth(EventContext &context) override {
-        int width = context.getStyle(StyleTableFont).measureText(m_data.c_str(), m_data.length() * 2) + 8;
+        int width = (int) context.getStyle(StyleTableFont)
+                .measureText(m_data.c_str(), m_data.length() * 2) + 8;
         return width > m_min ? width : m_min;
     }
     void setLogicWidth(int width) override { m_width = width; }
@@ -142,7 +143,6 @@ public:
             service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
         }
     }
-
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 4), &context);
@@ -159,7 +159,7 @@ public:
         switch (ch) {
         case VK_BACK:
             if (service.index() > 0) {
-                m_data.erase(service.index() - 1);
+                m_data.erase(service.index() - 1, 1);
                 service.moveLeft();
             }
             break;
@@ -174,6 +174,8 @@ public:
             context.outer->notify(WidthChange, 0, m_column);
         }
         service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
+        context.outer->reflow(true);
+
         context.redraw();
 
     }
@@ -691,7 +693,7 @@ public:
             ctx.next();
         }
         setColumnWidth(p2, width);
-        ctx.getLayoutManager()->reflowEnter(ctx.start());
+        //ctx.start().reflow(true);
         if (context.outer) {
             context.outer->notify(WidthChange, 0, context.index);
         }
@@ -758,7 +760,7 @@ public:
             row.next();
         }
         setColumnWidth(p2, width);
-        row.getLayoutManager()->reflowEnter(row.start());
+        //row.start().reflow(true);
         context.redraw();
     }
 
@@ -780,8 +782,67 @@ public:
             setColumnWidth(iter.index(), iter.current());
         }
         maxWidthBuffer.clear();
-        row.start().reflowEnter();
+        //row.start().reflow(true);
+
     }
+};
+
+class NewRowElement : public Container<DisplayRow> {
+public:
+    explicit NewRowElement(int column) {
+        for (int i = 0; i < column; ++i) {
+            append(new TextElement(i));
+        }
+    }
+    void setLogicHeight(int height) override {
+        m_height = height;
+        for (auto *ele : m_index) {
+            ele->setLogicHeight(m_height);
+        }
+    }
+    void setColumnWidth(int column, int width) {
+        m_index.at(column)->setLogicWidth(width);
+    }
+    int getColumnWidth(EventContext &context, int column) {
+        return m_index.at(column)->getLogicWidth(context);
+    }
+    void onNotify(EventContext &context, int type, int p1, int p2) override {
+        if (context.outer) {
+            context.outer->notify(type, p1, p2);
+        }
+    }
+};
+class NewTableElement : public Container<DisplayTable> {
+public:
+    NewTableElement(int line, int column) {
+        for (int i = 0; i < line; ++i) {
+            append(new InlineRowElement(column));
+        }
+    }
+
+    void setColumnWidth(int column, int width) {
+        for (auto *ele : m_index) {
+            auto *row = (NewRowElement *) ele;
+            row->setColumnWidth(column, width);
+        }
+    }
+    void onNotify(EventContext &context, int type, int p1, int p2) override {
+        EventContext ctx = context.enter();
+        int width = 0;
+        while (ctx.has()) {
+            auto *element = (InlineRowElement *) ctx.current();
+            int cur_width = element->getColumnWidth(ctx, p2);
+            if (cur_width > width)
+                width = cur_width;
+            ctx.next();
+        }
+        setColumnWidth(p2, width);
+        //ctx.start().reflow(true);
+        if (context.outer) {
+            context.outer->notify(WidthChange, 0, context.index);
+        }
+    }
+
 };
 
 #endif //GEDITOR_TABLE_H

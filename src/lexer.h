@@ -24,7 +24,7 @@ current.length = int(&string[CURRENT_POS] - current.start); \
 current.next = CURRENT_POS; \
 }
 
-class EventContext;
+struct EventContext;
 bool IsNumber(GChar ch);
 bool IsAlpha(GChar ch);
 bool IsCodeChar(GChar ch);

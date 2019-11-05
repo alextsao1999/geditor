@@ -9,7 +9,6 @@
 #include "paint_manager.h"
 #include <set>
 #define _HM_C _GT
-#define CURRENT_CHAR
 
 //当前位置
 #define CURRENT_POS position

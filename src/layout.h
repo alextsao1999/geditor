@@ -7,12 +7,21 @@
 
 #include "common.h"
 
+typedef int Display;
+enum {
+    DisplayNone,
+    DisplayInline,
+    DisplayBlock,
+    DisplayLine,
+    DisplayTable,
+    DisplayRow,
+};
+
 class Root;
 class RelativeElement;
 class Document;
 class Element;
 struct EventContext;
-void (*LayoutFunc)(EventContext context);
 enum class SelectionState {
     SelectionNone,
     SelectionStart,

@@ -30,13 +30,6 @@
 #define context_cur(ctx, method, ...) ((ctx).current()->method(ctx, ##__VA_ARGS__))
 #define context_on(ctx, method, ...) ((ctx).current()->on##method(ctx, ##__VA_ARGS__))
 
-enum Display {
-    DisplayNone,
-    DisplayInline,
-    DisplayBlock,
-    DisplayLine,
-};
-
 struct Context {
     std::queue<EventContext *> m_animator;
     RenderManager *m_renderManager;
@@ -313,13 +306,13 @@ public:
 };
 
 // 根据Children 自动改变宽高
+template <Display D = DisplayBlock>
 class Container : public RelativeElement {
 public:
     ElementIndex m_index;
     int m_width = 0;
     int m_height = 0;
 public:
-    Display m_display = DisplayBlock;
     Container() = default;
     ~Container() override {
         for (auto element : m_index) {
@@ -327,10 +320,7 @@ public:
             delete element;
         }
     }
-    explicit Container(Display display) : m_display(display) {}
-    bool hasChild() override {
-        return m_index.size() > 0;
-    }
+    bool hasChild() override { return m_index.size() > 0; }
     void setLogicWidth(int width) override { m_width = width; }
     void setLogicHeight(int height) override { m_height = height; }
     int getLogicWidth(EventContext &context) override { return m_width; }
@@ -338,16 +328,12 @@ public:
     int getHeight(EventContext &context) override { return getLogicHeight(context); }
     int getWidth(EventContext &context) override { return getLogicWidth(context); }
     ElementIndex *children() override { return &m_index; }
-    Display getDisplay() override { return m_display; }
-    inline void setDisplay(Display display) { m_display = display; }
+    Display getDisplay() override { return D; }
     virtual void append(Element *element) { m_index.append(element); }
-
-    virtual void append(EventContext &context, Element *element) {
-        m_index.append(element);
-    }
+    virtual void append(EventContext &context, Element *element) { m_index.append(element); }
 };
 
-class Document : public Container {
+class Document : public Container<DisplayBlock> {
 public:
     Context m_context;
 public:

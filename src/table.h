@@ -641,7 +641,7 @@ public:
     }
 };
 
-class InlineRowElement : public Container {
+class InlineRowElement : public Container<DisplayBlock> {
 public:
     explicit InlineRowElement(int column) {
         for (int i = 0; i < column; ++i) {
@@ -666,9 +666,9 @@ public:
         }
     }
 };
-class InlineTableElement : public Container {
+class InlineTableElement : public Container<DisplayInline> {
 public:
-    InlineTableElement(int line, int column) : Container(DisplayInline) {
+    InlineTableElement(int line, int column) {
         for (int i = 0; i < line; ++i) {
             append(new InlineRowElement(column));
         }
@@ -698,9 +698,9 @@ public:
     }
 
 };
-class RowElement : public Container {
+class RowElement : public Container<DisplayLine> {
 public:
-    explicit RowElement(int column) : Container(DisplayLine) {
+    explicit RowElement(int column) {
         for (int i = 0; i < column; ++i) {
             Element *element = new ColumnElement(i);
             m_index.append(element);
@@ -722,7 +722,7 @@ public:
         Root::onRedraw(context);
     }
 };
-class TableElement : public Container {
+class TableElement : public Container<DisplayBlock> {
 public:
     TableElement(int line, int column) {
         for (int i = 0; i < line; ++i) {

@@ -1,8 +1,5 @@
-#include <iostream>
 #include <SkGraphics.h>
-#include <cstdio>
 #include "common.h"
-#include "text_buffer.h"
 #include "geditor.h"
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
@@ -42,14 +39,7 @@ auto CreateMyWindow() {
     return hWnd;
 }
 int main() {
-    using test = Cached<int>;
-    printf("%d %d", test::chunks.start, test::chunks.end);
-
-    if (MyRegisterClass(nullptr) == 0) {
-        MessageBox(nullptr, _GT("注册窗口类名失败"), _GT("错误"), 0);
-        exit(1);
-    }
-
+    ASSERT(MyRegisterClass(nullptr), "Register Class Name Error!");
     HWND hwnd = CreateMyWindow();
     auto g = GEditorBuilder::build(hwnd);
     MSG msg;

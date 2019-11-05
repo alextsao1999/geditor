@@ -26,8 +26,8 @@
 #define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
 #define DEFINE_EVENT2(event) virtual void event(EventContext &context, int x, int y) {CallChildEvent(event);}
 #define CallEvent(context, event, ...) ((context).current()->event(context, ##__VA_ARGS__))
-#define context_for(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
-#define context_cur(ctx, method, ...) ((ctx).current()->method(ctx, ##__VA_ARGS__))
+#define for_context(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
+#define cur_context(ctx, method, ...) ((ctx).current()->method(ctx, ##__VA_ARGS__))
 #define context_on(ctx, method, ...) ((ctx).current()->on##method(ctx, ##__VA_ARGS__))
 
 struct Context {
@@ -40,7 +40,7 @@ struct Context {
     Lexer m_lexer;
     TextBuffer m_textBuffer;
     Element *m_enterElement = nullptr;
-    GRect m_enterRect;
+    GRect m_enterRect{};
     //////////////////////////
     bool m_selecting = false;
     Offset m_selectStart;
@@ -122,6 +122,11 @@ struct EventContext {
     Offset relative(int x, int y);
     int width();
     int height();
+    int logicWidth();
+    int logicHeight();
+    void setLogicWidth(int width);
+    void setLogicHeight(int height);
+
     void remove(Root *element);
     void init(Root *element, int index = 0);
     Element *get(int idx) { return buffer->at(idx); }
@@ -143,7 +148,8 @@ struct EventContext {
     explicit EventContext(Document *doc) : doc(doc) {}
     explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx);
     explicit EventContext(const EventContext *context, EventContext *out);
-    EventContext start() { return EventContext(doc, buffer, outer, 0); }
+    EventContext begin() { return EventContext(doc, buffer, outer, 0); }
+    EventContext end() { return EventContext(doc, buffer, outer, buffer->size() - 1); }
     EventContext enter(int idx = 0);
     void leave() {
         if (outer) {
@@ -191,20 +197,12 @@ public:
     virtual Offset getOffset(EventContext &context) { return {0, 0}; }
     virtual int getLogicWidth(EventContext &context) { return 0; };
     virtual int getLogicHeight(EventContext &context) { return 0; };
-    virtual void setLogicWidth(int width) {};
-    virtual void setLogicHeight(int height) {};
+    virtual void setLogicWidth(EventContext &context, int width) {};
+    virtual void setLogicHeight(EventContext &context, int height) {};
     // 获取实际宽度
     virtual int getWidth(EventContext &context) { return getLogicWidth(context); };
     // 获取实际高度
     virtual int getHeight(EventContext &context) { return getLogicHeight(context); };
-    virtual void setWidth(EventContext &context, int width) {
-        setLogicWidth(width);
-        context.reflow();
-    }
-    virtual void setHeight(EventContext &context, int height) {
-        setLogicHeight(height);
-        context.reflow();
-    }
     /**
      * 绝对坐标是否包含在元素中
      * @return bool
@@ -272,23 +270,8 @@ public:
     int getLineNumber();
     int getWidth(EventContext &context) override;
     void dump() override {
-        std::cout << "Display : ";
-        switch (getDisplay()) {
-            case DisplayNone:
-                std::cout << "None";
-                break;
-            case DisplayInline:
-                std::cout << "Inline";
-                break;
-            case DisplayBlock:
-                std::cout << "Block";
-                break;
-            case DisplayLine:
-                std::cout << "Line";
-                break;
-        }
-        std::cout << std::endl;
-
+        const char *string[] = {"None", "Inline", "Block", "Line", "Table", "Row"};
+        std::cout << "Display : " << string[getDisplay()] << std::endl;
     }
 };
 
@@ -320,16 +303,17 @@ public:
         }
     }
     bool hasChild() override { return m_index.size() > 0; }
-    void setLogicWidth(int width) override { m_width = width; }
-    void setLogicHeight(int height) override { m_height = height; }
+    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
+    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     int getLogicWidth(EventContext &context) override { return m_width; }
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getHeight(EventContext &context) override { return getLogicHeight(context); }
     int getWidth(EventContext &context) override { return getLogicWidth(context); }
     ElementIndex *children() override { return &m_index; }
     Display getDisplay() override { return D; }
-    virtual void append(Element *element) { m_index.append(element); }
-    virtual void append(EventContext &context, Element *element) { m_index.append(element); }
+    virtual void append(Element *element) {
+        m_index.append(element);
+    }
 };
 
 class Document : public Container<DisplayBlock> {

@@ -46,8 +46,8 @@ int Element::getWidth(EventContext &context) {
 }
 
 void Element::onPreMouseMove(EventContext &context, int x, int y) {
-    context_for(event, context) {
-        if (context_cur(event, contain, x, y)) {
+    for_context(event, context) {
+        if (cur_context(event, contain, x, y)) {
             context_on(event, PreMouseMove, x, y);
             return;
         }
@@ -133,9 +133,6 @@ bool EventContext::outerPrev() {
 
 void EventContext::reflow(bool init) {
     doc->m_context.m_layoutManager.reflow(*this, init);
-    if (init) {
-        doc->m_context.m_layoutManager.reflow(*this, false);
-    }
 }
 
 void EventContext::focus() {
@@ -236,6 +233,22 @@ int EventContext::height() {
 
 int EventContext::width() {
     return current()->getWidth(*this);
+}
+
+int EventContext::logicHeight() {
+    return current()->getLogicHeight(*this);
+}
+
+int EventContext::logicWidth() {
+    return current()->getLogicWidth(*this);
+}
+
+void EventContext::setLogicHeight(int height) {
+    current()->setLogicHeight(*this, height);
+}
+
+void EventContext::setLogicWidth(int width) {
+    current()->setLogicWidth(*this, width);
 }
 
 EventContext::EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx) :

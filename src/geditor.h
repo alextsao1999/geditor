@@ -35,37 +35,15 @@ public:
                                    WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL,
                                    x, y, nWidth, nHeight, parent,
                                    nullptr, nullptr, nullptr);
-        if (!hwnd) {
-            return;
-        }
+        ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-        auto *table = new TableElement(4, 5);
-        table->replace(0, 2, new NewTableElement(2, 2));
+        auto *table = new NewTableElement(2, 2);
+        table->replace(0, 0, new NewTableElement(2, 2));
         m_data->m_document.append(table);
-
-        m_data->m_document.append(new NewTableElement(2, 2));
-
-        for (int i = 0; i < 2; ++i) {
-            GChar str[255];
-            auto line = m_data->m_document.appendLine(new LineElement());
-            wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
-            line.append(str);
-        }
-        m_data->m_document.append(new TableElement(3, 3));
-        m_data->m_document.append(new ButtonElement());
         m_data->m_document.appendLine(new SyntaxLineElement()).append(L"var a = 100;");
-        m_data->m_document.appendLine(new SyntaxLineElement()).append(L"this");
-        m_data->m_document.appendLine(new SyntaxLineElement()).append(L"if (a == 2)");
         m_data->m_document.appendLine(new SyntaxLineElement()).append(L"class YourClass");
-
-        for (int i = 0; i < 5; ++i) {
-            GChar str[255];
-            auto line = m_data->m_document.appendLine(new SyntaxLineElement());
-            wsprintf(str, _GT("this is test string %d\0"), line.getLineNumber());
-            line.append(str);
-        }
-
+        //m_data->m_document.append(new ButtonElement());
         m_data->m_document.flow();
     }
     ~GEditor() {

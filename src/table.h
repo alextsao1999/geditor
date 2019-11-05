@@ -112,11 +112,11 @@ public:
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getLogicWidth(EventContext &context) override {
         int width = (int) context.getStyle(StyleTableFont)
-                .measureText(m_data.c_str(), m_data.length() * 2) + 8;
+                .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 8;
         return width > m_min ? width : m_min;
     }
-    void setLogicWidth(int width) override { m_width = width; }
-    void setLogicHeight(int height) override { m_height = height; }
+    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
+    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     int getWidth(EventContext& context) override {
         if (m_width) { return m_width; }
         return getLogicWidth(context);
@@ -127,7 +127,7 @@ public:
         canvas->drawRect(canvas.bound(0.5, 0.5), context.getStyle(StyleTableBorder));
 
         canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas->drawText(m_data.c_str(), m_data.length() * 2, 4, 2, context.getStyle(StyleTableFont));
+        canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, context.getStyle(StyleTableFont));
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
@@ -170,12 +170,10 @@ public:
             service.moveRight();
             break;
         }
+        service.commit(m_data.c_str(), m_data.length() * sizeof(GChar), context.getStyle(StyleTableFont));
         if (context.outer) {
             context.outer->notify(WidthChange, 0, m_column);
         }
-        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
-        context.outer->reflow(true);
-
         context.redraw();
 
     }
@@ -195,8 +193,8 @@ public:
         int width = (int) context.getStyle(StyleTableFont).measureText(line.c_str(), line.size()) + 8;
         return width > m_min ? width : m_min;
     }
-    void setLogicWidth(int width) override { m_width = width; }
-    void setLogicHeight(int height) override { m_height = height; }
+    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
+    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     int getWidth(EventContext& context) override {
         if (m_width) { return m_width; }
         return getLogicWidth(context);
@@ -650,17 +648,10 @@ public:
             append(new TextElement(i));
         }
     }
-    void setLogicHeight(int height) override {
-        m_height = height;
-        for (auto *ele : m_index) {
-            ele->setLogicHeight(m_height);
+    void setLogicHeight(EventContext &context, int height) override {
+        for_context(col, context) {
+            col.setLogicHeight(height);
         }
-    }
-    void setColumnWidth(int column, int width) {
-        m_index.at(column)->setLogicWidth(width);
-    }
-    int getColumnWidth(EventContext &context, int column) {
-        return m_index.at(column)->getLogicWidth(context);
     }
     void onNotify(EventContext &context, int type, int p1, int p2) override {
         if (context.outer) {
@@ -675,25 +666,16 @@ public:
             append(new InlineRowElement(column));
         }
     }
-
-    void setColumnWidth(int column, int width) {
-        for (auto *ele : m_index) {
-            auto *row = (InlineRowElement *) ele;
-            row->setColumnWidth(column, width);
-        }
-    }
-    void onNotify(EventContext &context, int type, int p1, int p2) override {
-        EventContext ctx = context.enter();
+    void onNotify(EventContext &context, int type, int p1, int column) override {
         int width = 0;
-        while (ctx.has()) {
-            auto *element = (InlineRowElement *) ctx.current();
-            int cur_width = element->getColumnWidth(ctx, p2);
+        for_context(row, context) {
+            int cur_width = row.enter(column).logicWidth();
             if (cur_width > width)
                 width = cur_width;
-            ctx.next();
         }
-        setColumnWidth(p2, width);
-        //ctx.start().reflow(true);
+        for_context(row, context) {
+            row.enter(column).setLogicWidth(width);
+        }
         if (context.outer) {
             context.outer->notify(WidthChange, 0, context.index);
         }
@@ -708,10 +690,9 @@ public:
             m_index.append(element);
         }
     }
-    void setLogicHeight(int height) override {
-        m_height = height;
-        for (auto *ele : m_index) {
-            ele->setLogicHeight(m_height);
+    void setLogicHeight(EventContext &context, int height) override {
+        for_context(col, context) {
+            col.setLogicHeight(height);
         }
     }
     void onNotify(EventContext &context, int type, int param1, int param2) override {
@@ -741,49 +722,21 @@ public:
         row->m_index.at(column) = element;
         delete old;
     }
-    void setColumnWidth(int column, int width) {
-        for (auto & i : m_index) {
-            if (i->hasChild()) {
-                auto col = i->children()->at(column);
-                col->setLogicWidth(width);
-            }
-        }
-    }
     void onNotify(EventContext &context, int type, int p1, int p2) override {
-        EventContext row = context.enter();
         int width = 0;
-        while (row.has()) {
-            EventContext column = row.enter(p2);
-            int cur_width = column.current()->getLogicWidth(column);
+        for_context(row, context) {
+            int cur_width = row.enter(p2).logicWidth();
             if (cur_width > width)
                 width = cur_width;
-            row.next();
         }
-        setColumnWidth(p2, width);
+        for_context(row, context) {
+            row.enter(p2).setLogicWidth(width);
+        }
+        if (context.outer) {
+            context.outer->notify(WidthChange, 0, context.index);
+        }
         //row.start().reflow(true);
         context.redraw();
-    }
-
-    void onLeaveReflow(EventContext &context) override {
-        Buffer<int> maxWidthBuffer;
-        EventContext row = context.enter();
-        while (row.has()) {
-            EventContext col = row.enter();
-            while (col.has()) {
-                int width = col.width();
-                if (width > maxWidthBuffer[col.index]) {
-                    maxWidthBuffer[col.index] = width;
-                }
-                col.next();
-            }
-            row.next();
-        }
-        for (auto iter = maxWidthBuffer.iter(); iter.has(); iter.next()) {
-            setColumnWidth(iter.index(), iter.current());
-        }
-        maxWidthBuffer.clear();
-        //row.start().reflow(true);
-
     }
 };
 
@@ -794,17 +747,12 @@ public:
             append(new TextElement(i));
         }
     }
-    void setLogicHeight(int height) override {
-        m_height = height;
-        for (auto *ele : m_index) {
-            ele->setLogicHeight(m_height);
+
+    void setLogicHeight(EventContext &context, int height) override {
+        for_context(col, context) {
+            col.setLogicHeight(height);
         }
-    }
-    void setColumnWidth(int column, int width) {
-        m_index.at(column)->setLogicWidth(width);
-    }
-    int getColumnWidth(EventContext &context, int column) {
-        return m_index.at(column)->getLogicWidth(context);
+        m_height = height;
     }
     void onNotify(EventContext &context, int type, int p1, int p2) override {
         if (context.outer) {
@@ -816,31 +764,21 @@ class NewTableElement : public Container<DisplayTable> {
 public:
     NewTableElement(int line, int column) {
         for (int i = 0; i < line; ++i) {
-            append(new InlineRowElement(column));
-        }
-    }
-
-    void setColumnWidth(int column, int width) {
-        for (auto *ele : m_index) {
-            auto *row = (NewRowElement *) ele;
-            row->setColumnWidth(column, width);
+            append(new NewRowElement(column));
         }
     }
     void onNotify(EventContext &context, int type, int p1, int p2) override {
-        EventContext ctx = context.enter();
-        int width = 0;
-        while (ctx.has()) {
-            auto *element = (InlineRowElement *) ctx.current();
-            int cur_width = element->getColumnWidth(ctx, p2);
-            if (cur_width > width)
-                width = cur_width;
-            ctx.next();
+        if (context.outer && context.outer->current()->getDisplay() == DisplayRow) {
+            context.outer->notify(type, p1, p2);
+        } else {
+            context.reflow(true);
         }
-        setColumnWidth(p2, width);
-        //ctx.start().reflow(true);
-        if (context.outer) {
-            context.outer->notify(WidthChange, 0, context.index);
-        }
+    }
+    void replace(int line, int column, Element *element) {
+        auto *row = (Container *) m_index.at(line);
+        auto *old = row->m_index.at(column);
+        row->m_index.at(column) = element;
+        delete old;
     }
 
 };

@@ -24,12 +24,12 @@ void LayoutManager::reflow(EventContext context, bool init) {
     }
     if (context.outer) {
         if (layoutContext.lineMaxHeight) {
-            context.outer->current()->setLogicWidth(offset.x);
-            context.outer->current()->setLogicHeight(layoutContext.lineMaxHeight);
+            context.outer->setLogicWidth(offset.x);
+            context.outer->setLogicHeight(layoutContext.lineMaxHeight);
         }
         if (layoutContext.blockMaxWidth) {
-            context.outer->current()->setLogicWidth(layoutContext.blockMaxWidth);
-            context.outer->current()->setLogicHeight(offset.y);
+            context.outer->setLogicWidth(layoutContext.blockMaxWidth);
+            context.outer->setLogicHeight(offset.y);
         }
         if (!init) {
             // 再把父级别的元素都安排一下
@@ -78,23 +78,21 @@ Layout(LayoutDisplayTable) {
     if (init) {
         sender->reflow(context.enter(), true);
         Buffer<int> maxWidthBuffer;
-        EventContext row = context.enter();
-        while (row.has()) {
-            EventContext col = row.enter();
-            while (col.has()) {
-                int width = col.width();
+        for_context(row, context) {
+            for_context(col, row) {
+                int width = col.logicWidth();
                 if (width > maxWidthBuffer[col.index]) {
                     maxWidthBuffer[col.index] = width;
                 }
-                col.next();
             }
-            row.next();
         }
         for (auto iter = maxWidthBuffer.iter(); iter.has(); iter.next()) {
-            auto *ele = (NewTableElement *) context.current();
-            ele->setColumnWidth(iter.index(), iter.current());
+            for_context(table_row, context) {
+                table_row.enter(iter.index()).setLogicWidth(iter.current());
+            }
         }
         maxWidthBuffer.clear();
+        sender->reflow(context.enter(), true);
     }
     if (context.outer && context.outer->current()->getDisplay() == DisplayRow) {
         CallDisplayFunc(LayoutDisplayInline);
@@ -104,7 +102,7 @@ Layout(LayoutDisplayTable) {
 }
 Layout(LayoutDisplayRow) {
     if (init) {
-        sender->reflow(context.enter(), false);
+        sender->reflow(context.enter(), true);
     }
     CallDisplayFunc(LayoutDisplayBlock);
 }

@@ -226,6 +226,9 @@ Offset EventContext::offset() {
 Offset EventContext::relative(int x, int y) {
     return Offset{x, y}  - offset();
 }
+Display EventContext::display() {
+    return current()->getDisplay();
+}
 
 int EventContext::height() {
     return current()->getHeight(*this);

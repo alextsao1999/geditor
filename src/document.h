@@ -120,6 +120,7 @@ struct EventContext {
     GRect viewportRect();
     Offset viewportOffset();
     Offset relative(int x, int y);
+    Display display();
     int width();
     int height();
     int logicWidth();
@@ -197,6 +198,8 @@ public:
     virtual Offset getOffset(EventContext &context) { return {0, 0}; }
     virtual int getLogicWidth(EventContext &context) { return 0; };
     virtual int getLogicHeight(EventContext &context) { return 0; };
+
+    // reflow 结束时 会调用此方法 传递最大的行高度或最大的块宽度
     virtual void setLogicWidth(EventContext &context, int width) {};
     virtual void setLogicHeight(EventContext &context, int height) {};
     // 获取实际宽度

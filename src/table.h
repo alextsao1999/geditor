@@ -179,87 +179,6 @@ public:
     }
 
 };
-class ColumnElement : public RelativeElement {
-private:
-    int m_column = 0;
-    int m_min = 50;
-public:
-    int m_width = 0;
-    int m_height = 25;
-    explicit ColumnElement(int column) : m_column(column) {}
-    int getLogicHeight(EventContext &context) override { return m_height; }
-    int getLogicWidth(EventContext &context) override {
-        auto line = context.getLineViewer(m_column);
-        int width = (int) context.getStyle(StyleTableFont).measureText(line.c_str(), line.size()) + 8;
-        return width > m_min ? width : m_min;
-    }
-    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
-    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
-    int getWidth(EventContext& context) override {
-        if (m_width) { return m_width; }
-        return getLogicWidth(context);
-    }
-    Display getDisplay() override {
-        return DisplayInline;
-    }
-    void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas();
-        canvas->drawRect(canvas.bound(0.5, 0.5), context.getStyle(StyleTableBorder));
-
-        auto line = context.getLineViewer(m_column);
-        canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas->drawText(line.c_str(), line.size(), 4, 2, context.getStyle(StyleTableFont));
-    }
-    void onLeftButtonDown(EventContext &context, int x, int y) override {
-        context.focus();
-        TextCaretService service(Offset(4, 4), &context);
-        service.moveTo(context.relative(x, y));
-        service.commit(context.getStyle(StyleTableFont), nullptr, m_column);
-    }
-
-    void onMouseMove(EventContext &context, int x, int y) override {
-        if (context.selecting()) {
-            onLeftButtonDown(context, x, y);
-        }
-    }
-
-    void onKeyDown(EventContext &context, int code, int status) override {
-        auto caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 4), &context);
-        if (code == VK_LEFT) {
-            service.moveLeft();
-        }
-        if (code == VK_RIGHT) {
-            service.moveRight();
-        }
-        service.commit(context.getStyle(StyleTableFont), nullptr, m_column);
-    };
-    void onInputChar(EventContext &context, int ch) override {
-        auto line = context.getLineViewer(m_column);
-        TextCaretService service(Offset(4, 4), &context);
-        switch (ch) {
-            case VK_BACK:
-                if (service.index() > 0) {
-                    line.remove(service.index() - 1);
-                    service.moveLeft();
-                }
-                break;
-            case VK_RETURN:
-                break;
-            default:
-                line.insert(service.index(), ch);
-                service.moveRight();
-                break;
-        }
-        if (context.outer) {
-            context.outer->notify(WidthChange, 0, m_column);
-        }
-        service.commit(context.getStyle(StyleTableFont), nullptr, m_column);
-        context.redraw();
-
-    }
-
-};
 class ButtonElement : public RelativeElement {
 public:
     SkBitmap bitmap;
@@ -376,139 +295,6 @@ public:
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         draw(11, 0, 0,
              SkColorSetRGB(166, 166, 166), SkColorSetRGB(204, 204, 204));
-        context.redraw();
-    }
-};
-class LineElement : public RelativeElement {
-public:
-    SkPaint paint;
-    SkPaint style;
-    int i = 0;
-    LineElement() {
-        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
-        paint.setTextSize(18);
-        paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
-        paint.setAntiAlias(true);
-        paint.setColor(SK_ColorBLACK);
-        paint.setLooper(SkBlurDrawLooper::Create(SK_ColorGRAY, 10, 4, 4));
-
-    }
-    int getLogicHeight(EventContext &context) override { return 25; }
-    Display getDisplay() override { return DisplayLine; }
-    Element *copy() override {
-        return new LineElement();
-    }
-    void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas(&style);
-
-        SkPaint border;
-        border.setStyle(SkPaint::Style::kStroke_Style);
-        border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.bound(0.5, 0.5), border);
-
-        LineViewer viewer = context.getLineViewer();
-        canvas->translate(0, paint.getTextSize());
-        canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, paint);
-
-    }
-    void onLeftButtonDown(EventContext &context, int x, int y) override {
-        context.focus();
-        TextCaretService service(Offset(4, 6), &context);
-        service.moveTo(context.relative(x, y));
-        service.commit(paint);
-    }
-    void onMouseMove(EventContext &context, int x, int y) override {
-        if (context.selecting()) {
-            context.focus();
-            TextCaretService service(Offset(4, 6), &context);
-            service.moveTo(context.relative(x, y));
-            service.commit(paint);
-        }
-    }
-    void onKeyDown(EventContext &context, int code, int status) override {
-        auto caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 5), &context);
-        if (code == VK_LEFT) {
-            service.moveLeft();
-            if (!service.commit(paint)) {
-                caret->prev();
-                service.moveToIndex(-1);
-                service.commit(paint);
-            }
-        }
-        if (code == VK_RIGHT) {
-            service.moveRight();
-            if (!service.commit(paint)) {
-                if (caret->next()) {
-                    service.moveToIndex(0);
-                    service.commit(paint);
-                }
-            }
-        }
-        if (code == VK_UP) {
-            service.commit(paint);
-            caret->prev();
-            service.commit(paint);
-        }
-        if (code == VK_DOWN) {
-            service.commit(paint);
-            caret->next();
-            service.commit(paint);
-        }
-    };
-    void onInputChar(EventContext &context, int ch) override {
-        auto* caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 6), &context);
-        auto line = context.getLineViewer();
-        switch (ch) {
-            case VK_BACK:
-                if (service.index() > 0) {
-                    line.remove(service.index() - 1);
-                    service.moveLeft();
-                } else {
-                    if (caret->prev()) {
-                        service.moveToIndex(-1);
-                        service.commit(paint);
-                        context.combine(); // 因为combine要delete本对象 之后paint就不存在了 所以移动要在之前调用
-                        context.reflow();
-                        context.redraw();
-                        return;
-                    }
-                }
-                break;
-            case VK_RETURN:
-                context.copyLine();
-                context.reflow();
-                if (caret->next()) {
-                    int idx = service.index();
-                    context.getLineViewer().append(line.c_str() + idx, line.length() - idx);
-                    line.erase(idx, line.length() - idx);
-                    service.moveToIndex(0);
-                }
-                break;
-            default:
-                line.insert(service.index(), ch);
-                service.moveRight();
-                break;
-        }
-        service.commit(paint);
-        context.redraw();
-    }
-    void onFocus(EventContext &context) override {
-        // 选中
-        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode));
-        // 设置文字
-        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcIn_Mode));
-        // 设置背景
-        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kColorDodge_Mode));
-        style.setColorFilter(
-                SkColorFilter::CreateModeFilter(
-                        SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
-        context.redraw();
-
-    }
-    void onBlur(EventContext &context) override {
-        style.setColorFilter(nullptr);
         context.redraw();
     }
 };
@@ -641,105 +427,6 @@ public:
     }
 };
 
-class InlineRowElement : public Container<DisplayBlock> {
-public:
-    explicit InlineRowElement(int column) {
-        for (int i = 0; i < column; ++i) {
-            append(new TextElement(i));
-        }
-    }
-    void setLogicHeight(EventContext &context, int height) override {
-        for_context(col, context) {
-            col.setLogicHeight(height);
-        }
-    }
-    void onNotify(EventContext &context, int type, int p1, int p2) override {
-        if (context.outer) {
-            context.outer->notify(type, p1, p2);
-        }
-    }
-};
-class InlineTableElement : public Container<DisplayInline> {
-public:
-    InlineTableElement(int line, int column) {
-        for (int i = 0; i < line; ++i) {
-            append(new InlineRowElement(column));
-        }
-    }
-    void onNotify(EventContext &context, int type, int p1, int column) override {
-        int width = 0;
-        for_context(row, context) {
-            int cur_width = row.enter(column).logicWidth();
-            if (cur_width > width)
-                width = cur_width;
-        }
-        for_context(row, context) {
-            row.enter(column).setLogicWidth(width);
-        }
-        if (context.outer) {
-            context.outer->notify(WidthChange, 0, context.index);
-        }
-    }
-
-};
-class RowElement : public Container<DisplayLine> {
-public:
-    explicit RowElement(int column) {
-        for (int i = 0; i < column; ++i) {
-            Element *element = new ColumnElement(i);
-            m_index.append(element);
-        }
-    }
-    void setLogicHeight(EventContext &context, int height) override {
-        for_context(col, context) {
-            col.setLogicHeight(height);
-        }
-    }
-    void onNotify(EventContext &context, int type, int param1, int param2) override {
-        if (context.outer) {
-            context.outer->notify(type, param1, param2);
-        }
-    }
-
-    void onRedraw(EventContext &context) override {
-        Root::onRedraw(context);
-    }
-};
-class TableElement : public Container<DisplayBlock> {
-public:
-    TableElement(int line, int column) {
-        for (int i = 0; i < line; ++i) {
-            Element *element = new RowElement(column);
-            append(element);
-        }
-    }
-    int getLogicHeight(EventContext &context) override {
-        return Container::getLogicHeight(context) + 1;
-    }
-    void replace(int line, int column, Element *element) {
-        auto *row = (Container *) m_index.at(line);
-        auto *old = row->m_index.at(column);
-        row->m_index.at(column) = element;
-        delete old;
-    }
-    void onNotify(EventContext &context, int type, int p1, int p2) override {
-        int width = 0;
-        for_context(row, context) {
-            int cur_width = row.enter(p2).logicWidth();
-            if (cur_width > width)
-                width = cur_width;
-        }
-        for_context(row, context) {
-            row.enter(p2).setLogicWidth(width);
-        }
-        if (context.outer) {
-            context.outer->notify(WidthChange, 0, context.index);
-        }
-        //row.start().reflow(true);
-        context.redraw();
-    }
-};
-
 class NewRowElement : public Container<DisplayRow> {
 public:
     explicit NewRowElement(int column) {
@@ -747,16 +434,15 @@ public:
             append(new TextElement(i));
         }
     }
-
     void setLogicHeight(EventContext &context, int height) override {
         for_context(col, context) {
             col.setLogicHeight(height);
         }
         m_height = height;
     }
-    void onNotify(EventContext &context, int type, int p1, int p2) override {
+    void onNotify(EventContext &context, int type, int param, int other) override {
         if (context.outer) {
-            context.outer->notify(type, p1, p2);
+            context.outer->notify(type, param, other);
         }
     }
 };
@@ -767,9 +453,9 @@ public:
             append(new NewRowElement(column));
         }
     }
-    void onNotify(EventContext &context, int type, int p1, int p2) override {
-        if (context.outer && context.outer->current()->getDisplay() == DisplayRow) {
-            context.outer->notify(type, p1, p2);
+    void onNotify(EventContext &context, int type, int param, int other) override {
+        if (context.outer && context.outer->display() == DisplayRow) {
+            context.outer->notify(type, param, other);
         } else {
             context.reflow(true);
         }
@@ -780,6 +466,7 @@ public:
         row->m_index.at(column) = element;
         delete old;
     }
+
 
 };
 

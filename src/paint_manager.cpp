@@ -46,6 +46,10 @@ GRect Canvas::bound(SkScalar dx, SkScalar dy) {
     return rect;
 }
 
+void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y, int style) {
+    m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style));
+}
+
 void RenderManager::redraw(EventContext *ctx) {
     Offset offset = ctx->offset() - getViewportOffset();
     RECT rect;

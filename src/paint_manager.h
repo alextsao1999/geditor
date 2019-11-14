@@ -22,6 +22,7 @@ typedef SkRect GRect;
 typedef SkPath GPath;
 typedef SkPaint GPaint;
 typedef SkPoint GPoint;
+typedef SkScalar GScalar;
 
 struct Offset {
     int x = 0;
@@ -183,6 +184,7 @@ public:
             m_count = 0;
         }
     }
+    void drawText(const void* text, size_t byteLength, GScalar x, GScalar y, int style);
     inline SkCanvas *operator->() {
         return m_canvas;
     }

@@ -478,7 +478,7 @@ public:
         m_delta = width - m_width;
         for_context(row, context) {
             EventContext end = row.enter().end();
-            end.setLogicWidth(end.minWidth() + m_delta);
+            end.setLogicWidth(end.logicWidth() + m_delta);
         }
     }
     int getLogicWidth(EventContext &context) override {

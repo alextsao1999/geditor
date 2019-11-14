@@ -38,10 +38,12 @@ public:
         ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-        auto *table = new NewTableElement(2, 2);
-        table->replace(0, 0, new NewTableElement(2, 2));
-        m_data->m_document.append(table);
-        m_data->m_document.appendLine(new SyntaxLineElement()).append(L"var a = 100;");
+        auto *table = new TableElement(2, 2);
+        auto *table_inner = new TableElement(2, 2);
+        table->replace(0, 0, table_inner);
+        m_data->m_document.appendElement(table);
+
+        m_data->m_document.appendLine(new LineElement()).append(L"var a = 100;");
         m_data->m_document.appendLine(new SyntaxLineElement()).append(L"class YourClass");
         //m_data->m_document.append(new ButtonElement());
         m_data->m_document.flow();

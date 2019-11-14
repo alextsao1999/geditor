@@ -51,13 +51,13 @@ struct Token {
 
 static GString symbols = _GT("+-*/");
 static std::map<GString, int> keywords = {
-        {_GT("if"), StyleKeyword},
-        {_GT("while"), StyleKeyword},
-        {_GT("var"), StyleKeyword},
-        {_GT("this"), StyleKeyword},
-        {_GT("break"), StyleKeyword},
-        {_GT("do"), StyleKeyword},
-        {_GT("class"), StyleKeyword},
+        {_GT("if"),    StyleKeywordFont},
+        {_GT("while"), StyleKeywordFont},
+        {_GT("var"),   StyleKeywordFont},
+        {_GT("this"),  StyleKeywordFont},
+        {_GT("break"), StyleKeywordFont},
+        {_GT("do"),    StyleKeywordFont},
+        {_GT("class"), StyleKeywordFont},
 };
 
 class Lexer {

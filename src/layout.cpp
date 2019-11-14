@@ -5,48 +5,60 @@
 #include "layout.h"
 #include "document.h"
 #include "table.h"
-void LayoutManager::reflow(EventContext context, bool init) {
-    LayoutContext layoutContext;
-    // 先把同级别的元素都安排一下
+void LayoutManager::ReflowAll(Document *doc) {
+    EventContext context = EventContextBuilder::build(doc);
+    context.init(doc);
+    context.reflow(true);
+}
+
+void LayoutManager::reflow(EventContext context, bool relayout) {
     if (!context.has()) {
         return;
     }
+    LayoutContext layoutContext;
     Offset offset = context.current()->getLogicOffset();
+    // 先把同级别的元素都安排一下
     while (context.has()) {
         Element *current = context.current();
         current->onEnterReflow(context, offset);
         Offset self = offset;
         Display display = current->getDisplay();
-        m_layouts[display](this, display, context, layoutContext, self, offset, init);
+        m_layouts[display](this, display, context, layoutContext, self, offset, relayout);
         current->setLogicOffset(self);
         current->onLeaveReflow(context);
         context.next();
     }
     if (context.outer) {
         if (layoutContext.lineMaxHeight) {
-            context.outer->setLogicWidth(offset.x);
-            context.outer->setLogicHeight(layoutContext.lineMaxHeight);
+            context_on(*context.outer, FinishReflow, offset.x, layoutContext.lineMaxHeight);
         }
         if (layoutContext.blockMaxWidth) {
-            context.outer->setLogicWidth(layoutContext.blockMaxWidth);
-            context.outer->setLogicHeight(offset.y);
+            context_on(*context.outer, FinishReflow, layoutContext.blockMaxWidth, offset.y);
         }
-        if (!init) {
-            // 再把父级别的元素都安排一下
+        if (!relayout) { // 再把父级别的元素都安排一下
             reflow(*context.outer, false);
         }
     } else {
         m_width = layoutContext.blockMaxWidth;
         m_height = offset.y;
     }
-
 }
 
-void LayoutManager::reflowAll(Document *doc) {
-    EventContext context = EventContextBuilder::build(doc);
-    context.init(doc);
-    context.reflow(true);
+void LayoutManager::relayout(EventContext context) {
+    if (!context.has()) {
+        return;
+    }
+    LayoutContext layoutContext;
+    Element *current = context.current();
+    Offset offset = current->getLogicOffset();
+    Display display = context.display();
+    Offset self = offset;
+    current->onEnterReflow(context, offset);
+    m_layouts[display](this, display, context, layoutContext, self, offset, true);
+    current->setLogicOffset(self);
+    current->onLeaveReflow(context);
 }
+
 Layout(LayoutDisplayNone) {}
 Layout(LayoutDisplayInline) {
     layoutContext.blockMaxWidth = 0;
@@ -57,8 +69,8 @@ Layout(LayoutDisplayInline) {
     }
 }
 Layout(LayoutDisplayBlock) {
-    if (init) {
-        sender->reflow(context.enter(), init);
+    if (relayout) {
+        sender->reflow(context.enter(), true);
     }
     layoutContext.lineMaxHeight = 0;
     int value = context.width();
@@ -69,40 +81,55 @@ Layout(LayoutDisplayBlock) {
     next.y += context.height();
 }
 Layout(LayoutDisplayLine) {
-    if (init) {
-        sender->reflow(context.enter(), init);
+    if (relayout) {
+        sender->reflow(context.enter(), relayout);
     }
     CallDisplayFunc(LayoutDisplayBlock);
 }
+
 Layout(LayoutDisplayTable) {
-    if (init) {
-        sender->reflow(context.enter(), true);
-        Buffer<int> maxWidthBuffer;
+    if (relayout) {
+        Buffer<int> MaxWidthBuffer;
+        Buffer<int> MaxHeightBuffer;
         for_context(row, context) {
             for_context(col, row) {
-                int width = col.logicWidth();
-                if (width > maxWidthBuffer[col.index]) {
-                    maxWidthBuffer[col.index] = width;
-                }
+                col.relayout();
+                int width = col.minWidth();
+                int height = col.minHeight();
+                if (width > MaxWidthBuffer[col.index]) MaxWidthBuffer[col.index] = width;
+                if (height > MaxHeightBuffer[row.index]) MaxHeightBuffer[row.index] = height;
             }
         }
-        for (auto iter = maxWidthBuffer.iter(); iter.has(); iter.next()) {
-            for_context(table_row, context) {
-                table_row.enter(iter.index()).setLogicWidth(iter.current());
+        Offset pos_row(0, 0);
+        for_context(row, context) {
+            row.current()->setLogicOffset(pos_row);
+            Offset pos_col(0, 0);
+            for_context(col, row) {
+                col.current()->setLogicOffset(pos_col);
+                col.setLogicWidth(MaxWidthBuffer[col.index]);
+                col.setLogicHeight(MaxHeightBuffer[row.index]);
+                //context_on(col, FinishReflow, MaxWidthBuffer[col.index], MaxHeightBuffer[row.index]);
+                pos_col.x += MaxWidthBuffer[col.index];
             }
+            context_on(row, FinishReflow, pos_col.x, MaxHeightBuffer[row.index]);
+            pos_row.y += MaxHeightBuffer[row.index];
         }
-        maxWidthBuffer.clear();
-        sender->reflow(context.enter(), true);
+        int table_width = 0;
+        for (auto iter = MaxWidthBuffer.iter(); iter.has(); iter.next()) {
+            table_width += iter.current();
+        }
+        context_on(context, FinishReflow, table_width, pos_row.y);
     }
-    if (context.outer && context.outer->current()->getDisplay() == DisplayRow) {
+    if (context.outer && context.outer->display() == DisplayRow) {
         CallDisplayFunc(LayoutDisplayInline);
     } else {
         CallDisplayFunc(LayoutDisplayBlock);
     }
 }
+
 Layout(LayoutDisplayRow) {
-    if (init) {
-        sender->reflow(context.enter(), true);
+    if (relayout) {
+
     }
     CallDisplayFunc(LayoutDisplayBlock);
 }

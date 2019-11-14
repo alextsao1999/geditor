@@ -131,8 +131,16 @@ bool EventContext::outerPrev() {
     return index < buffer->size();
 }
 
-void EventContext::reflow(bool init) {
-    doc->m_context.m_layoutManager.reflow(*this, init);
+void EventContext::reflow(bool relayout) {
+    doc->m_context.m_layoutManager.reflow(*this, relayout);
+}
+void EventContext::relayout() {
+    doc->m_context.m_layoutManager.relayout(*this);
+}
+
+void EventContext::redraw() {
+    // onRedraw 需要更新宽度!!!
+    doc->getContext()->m_renderManager->redraw(this);
 }
 
 void EventContext::focus() {
@@ -160,11 +168,6 @@ void EventContext::combine() {
     }
 }
 
-void EventContext::redraw() {
-    // onRedraw 需要更新宽度!!!
-    doc->getContext()->m_renderManager->redraw(this);
-}
-
 LineViewer EventContext::copyLine() {
     if (current()->getDisplay() == DisplayLine) {
         int next = getLineIndex() + 1;
@@ -182,22 +185,8 @@ void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), type, data});
 }
 
-void EventContext::notify(int type, int p1, int p2) {
-    current()->onNotify(*this, type, p1, p2);
-}
-
-GPath EventContext::path() {
-    GPath path;
-    EventContext event = enter();
-    while (event.has()) {
-        SkPath sub = event.path();
-        Offset offset = event.current()->getLogicOffset();
-        sub.offset(offset.x, offset.y);
-        path.addPath(sub, SkPath::AddPathMode::kAppend_AddPathMode);
-        event.next();
-    }
-    path.addRect(GRect::MakeWH(width(), height()));
-    return path;
+void EventContext::notify(int type, int param, int other) {
+    current()->onNotify(*this, type, param, other);
 }
 
 GRect EventContext::logicRect() {
@@ -244,6 +233,14 @@ int EventContext::logicHeight() {
 
 int EventContext::logicWidth() {
     return current()->getLogicWidth(*this);
+}
+
+int EventContext::minHeight() {
+    return current()->getMinHeight(*this);
+}
+
+int EventContext::minWidth() {
+    return current()->getMinWidth(*this);
 }
 
 void EventContext::setLogicHeight(int height) {

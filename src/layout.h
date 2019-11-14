@@ -6,8 +6,8 @@
 #define GEDITOR_LAYOUT_H
 
 #include "common.h"
-typedef int Display;
-enum {
+//typedef int Display;
+enum Display {
     DisplayNone,
     DisplayInline,
     DisplayBlock,
@@ -26,7 +26,7 @@ struct LayoutContext {
     int lineMaxHeight = 0;
     int blockMaxWidth = 0;
 };
-#define LayoutArgs() (LayoutManager *sender, Display display, EventContext &context, LayoutContext &layoutContext, Offset &self, Offset &next, bool init)
+#define LayoutArgs() (LayoutManager *sender, Display display, EventContext &context, LayoutContext &layoutContext, Offset &self, Offset &next, bool relayout)
 #define CallDisplayFunc(Fun) Fun(sender, display, context, layoutContext, self, next, false)
 #define Layout(display) void display LayoutArgs()
 typedef void (*LayoutFunc) LayoutArgs();
@@ -42,6 +42,7 @@ class LayoutManager {
 private:
     int m_width = 500;
     int m_height = 500;
+public:
     LayoutFunc m_layouts[6] = {
             LayoutDisplayNone,
             LayoutDisplayInline,
@@ -50,12 +51,12 @@ private:
             LayoutDisplayTable,
             LayoutDisplayRow,
     };
-
-public:
-    void reflow(EventContext context, bool init = false);
-    void reflowAll(Document *doc);
+    static void ReflowAll(Document *doc);
+    void reflow(EventContext context, bool relayout = false);
+    void relayout(EventContext context);
     int getHeight() { return m_height; }
     int getWidth() { return m_width; }
+    LayoutFunc getLayoutFunc(Display display) { return m_layouts[display]; }
 };
 
 

@@ -104,16 +104,16 @@ struct EventContext {
     // 只改变本层次Line
     void prevLine(int count = 1) { line -= count; }
     void nextLine(int count = 1) { line += count; }
-    void reflow(bool init = false);
+    void reflow(bool relayout = false);
     void redraw();
+    void relayout();
     void focus();
     void combine();
     void push(CommandType type, CommandData data);
     void insert(int idx, Element *ele) { buffer->insert(idx, ele); }
-    void notify(int type, int p1, int p2);
+    void notify(int type, int param, int other);
     void post();
 
-    GPath path();
     GRect rect();
     GRect logicRect();
     Offset offset();
@@ -125,6 +125,8 @@ struct EventContext {
     int height();
     int logicWidth();
     int logicHeight();
+    int minWidth();
+    int minHeight();
     void setLogicWidth(int width);
     void setLogicHeight(int height);
 
@@ -170,6 +172,17 @@ struct EventContext {
         }
         printf(" { index = %d, line = %d }", index, line);
     }
+    std::string path() {
+        std::string str;
+        if (outer) {
+            str.append(outer->path());
+        }
+        char buf[255] = {"\0"};
+        sprintf_s(buf, "/%d\0", index);
+        str.append(buf);
+        return str;
+    }
+
     bool selecting() { return getDocContext()->m_selecting; }
 };
 
@@ -198,6 +211,8 @@ public:
     virtual Offset getOffset(EventContext &context) { return {0, 0}; }
     virtual int getLogicWidth(EventContext &context) { return 0; };
     virtual int getLogicHeight(EventContext &context) { return 0; };
+    virtual int getMinWidth(EventContext &context) { return getLogicWidth(context); };
+    virtual int getMinHeight(EventContext &context) { return getLogicHeight(context); };
 
     // reflow 结束时 会调用此方法 传递最大的行高度或最大的块宽度
     virtual void setLogicWidth(EventContext &context, int width) {};
@@ -258,9 +273,10 @@ public:
     DEFINE_EVENT(onSelect);
     DEFINE_EVENT(onUnselect);
     DEFINE_EVENT(onUndo, Command command);
-
     DEFINE_EVENT(onEnterReflow, Offset &offset);
     DEFINE_EVENT(onLeaveReflow);
+    DEFINE_EVENT(onFinishReflow, int width, int height);
+
     enum NotifyType {
         None,
         SizeChange,
@@ -272,10 +288,6 @@ public:
     virtual Element *copy() { return nullptr; }
     int getLineNumber();
     int getWidth(EventContext &context) override;
-    void dump() override {
-        const char *string[] = {"None", "Inline", "Block", "Line", "Table", "Row"};
-        std::cout << "Display : " << string[getDisplay()] << std::endl;
-    }
 };
 
 class RelativeElement : public Element {
@@ -287,7 +299,10 @@ public:
     using Element::Element;
     Offset getLogicOffset() override { return m_offset; }
     void setLogicOffset(Offset offset) override { m_offset = offset; }
-
+    void dump() override {
+        const char *string[] = {"None", "Inline", "Block", "Line", "Table", "Row"};
+        printf("{ display: %s,  offset-x: %d, offset-y: %d }\n", string[getDisplay()], m_offset.x, m_offset.y);
+    }
 };
 
 // 根据Children 自动改变宽高
@@ -312,6 +327,7 @@ public:
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getHeight(EventContext &context) override { return getLogicHeight(context); }
     int getWidth(EventContext &context) override { return getLogicWidth(context); }
+    void onFinishReflow(EventContext &context, int width, int height) override { m_width = width;m_height = height; }
     ElementIndex *children() override { return &m_index; }
     Display getDisplay() override { return D; }
     virtual void append(Element *element) {
@@ -326,15 +342,8 @@ public:
     explicit Document(RenderManager *renderManager) : m_context(Context(renderManager)) {}
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
-    LineViewer appendLine(Element *element) {
-        if (element->getDisplay() != DisplayLine) {
-            return {};
-        }
-        m_index.append(element);
-        return m_context.m_textBuffer.appendLine();
-    };
     void flow() {
-        m_context.m_layoutManager.reflowAll(this);
+        LayoutManager::ReflowAll(this);
     }
     void append(Element *element) override {
         m_index.append(element);
@@ -342,6 +351,20 @@ public:
         for (int i = 0; i < count; ++i) {
             m_context.m_textBuffer.appendLine();
         }
+    };
+    EventContext appendElement(Element *element) {
+        EventContext context = EventContextBuilder::build(this);
+        context.init(this, m_index.size());
+        append(element);
+        context.relayout();
+        return context;
+    }
+    LineViewer appendLine(Element *element) {
+        if (element->getDisplay() != DisplayLine) {
+            return {};
+        }
+        append(element);
+        return m_context.m_textBuffer.getLine(m_context.m_textBuffer.getLineCount() - 1);
     };
     int getLogicWidth(EventContext &context) override {
         return m_context.m_layoutManager.getWidth();

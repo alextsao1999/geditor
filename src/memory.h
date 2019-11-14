@@ -20,6 +20,7 @@ struct Buffer {
     int capacity = 0;
     Buffer() = default;
     explicit Buffer(int init_capicity) { ensureCapacity(init_capicity); }
+    ~Buffer() { clear(); }
     class BufferIter {
         Buffer *m_data;
         int m_index = 0;
@@ -75,6 +76,7 @@ struct Buffer {
         ge_free(data);
         data = nullptr;
     }
+    inline void reset() { count = 0; }
     // 确保容量
     inline void ensureCapacity(int newCapacity) {
         if (newCapacity > capacity) {

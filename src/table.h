@@ -16,6 +16,7 @@
 #include <SkBlurImageFilter.h>
 #include <SkPathOps.h>
 #include <SkParse.h>
+#include <iostream>
 #include "document.h"
 #include "utils.h"
 class TextCaretService {
@@ -99,85 +100,6 @@ public:
         m_caret->set(offset.x, offset.y);
         m_caret->show();
     }
-};
-class TextElement : public RelativeElement {
-private:
-    GString m_data;
-    int m_column = 0;
-    int m_min = 50;
-public:
-    int m_width = 0;
-    int m_height = 25;
-    explicit TextElement(int column) : m_column(column) {}
-    int getLogicHeight(EventContext &context) override { return m_height; }
-    int getLogicWidth(EventContext &context) override {
-        int width = (int) context.getStyle(StyleTableFont)
-                .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 8;
-        return width > m_min ? width : m_min;
-    }
-    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
-    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
-    int getWidth(EventContext& context) override {
-        if (m_width) { return m_width; }
-        return getLogicWidth(context);
-    }
-    Display getDisplay() override { return DisplayInline; }
-    void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas();
-        canvas->drawRect(canvas.bound(0.5, 0.5), context.getStyle(StyleTableBorder));
-
-        canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, context.getStyle(StyleTableFont));
-    }
-    void onLeftButtonDown(EventContext &context, int x, int y) override {
-        context.focus();
-        TextCaretService service(Offset(4, 4), &context);
-        service.moveTo(context.relative(x, y));
-        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
-    }
-    void onMouseMove(EventContext &context, int x, int y) override {
-        if (context.selecting()) {
-            context.focus();
-            TextCaretService service(Offset(4, 4), &context);
-            service.moveTo(context.relative(x, y));
-            service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
-        }
-    }
-    void onKeyDown(EventContext &context, int code, int status) override {
-        auto caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 4), &context);
-        if (code == VK_LEFT) {
-            service.moveLeft();
-        }
-        if (code == VK_RIGHT) {
-            service.moveRight();
-        }
-        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
-    };
-    void onInputChar(EventContext &context, int ch) override {
-        TextCaretService service(Offset(4, 4), &context);
-        switch (ch) {
-        case VK_BACK:
-            if (service.index() > 0) {
-                m_data.erase(service.index() - 1, 1);
-                service.moveLeft();
-            }
-            break;
-        case VK_RETURN:
-            break;
-        default:
-            m_data.insert(m_data.begin() + service.index(), ch);
-            service.moveRight();
-            break;
-        }
-        service.commit(m_data.c_str(), m_data.length() * sizeof(GChar), context.getStyle(StyleTableFont));
-        if (context.outer) {
-            context.outer->notify(WidthChange, 0, m_column);
-        }
-        context.redraw();
-
-    }
-
 };
 class ButtonElement : public RelativeElement {
 public:
@@ -298,30 +220,23 @@ public:
         context.redraw();
     }
 };
-class SyntaxLineElement : public RelativeElement {
+
+class LineElement : public RelativeElement {
 public:
     SkPaint style;
-    SyntaxLineElement() = default;
-    int getLogicHeight(EventContext &context) override { return 28; }
+    LineElement() = default;
+    int getLogicHeight(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
-    Element *copy() override {
-        return new SyntaxLineElement();
-    }
+    Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas(&style);
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.bound(0.5, 0.5), border);
-        auto *lexer = context.getLexer();
-        Offset offset(4, context.height() - 4);
-        while (lexer->has()) {
-            Token token = lexer->next();
-            SkPaint &token_style = context.getStyle(token.style);
-            canvas->drawText(token.c_str(), token.size(), offset.x, offset.y, token_style);
-            offset.x += token_style.measureText(token.c_str(), token.size());
-        }
-
+        LineViewer viewer = context.getLineViewer();
+        canvas->translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
+        canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, context.getStyle(StyleDeafaultFont));
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
@@ -338,8 +253,8 @@ public:
         }
     }
     void onKeyDown(EventContext &context, int code, int status) override {
+        SkPaint &paint = context.getStyle(StyleDeafaultFont);
         auto caret = context.getCaretManager();
-        auto &paint = context.getStyle(StyleDeafaultFont);
         TextCaretService service(Offset(4, 5), &context);
         if (code == VK_LEFT) {
             service.moveLeft();
@@ -370,6 +285,7 @@ public:
         }
     };
     void onInputChar(EventContext &context, int ch) override {
+        SkPaint &paint = context.getStyle(StyleDeafaultFont);
         auto* caret = context.getCaretManager();
         TextCaretService service(Offset(4, 6), &context);
         auto line = context.getLineViewer();
@@ -381,7 +297,7 @@ public:
                 } else {
                     if (caret->prev()) {
                         service.moveToIndex(-1);
-                        service.commit(context.getStyle(StyleDeafaultFont));
+                        service.commit(paint);
                         context.combine(); // 因为combine要delete本对象 之后paint就不存在了 所以移动要在之前调用
                         context.reflow();
                         context.redraw();
@@ -404,11 +320,10 @@ public:
                 service.moveRight();
                 break;
         }
-        service.commit(context.getStyle(StyleDeafaultFont));
+        service.commit(paint);
         context.redraw();
     }
     void onFocus(EventContext &context) override {
-        context.getCaretManager()->create(2, context.height() - 7);
         // 选中
         //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode));
         // 设置文字
@@ -419,45 +334,167 @@ public:
                 SkColorFilter::CreateModeFilter(
                         SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
         context.redraw();
+
     }
     void onBlur(EventContext &context) override {
-        context.getCaretManager()->create();
         style.setColorFilter(nullptr);
         context.redraw();
     }
 };
-
-class NewRowElement : public Container<DisplayRow> {
+class SyntaxLineElement : public LineElement {
+    Element *copy() override { return new SyntaxLineElement(); }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas(&style);
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        auto *lexer = context.getLexer();
+        Offset offset(4, context.height() - 4);
+        while (lexer->has()) {
+            Token token = lexer->next();
+            SkPaint &token_style = context.getStyle(token.style);
+            canvas->drawText(token.c_str(), token.size(), offset.x, offset.y, token_style);
+            offset.x += token_style.measureText(token.c_str(), token.size());
+        }
+    }
+};
+class Tablable : public RelativeElement {
 public:
-    explicit NewRowElement(int column) {
+    ElementIndex m_index;
+    int m_width = 0;
+    int m_height = 0;
+public:
+    Tablable() = default;
+    ~Tablable() override {
+        for (auto element : m_index) {
+            // FIXME mouseEnter可能和element指向同一个元素
+            delete element;
+        }
+    }
+    ElementIndex *children() override { return &m_index; }
+    bool hasChild() override { return m_index.size() > 0; }
+
+};
+class TextElement : public RelativeElement {
+private:
+    GString m_data;
+    int m_column = 0;
+    int m_min = 50;
+public:
+    int m_width = 0;
+    int m_height = 25;
+    explicit TextElement(int column) : m_column(column) {}
+    int getLogicHeight(EventContext &context) override { return m_height; }
+    int getLogicWidth(EventContext &context) override {
+        int width = (int) context.getStyle(StyleTableFont)
+                .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 8;
+        width = width > m_min ? width : m_min;
+        return width;
+    }
+    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
+    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
+    int getWidth(EventContext& context) override {
+        if (m_width) return m_width;
+        return getLogicWidth(context);
+    }
+    Display getDisplay() override { return DisplayInline; }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        canvas->drawRect(canvas.bound(0.5, 0.5), context.getStyle(StyleTableBorder));
+
+        canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
+        canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, context.getStyle(StyleTableFont));
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        context.focus();
+        TextCaretService service(Offset(4, 4), &context);
+        service.moveTo(context.relative(x, y));
+        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
+    }
+    void onMouseMove(EventContext &context, int x, int y) override {
+        if (context.selecting()) {
+            context.focus();
+            TextCaretService service(Offset(4, 4), &context);
+            service.moveTo(context.relative(x, y));
+            service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
+        }
+    }
+    void onKeyDown(EventContext &context, int code, int status) override {
+        auto caret = context.getCaretManager();
+        TextCaretService service(Offset(4, 4), &context);
+        if (code == VK_LEFT) {
+            service.moveLeft();
+        }
+        if (code == VK_RIGHT) {
+            service.moveRight();
+        }
+        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
+    };
+    void onInputChar(EventContext &context, int ch) override {
+        TextCaretService service(Offset(4, 4), &context);
+        switch (ch) {
+            case VK_BACK:
+                if (service.index() > 0) {
+                    m_data.erase(service.index() - 1, 1);
+                    service.moveLeft();
+                }
+                break;
+            case VK_RETURN:
+                break;
+            default:
+                m_data.insert(m_data.begin() + service.index(), ch);
+                service.moveRight();
+                break;
+        }
+        service.commit(m_data.c_str(), m_data.length() * sizeof(GChar), context.getStyle(StyleTableFont));
+        if (context.outer) {
+            context.outer->notify(Update, 0, 0);
+        }
+        context.redraw();
+    }
+};
+class RowElement : public Container<DisplayRow> {
+public:
+    explicit RowElement(int column) {
         for (int i = 0; i < column; ++i) {
             append(new TextElement(i));
         }
-    }
-    void setLogicHeight(EventContext &context, int height) override {
-        for_context(col, context) {
-            col.setLogicHeight(height);
-        }
-        m_height = height;
     }
     void onNotify(EventContext &context, int type, int param, int other) override {
         if (context.outer) {
             context.outer->notify(type, param, other);
         }
     }
+    int getMinWidth(EventContext &context) override {
+        int width = 0;
+        for_context(col, context) {
+            width += col.minWidth();
+        }
+        return width;
+    }
+    void setLogicWidth(EventContext &context, int width) override {
+        int before = context.minWidth();
+        int delta = width - before;
+        EventContext end = context.enter().end();
+        end.setLogicWidth(end.minWidth() + delta);
+        m_width = width;
+    }
+
 };
-class NewTableElement : public Container<DisplayTable> {
+class TableElement : public Container<DisplayTable> {
 public:
-    NewTableElement(int line, int column) {
+    TableElement(int line, int column) {
         for (int i = 0; i < line; ++i) {
-            append(new NewRowElement(column));
+            append(new RowElement(column));
         }
     }
     void onNotify(EventContext &context, int type, int param, int other) override {
         if (context.outer && context.outer->display() == DisplayRow) {
             context.outer->notify(type, param, other);
         } else {
-            context.reflow(true);
+            context.relayout();
+            context.reflow();
         }
     }
     void replace(int line, int column, Element *element) {
@@ -467,6 +504,23 @@ public:
         delete old;
     }
 
+    void setLogicWidth(EventContext &context, int width) override {
+        for_context(row, context) {
+            row.setLogicWidth(width);
+        }
+        m_width = width;
+    }
+
+    int getMinWidth(EventContext &context) override {
+        int max = 0;
+        for_context(row, context) {
+            int width = row.minWidth();
+            if (width > max) {
+                max = width;
+            }
+        }
+        return max;
+    }
 
 };
 

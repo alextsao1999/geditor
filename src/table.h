@@ -359,23 +359,6 @@ class SyntaxLineElement : public LineElement {
         }
     }
 };
-class Tablable : public RelativeElement {
-public:
-    ElementIndex m_index;
-    int m_width = 0;
-    int m_height = 0;
-public:
-    Tablable() = default;
-    ~Tablable() override {
-        for (auto element : m_index) {
-            // FIXME mouseEnter可能和element指向同一个元素
-            delete element;
-        }
-    }
-    ElementIndex *children() override { return &m_index; }
-    bool hasChild() override { return m_index.size() > 0; }
-
-};
 class TextElement : public RelativeElement {
 private:
     GString m_data;
@@ -385,19 +368,19 @@ public:
     int m_width = 0;
     int m_height = 25;
     explicit TextElement(int column) : m_column(column) {}
-    int getLogicHeight(EventContext &context) override { return m_height; }
-    int getLogicWidth(EventContext &context) override {
+    int getMinWidth(EventContext &context) override {
         int width = (int) context.getStyle(StyleTableFont)
                 .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 8;
         width = width > m_min ? width : m_min;
         return width;
     }
+    int getLogicHeight(EventContext &context) override { return m_height; }
+    int getLogicWidth(EventContext &context) override {
+        int width = getMinWidth(context);
+        return width > m_width ? width : m_width;
+    }
     void setLogicWidth(EventContext &context, int width) override { m_width = width; }
     void setLogicHeight(EventContext &context, int height) override { m_height = height; }
-    int getWidth(EventContext& context) override {
-        if (m_width) return m_width;
-        return getLogicWidth(context);
-    }
     Display getDisplay() override { return DisplayInline; }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
@@ -466,35 +449,13 @@ public:
             context.outer->notify(type, param, other);
         }
     }
-    int getMinWidth(EventContext &context) override {
-        int width = 0;
-        for_context(col, context) {
-            width += col.minWidth();
-        }
-        return width;
-    }
-    void setLogicWidth(EventContext &context, int width) override {
-        int before = context.minWidth();
-        int delta = width - before;
-        EventContext end = context.enter().end();
-        end.setLogicWidth(end.minWidth() + delta);
-        m_width = width;
-    }
-
 };
 class TableElement : public Container<DisplayTable> {
 public:
+    int m_delta = 0;
     TableElement(int line, int column) {
         for (int i = 0; i < line; ++i) {
             append(new RowElement(column));
-        }
-    }
-    void onNotify(EventContext &context, int type, int param, int other) override {
-        if (context.outer && context.outer->display() == DisplayRow) {
-            context.outer->notify(type, param, other);
-        } else {
-            context.relayout();
-            context.reflow();
         }
     }
     void replace(int line, int column, Element *element) {
@@ -504,24 +465,28 @@ public:
         delete old;
     }
 
+    void onNotify(EventContext &context, int type, int param, int other) override {
+        if (context.outer && context.outer->display() == DisplayRow) {
+
+            context.outer->notify(type, param, other);
+        } else {
+            context.relayout();
+            context.reflow();
+        }
+    }
     void setLogicWidth(EventContext &context, int width) override {
+        m_delta = width - m_width;
         for_context(row, context) {
-            row.setLogicWidth(width);
+            EventContext end = row.enter().end();
+            end.setLogicWidth(end.minWidth() + m_delta);
         }
-        m_width = width;
     }
-
+    int getLogicWidth(EventContext &context) override {
+        return m_width + m_delta;
+    }
     int getMinWidth(EventContext &context) override {
-        int max = 0;
-        for_context(row, context) {
-            int width = row.minWidth();
-            if (width > max) {
-                max = width;
-            }
-        }
-        return max;
+        return m_width;
     }
-
 };
 
 #endif //GEDITOR_TABLE_H

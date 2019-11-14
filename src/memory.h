@@ -12,7 +12,7 @@
 #define ge_realloc realloc
 #define ONCE_ALLOC 4
 int CeilToPowerOf2(int v);
-template <typename T>
+template <typename T, T Default = T()>
 struct Buffer {
     // this is just a buffer
     T *data = nullptr;
@@ -51,9 +51,9 @@ struct Buffer {
             erase(pos);
         }
     }
-    inline bool insert(int index, const T &value = T()) {
+    inline bool insert(int index, const T &value = Default) {
         if (index >= count)
-            fill(T(), index - count + 1);
+            fill(value, index - count + 1);
         else {
             ensureCapacity(++count);
             memmove(&data[index + 1], &data[index], (count - index - 1) * sizeof(T));
@@ -61,7 +61,7 @@ struct Buffer {
         data[index] = value;
         return true;
     };
-    inline void set(int index, const T &value = T()) {
+    inline void set(int index, const T &value = Default) {
         ensureIndex(index);
         data[index] = value;
     };
@@ -87,7 +87,7 @@ struct Buffer {
     }
     inline void ensureIndex(int index) {
         if (index >= count)
-            fill(T(), index - count + 1);
+            fill(Default, index - count + 1);
     }
     inline T &operator[](const int &index) {
         ensureIndex(index);

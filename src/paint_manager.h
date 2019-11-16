@@ -12,7 +12,6 @@
 #include <SkString.h>
 #include <SkTypeface.h>
 #include <SkParse.h>
-#include <SkPaintFlagsDrawFilter.h>
 #include "common.h"
 #include "layout.h"
 struct EventContext;
@@ -55,6 +54,7 @@ enum {
     StyleDeafault,
     StyleBorder,
     StyleTableBorder,
+    StyleTableBorderSelected,
 
     StyleErrorFont,
     StyleDeafaultFont,
@@ -83,8 +83,13 @@ public:
         add(StyleTableBorder, paint);
 
         paint.reset();
-        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kNormal));
-        paint.setTextSize(20);
+        paint.setStyle(SkPaint::Style::kStrokeAndFill_Style);
+        paint.setColor(SK_ColorLTGRAY);
+        add(StyleTableBorderSelected, paint);
+
+        paint.reset();
+        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kBold));
+        paint.setTextSize(15);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
 
@@ -184,6 +189,11 @@ public:
             m_count = 0;
         }
     }
+    void translate(GScalar x, GScalar y) {
+        m_canvas->translate(x, y);
+    }
+
+    void drawRect(const GRect &rect, int style);
     void drawText(const void* text, size_t byteLength, GScalar x, GScalar y, int style);
     inline SkCanvas *operator->() {
         return m_canvas;
@@ -194,7 +204,7 @@ public:
 
     GRect bound(Offset inset = Offset());
 
-    GRect bound(SkScalar dx = 0, SkScalar dy = 0);
+    GRect bound(GScalar dx = 0, GScalar dy = 0);
 
 };
 

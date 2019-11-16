@@ -226,6 +226,7 @@ public:
     SkPaint style;
     LineElement() = default;
     int getLogicHeight(EventContext &context) override { return 25; }
+    int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
     Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
@@ -235,8 +236,8 @@ public:
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.bound(0.5, 0.5), border);
         LineViewer viewer = context.getLineViewer();
-        canvas->translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
-        canvas->drawText(viewer.c_str(), viewer.size(), 4, 2, context.getStyle(StyleDeafaultFont));
+        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
+        canvas.drawText(viewer.c_str(), viewer.size(), 4, 2, StyleDeafaultFont);
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
@@ -346,9 +347,15 @@ class SyntaxLineElement : public LineElement {
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas(&style);
         SkPaint border;
-        border.setStyle(SkPaint::Style::kStroke_Style);
+        if (context.selected()) {
+            border.setStyle(SkPaint::Style::kStrokeAndFill_Style);
+        } else {
+            border.setStyle(SkPaint::Style::kStroke_Style);
+        }
+
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.bound(0.5, 0.5), border);
+
         auto *lexer = context.getLexer();
         Offset offset(4, context.height() - 4);
         while (lexer->has()) {
@@ -361,16 +368,16 @@ class SyntaxLineElement : public LineElement {
 };
 class TextElement : public RelativeElement {
 private:
-    GString m_data;
     int m_column = 0;
     int m_min = 50;
 public:
+    GString m_data;
     int m_width = 0;
     int m_height = 25;
     explicit TextElement(int column) : m_column(column) {}
     int getMinWidth(EventContext &context) override {
         int width = (int) context.getStyle(StyleTableFont)
-                .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 8;
+                .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 15;
         width = width > m_min ? width : m_min;
         return width;
     }
@@ -384,10 +391,13 @@ public:
     Display getDisplay() override { return DisplayInline; }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        canvas->drawRect(canvas.bound(0.5, 0.5), context.getStyle(StyleTableBorder));
-
-        canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, context.getStyle(StyleTableFont));
+        if (context.outer && context.outer->selected()) {
+            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
+        } else {
+            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
+        }
+        canvas.translate(0, context.getStyle(StyleTableFont).getTextSize());
+        canvas.drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, StyleTableFont);
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.focus();
@@ -449,6 +459,8 @@ public:
             context.outer->notify(type, param, other);
         }
     }
+    TextElement *getCol(int col) { return (TextElement *) m_index.at(col); }
+
 };
 class TableElement : public Container<DisplayTable> {
 public:
@@ -464,7 +476,8 @@ public:
         row->m_index.at(column) = element;
         delete old;
     }
-
+    template <typename Type = TextElement>
+    Type *getItem(int row, int col) { return (Type *) ((RowElement *) m_index.at(row))->m_index.at(col); }
     void onNotify(EventContext &context, int type, int param, int other) override {
         if (context.outer && context.outer->display() == DisplayRow) {
 
@@ -488,5 +501,25 @@ public:
         return m_width;
     }
 };
+class SubElement : Container<> {
+public:
+    SubElement() {
+        auto *table = new TableElement(4, 4);
+        table->getItem(0, 0)->m_data.append(L"function");
+        table->getItem(0, 1)->m_data.append(L"function");
+        append(table);
+        append(new SyntaxLineElement());
+    }
 
+private:
+    void onEnterReflow(EventContext &context, Offset &offset) override {
+        offset.y += 10;
+    }
+
+    int getWidth(EventContext &context) override {
+        return Element::getWidth(context);
+    }
+
+
+};
 #endif //GEDITOR_TABLE_H

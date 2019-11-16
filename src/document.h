@@ -129,7 +129,6 @@ struct EventContext {
     int minHeight();
     void setLogicWidth(int width);
     void setLogicHeight(int height);
-
     void remove(Root *element);
     void init(Root *element, int index = 0);
     Element *get(int idx) { return buffer->at(idx); }
@@ -178,12 +177,13 @@ struct EventContext {
             str.append(outer->path());
         }
         char buf[255] = {"\0"};
-        sprintf_s(buf, "/%d\0", index);
+        sprintf(buf, "/%d\0", index);
         str.append(buf);
         return str;
     }
 
     bool selecting() { return getDocContext()->m_selecting; }
+    bool selected();
 };
 
 class EventContextBuilder {
@@ -248,10 +248,7 @@ class Element : public Root {
     friend Document;
 public:
     Element() = default;
-    inline Offset getRelOffset(EventContext &context, int x, int y) {
-        Offset offset(x, y);
-        return offset - getOffset(context);
-    }
+    inline Offset getRelOffset(EventContext &context, int x, int y) { return Offset(x, y) - getOffset(context); }
     Offset getOffset(EventContext &context) override;
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return DisplayNone; };
@@ -259,6 +256,8 @@ public:
     virtual void onMouseMove(EventContext &context, int x, int y){}
     virtual void onMouseEnter(EventContext &context, int x, int y) {}
     virtual void onMouseLeave(int x, int y) {}
+    // Display为Custom的时候才会调用这个方法
+    virtual void onReflow(LayoutArgs()) {}
     DEFINE_EVENT(onFocus);
     DEFINE_EVENT(onBlur);
     DEFINE_EVENT(onKeyDown, int code, int status);
@@ -279,9 +278,6 @@ public:
 
     enum NotifyType {
         None,
-        SizeChange,
-        HeightChange,
-        WidthChange,
         Update,
     };
     DEFINE_EVENT(onNotify, int type, int param, int other);

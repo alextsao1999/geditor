@@ -50,6 +50,10 @@ void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y,
     m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style));
 }
 
+void Canvas::drawRect(const GRect &rect, int style) {
+    m_canvas->drawRect(rect, m_context->getStyle(style));
+}
+
 void RenderManager::redraw(EventContext *ctx) {
     Offset offset = ctx->offset() - getViewportOffset();
     RECT rect;

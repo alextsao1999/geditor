@@ -45,6 +45,8 @@ public:
 
         m_data->m_document.appendLine(new LineElement()).append(L"var a = 100;");
         m_data->m_document.appendLine(new SyntaxLineElement()).append(L"class YourClass");
+        m_data->m_document.appendElement((Element *) new SubElement());
+
         //m_data->m_document.append(new ButtonElement());
         m_data->m_document.flow();
     }

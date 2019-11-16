@@ -15,15 +15,21 @@ void LayoutManager::reflow(EventContext context, bool relayout) {
     if (!context.has()) {
         return;
     }
+    // 把自身安排一下
     LayoutContext layoutContext;
-    Offset offset = context.current()->getLogicOffset();
-    // 先把同级别的元素都安排一下
+    Element *current = context.current();
+    Offset offset = current->getLogicOffset();
+    Offset self = offset;
+    Display display = current->getDisplay();
+    m_layouts[display](context, this, display, layoutContext, self, offset, relayout);
+    context.next();
+    // 再把同级别的元素都安排一下
     while (context.has()) {
-        Element *current = context.current();
+        current = context.current();
         current->onEnterReflow(context, offset);
-        Offset self = offset;
-        Display display = current->getDisplay();
-        m_layouts[display](this, display, context, layoutContext, self, offset, relayout);
+        self = offset;
+        display = current->getDisplay();
+        m_layouts[display](context, this, display, layoutContext, self, offset, relayout);
         current->setLogicOffset(self);
         current->onLeaveReflow(context);
         context.next();
@@ -39,8 +45,8 @@ void LayoutManager::reflow(EventContext context, bool relayout) {
             reflow(*context.outer, false);
         }
     } else {
-        m_width = layoutContext.blockMaxWidth;
-        m_height = offset.y;
+        //m_width = layoutContext.blockMaxWidth;
+        //m_height = offset.y;
     }
 }
 
@@ -54,7 +60,7 @@ void LayoutManager::relayout(EventContext context) {
     Display display = context.display();
     Offset self = offset;
     current->onEnterReflow(context, offset);
-    m_layouts[display](this, display, context, layoutContext, self, offset, true);
+    m_layouts[display](context, this, display, layoutContext, self, offset, true);
     current->setLogicOffset(self);
     current->onLeaveReflow(context);
 }
@@ -84,7 +90,7 @@ Layout(LayoutDisplayLine) {
     if (relayout) {
         sender->reflow(context.enter(), relayout);
     }
-    CallDisplayFunc(LayoutDisplayBlock);
+    UseDisplayFunc(LayoutDisplayBlock);
 }
 
 Layout(LayoutDisplayTable) {
@@ -121,9 +127,9 @@ Layout(LayoutDisplayTable) {
         context_on(context, FinishReflow, table_width, pos_row.y);
     }
     if (context.outer && context.outer->display() == DisplayRow) {
-        CallDisplayFunc(LayoutDisplayInline);
+        UseDisplayFunc(LayoutDisplayInline);
     } else {
-        CallDisplayFunc(LayoutDisplayBlock);
+        UseDisplayFunc(LayoutDisplayBlock);
     }
 }
 
@@ -131,5 +137,9 @@ Layout(LayoutDisplayRow) {
     if (relayout) {
 
     }
-    CallDisplayFunc(LayoutDisplayBlock);
+    UseDisplayFunc(LayoutDisplayBlock);
+}
+
+Layout(LayoutDisplayCustom) {
+    CallDisplayFunc(context.current()->onReflow);
 }

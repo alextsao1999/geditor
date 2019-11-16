@@ -258,7 +258,6 @@ EventContext::EventContext(const EventContext *context, EventContext *out) :
         doc(context->doc), buffer(context->buffer), index(context->index), line(context->line), outer(out) {}
 
 void EventContext::post() {
-
     doc->getContext()->m_animator.push(copy());
 }
 
@@ -268,6 +267,12 @@ Context *EventContext::getDocContext() {
 
 StyleManager *EventContext::getStyleManager() {
     return &getDocContext()->m_styleManager;
+}
+
+bool EventContext::selected() {
+    GRect rect = this->rect();
+    GRect selected = getDocContext()->getSelectRect();
+    return GRect::Intersects(rect, selected);
 }
 
 Root *Root::getContain(EventContext &context, int x, int y) {

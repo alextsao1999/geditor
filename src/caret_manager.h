@@ -26,7 +26,7 @@ public:
     ~CaretManager();
     Element *getFocus ();
     EventContext *getEventContext() { return m_context; }
-    void create(int width = 2, int height = 17) {
+    void create(int width = 2, int height = 20) {
         CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
     }
     void destroy() {

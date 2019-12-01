@@ -41,13 +41,17 @@ public:
         auto *table = new TableElement(2, 2);
         auto *table_inner = new TableElement(2, 2);
         table->replace(0, 0, table_inner);
+        m_data->m_document.appendElement(new SubElement());
+        m_data->m_document.appendElement(new SubElement());
+        m_data->m_document.append(new ButtonElement());
+/*
         m_data->m_document.appendElement(table);
-
         m_data->m_document.appendLine(new LineElement()).append(L"var a = 100;");
         m_data->m_document.appendLine(new SyntaxLineElement()).append(L"class YourClass");
-        m_data->m_document.appendElement((Element *) new SubElement());
-
         //m_data->m_document.append(new ButtonElement());
+        m_data->m_document.appendElement(new SubElement());
+*/
+
         m_data->m_document.flow();
     }
     ~GEditor() {

@@ -64,12 +64,64 @@ enum {
     StyleKeywordFont,
     StyleTableFont,
 };
+class GStyle {
+public:
+    enum StyleType {
+        kFill_Style,            //!< fill the geometry
+        kStroke_Style,          //!< stroke the geometry
+        kStrokeAndFill_Style,   //!< fill and stroke the geometry
+    };
+    enum FontType {
+        kNormal = 0,
+        kBold   = 0x01,
+        kItalic = 0x02,
+        kBoldItalic = 0x03
+    };
+    SkPaint m_paint;
+    HGDIOBJ fObject = nullptr;
+    HFONT fFont = nullptr;
+    ~GStyle() {
+        DeleteObject(fObject);
+        DeleteObject(fFont);
+    }
+    explicit operator SkPaint() { return m_paint; }
+    inline SkPaint *operator->() { return &m_paint; }
+    inline SkPaint &paint() { return m_paint; }
+    inline void attach(HDC hdc) {
+        if (m_paint.getStyle() == SkPaint::kStroke_Style) {
+            fObject = CreatePen(PS_SOLID, 1, m_paint.getColor());
+        } else {
+            fObject = CreateSolidBrush(m_paint.getColor());
+        }
+
+        auto hOld = SelectObject(hdc, fObject);
+        DeleteObject(hOld);
+        SelectObject(hdc, fFont);
+        printf("fFont %p\n", fFont);
+    }
+    inline void reset() { m_paint.reset(); }
+    inline void setStyle(StyleType type) { m_paint.setStyle((SkPaint::Style) type); }
+    inline void setColor(GColor color) { m_paint.setColor((SkColor) color); }
+    inline void setTextSize(GScalar scalar) { m_paint.setTextSize(scalar); }
+    inline void setTextEncoding(SkPaint::TextEncoding encoding) { m_paint.setTextEncoding(encoding); }
+    inline void setFont(const char *name, FontType type) {
+        m_paint.setTypeface(SkTypeface::CreateFromName(name, (SkTypeface::Style) type));
+    }
+    inline void setAntiAlias(bool aa) { m_paint.setAntiAlias(aa); }
+    inline void setFakeBoldText(bool b) { m_paint.setFakeBoldText(b); }
+    inline GScalar getTextSize() { return m_paint.getTextSize(); }
+    inline GScalar measureText(const void* text, size_t length) { return m_paint.measureText(text, length); }
+    inline int countText(const void *text, size_t bytelength) { return m_paint.countText(text, bytelength); }
+    inline int getTextWidths(const void* text, size_t byteLength, SkScalar widths[],
+                             SkRect bounds[] = NULL) { return m_paint.getTextWidths(text, byteLength, widths, bounds); }
+
+};
 class StyleManager {
 private:
-    std::map<int, SkPaint> m_map;
+    std::map<int, GStyle> m_map;
 public:
     StyleManager() {
-        SkPaint paint;
+        GStyle paint;
         paint.reset();
         add(StyleDeafault, paint);
 
@@ -78,21 +130,21 @@ public:
         add(StyleBorder, paint);
 
         paint.reset();
-        paint.setStyle(SkPaint::Style::kStroke_Style);
+        paint.setStyle(GStyle::kStroke_Style);
         paint.setColor(SK_ColorLTGRAY);
         add(StyleTableBorder, paint);
 
         paint.reset();
-        paint.setStyle(SkPaint::Style::kStrokeAndFill_Style);
+        paint.setStyle(GStyle::kStrokeAndFill_Style);
         paint.setColor(SK_ColorLTGRAY);
         add(StyleTableBorderSelected, paint);
 
         paint.reset();
-        paint.setTypeface(SkTypeface::CreateFromName("DengXian", SkTypeface::Style::kBold));
-        paint.setTextSize(15);
+        paint.setFont("DengXian", GStyle::kNormal);
+        paint.setTextSize(20);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
+        paint.setFakeBoldText(true);
         paint.setAntiAlias(true);
-
         paint.setColor(SK_ColorBLACK);
         add(StyleDeafaultFont, paint);
 
@@ -112,7 +164,7 @@ public:
         add(StyleNumberFont, paint);
 
         paint.reset();
-        paint.setTypeface(SkTypeface::CreateFromName("Monoca", SkTypeface::Style::kNormal));
+        paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextSize(18);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
@@ -125,10 +177,10 @@ public:
         SkParse::FindColor(str, &color);
         return color;
     }
-    void add(int id, const SkPaint& paint) {
-        m_map.emplace(std::pair<int, SkPaint>(id, paint));
+    void add(int id, const GStyle& paint) {
+        m_map.emplace(std::pair<int, GStyle>(id, paint));
     }
-    SkPaint &get(int id) {
+    GStyle &get(int id) {
         return m_map[id];
     }
     bool has(int id) {
@@ -165,12 +217,11 @@ public:
     void setBkColor(GColor color) {
         SetBkColor(m_HDC, color);
     }
-    void drawText(int x, int y, const GChar *str, int count, bool transparent = true) {
-        if (transparent) {
-            SetBkMode(m_HDC, TRANSPARENT);
-        }
+    void drawText(int x, int y, const GChar *str, int count) {
+        SetBkMode(m_HDC, TRANSPARENT);
         TextOut(m_HDC, m_offset.x + x, m_offset.y + y, str, count);
     }
+    void drawText(const void* text, size_t byteLength, GScalar x, GScalar y, int style);
 
 };
 class Canvas {

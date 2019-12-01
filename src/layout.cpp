@@ -8,10 +8,11 @@
 void LayoutManager::ReflowAll(Document *doc) {
     EventContext context = EventContextBuilder::build(doc);
     context.init(doc);
-    context.reflow(true);
+    doc->m_context.m_layoutManager.reflow(context, true, true);
+    //context.reflow(true);
 }
 
-void LayoutManager::reflow(EventContext context, bool relayout) {
+void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
     if (!context.has()) {
         return;
     }
@@ -19,9 +20,16 @@ void LayoutManager::reflow(EventContext context, bool relayout) {
     LayoutContext layoutContext;
     Element *current = context.current();
     Offset offset = current->getLogicOffset();
+    if (outset) {
+        current->onEnterReflow(context, offset);
+    }
     Offset self = offset;
     Display display = current->getDisplay();
     m_layouts[display](context, this, display, layoutContext, self, offset, relayout);
+    if (outset) {
+        current->setLogicOffset(self);
+        current->onLeaveReflow(context);
+    }
     context.next();
     // 再把同级别的元素都安排一下
     while (context.has()) {
@@ -57,12 +65,12 @@ void LayoutManager::relayout(EventContext context) {
     LayoutContext layoutContext;
     Element *current = context.current();
     Offset offset = current->getLogicOffset();
+    //current->onEnterReflow(context, offset);
     Display display = context.display();
     Offset self = offset;
-    current->onEnterReflow(context, offset);
     m_layouts[display](context, this, display, layoutContext, self, offset, true);
     current->setLogicOffset(self);
-    current->onLeaveReflow(context);
+    //current->onLeaveReflow(context);
 }
 
 Layout(LayoutDisplayNone) {}
@@ -76,7 +84,7 @@ Layout(LayoutDisplayInline) {
 }
 Layout(LayoutDisplayBlock) {
     if (relayout) {
-        sender->reflow(context.enter(), true);
+        sender->reflow(context.enter(), true, true);
     }
     layoutContext.lineMaxHeight = 0;
     int value = context.width();
@@ -88,7 +96,7 @@ Layout(LayoutDisplayBlock) {
 }
 Layout(LayoutDisplayLine) {
     if (relayout) {
-        sender->reflow(context.enter(), relayout);
+        sender->reflow(context.enter(), true, true);
     }
     UseDisplayFunc(LayoutDisplayBlock);
 }
@@ -117,6 +125,8 @@ Layout(LayoutDisplayTable) {
                 //context_on(col, FinishReflow, MaxWidthBuffer[col.index], MaxHeightBuffer[row.index]);
                 pos_col.x += MaxWidthBuffer[col.index];
             }
+            //row.setLogicWidth(pos_col.x);
+            //row.setLogicHeight(MaxHeightBuffer[row.index]);
             context_on(row, FinishReflow, pos_col.x, MaxHeightBuffer[row.index]);
             pos_row.y += MaxHeightBuffer[row.index];
         }

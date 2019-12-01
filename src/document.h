@@ -139,7 +139,7 @@ struct EventContext {
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
     StyleManager *getStyleManager();
-    inline GPaint &getStyle(int id) { return getStyleManager()->get(id); }
+    inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
     Lexer *getLexer(int column = 0) {
         getDocContext()->m_lexer.enter(this, column);
         return &getDocContext()->m_lexer;
@@ -352,7 +352,6 @@ public:
         EventContext context = EventContextBuilder::build(this);
         context.init(this, m_index.size());
         append(element);
-        context.relayout();
         return context;
     }
     LineViewer appendLine(Element *element) {

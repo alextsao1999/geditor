@@ -16,17 +16,19 @@ enum class CommandType {
     Change,
     Add,
     Delete,
+    AddLine,
+    DeleteLine
 };
 
 union CommandData {
-    CommandData(int pos, int ch) : data(Data(pos, ch)) {
-
-    }
+    CommandData() : value(0) {}
+    CommandData(int pos, int ch) : data(Data(pos, ch)) {}
     struct Data {
         int pos;
         int ch;
         Data(int pos, int ch) : pos(pos), ch(ch) {}
     } data;
+    int value;
 
 };
 

@@ -56,7 +56,7 @@ public:
             LayoutDisplayCustom,
     };
     static void ReflowAll(Document *doc);
-    void reflow(EventContext context, bool relayout = false);
+    void reflow(EventContext context, bool relayout = false, bool outset = false);
     void relayout(EventContext context);
     int getHeight() { return m_height; }
     int getWidth() { return m_width; }

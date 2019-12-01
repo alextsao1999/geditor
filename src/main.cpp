@@ -1,6 +1,7 @@
 #include <SkGraphics.h>
 #include "common.h"
 #include "geditor.h"
+#include <libloaderapi.h>
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
         case WM_DESTROY:
@@ -38,6 +39,7 @@ auto CreateMyWindow() {
     UpdateWindow(hWnd);
     return hWnd;
 }
+
 int main() {
     ASSERT(MyRegisterClass(nullptr), "Register Class Name Error!");
     HWND hwnd = CreateMyWindow();

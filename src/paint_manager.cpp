@@ -10,6 +10,12 @@ Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(con
     m_offset = context->offset() - context->getRenderManager()->getViewportOffset();
 }
 
+void Painter::drawText(const void *text, size_t byteLength, GScalar x, GScalar y, int style) {
+    GStyle gstyle = m_context->getStyle(style);
+    gstyle.attach(m_HDC);
+    TextOut(m_HDC, m_offset.x + x, m_offset.y + y, (const GChar *) text, gstyle.countText(text, byteLength));
+}
+
 Canvas::Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint) : m_canvas(canvas), m_context(context) {
     m_offset = context->viewportOffset();
     //m_count = m_canvas->save();
@@ -47,11 +53,11 @@ GRect Canvas::bound(SkScalar dx, SkScalar dy) {
 }
 
 void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y, int style) {
-    m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style));
+    m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style).paint());
 }
 
 void Canvas::drawRect(const GRect &rect, int style) {
-    m_canvas->drawRect(rect, m_context->getStyle(style));
+    m_canvas->drawRect(rect, m_context->getStyle(style).paint());
 }
 
 void RenderManager::redraw(EventContext *ctx) {

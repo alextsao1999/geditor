@@ -16,6 +16,8 @@ void CaretManager::focus(EventContext *context) {
     m_context = context->copy();
     focus = context->current();
     focus->onFocus(*m_context);
+    // 更新光标位置
+    update();
 }
 
 CaretManager::~CaretManager() {

@@ -16,16 +16,27 @@ void Painter::drawText(const void *text, size_t byteLength, GScalar x, GScalar y
     TextOut(m_HDC, m_offset.x + x, m_offset.y + y, (const GChar *) text, gstyle.countText(text, byteLength));
 }
 
+Canvas::Canvas(EventContext *context, SkCanvas *canvas) : m_canvas(canvas), m_context(context) {
+    m_offset = m_context->viewportOffset();
+    m_count = m_canvas->save();
+    m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
+}
+
 Canvas::Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint) : m_canvas(canvas), m_context(context) {
-    m_offset = context->viewportOffset();
-    //m_count = m_canvas->save();
-    GRect rect = GRect::MakeXYWH(m_offset.x, m_offset.y, context->width() + 1, context->height() + 1);
+    m_offset = m_context->viewportOffset();
+    GRect rect = GRect::MakeXYWH(m_offset.x, m_offset.y, m_context->width() + 1, m_context->height() + 1);
     m_count = m_canvas->saveLayer(&rect, paint);
     m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
 }
 
 Canvas::~Canvas() {
     restore();
+}
+
+void Canvas::save(SkPaint *paint) {
+    GRect rect = GRect::MakeXYWH(m_offset.x, m_offset.y, m_context->width() + 1, m_context->height() + 1);
+    m_count = m_canvas->saveLayer(&rect, paint);
+    m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
 }
 
 SkRect Canvas::bound(Offset inset) {

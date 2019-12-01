@@ -134,7 +134,8 @@ struct EventContext {
     Element *get(int idx) { return buffer->at(idx); }
     inline Element *current() { return buffer->at(index); }
     Painter getPainter();
-    Canvas getCanvas(SkPaint *paint = nullptr);
+    Canvas getCanvas(SkPaint *paint);
+    Canvas getCanvas();
     RenderManager *getRenderManager();
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
@@ -184,6 +185,8 @@ struct EventContext {
 
     bool selecting() { return getDocContext()->m_selecting; }
     bool selected();
+    bool isHead() { return index == 0; }
+    bool isTail() { return index == buffer->size() - 1; }
 };
 
 class EventContextBuilder {

@@ -83,6 +83,10 @@ Canvas EventContext::getCanvas(SkPaint *paint) {
     return doc->getContext()->m_renderManager->getCanvas(this, paint);
 }
 
+Canvas EventContext::getCanvas() {
+    return doc->getContext()->m_renderManager->getCanvas(this);
+}
+
 EventContext EventContext::enter(int idx) {
     return EventContext(doc, current()->children(), this, idx);
 }

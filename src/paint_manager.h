@@ -231,9 +231,15 @@ public:
     EventContext *m_context;
     int m_count = 0;
 
-    Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint = nullptr);
+    Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint);
+    Canvas(EventContext *context, SkCanvas *canvas);
     ~Canvas();
 
+    void save() {
+        m_count = m_canvas->save();
+        m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
+    }
+    void save(SkPaint *paint);
     void restore() {
         if (m_count) {
             m_canvas->restoreToCount(m_count);
@@ -320,6 +326,7 @@ public:
     }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
     virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) { return Canvas(ctx, m_canvas.get(), paint); }
+    virtual Canvas getCanvas(EventContext *ctx) { return Canvas(ctx, m_canvas.get()); }
     inline Offset getViewportOffset() { return m_offset; }
     virtual void setViewportOffset(Offset offset) { m_offset = offset; }
     virtual void updateViewport(LayoutManager *layoutManager) {

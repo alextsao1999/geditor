@@ -40,7 +40,7 @@ public:
         return commit(viewer.c_str(), viewer.size(), style, bound);
     }
     bool commit(const void* text, size_t bytelength, GStyle& paint, SkRect* bound = nullptr, int index_start = 0) {
-        bool res; // 是否越界
+        bool res; // 是否未越界
         int index = m_index - index_start;
         int length = paint.countText(text, bytelength);
         auto *widths = new SkScalar[length];
@@ -421,21 +421,19 @@ public:
             service.moveLeft();
             bool res = service
                     .commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
-            if (res) {
-                context.prev();
-                context.focus();
+            if (!res) {
+                caret->data()->index = -1;
+                caret->prev();
             }
         }
         if (code == VK_RIGHT) {
             service.moveRight();
             bool res = service
                     .commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
-            if (res) {
-                context.next();
-
-                context.focus();
+            if (!res) {
+                caret->data()->index = 0;
+                caret->next();
             }
-
         }
 
     };
@@ -461,6 +459,12 @@ public:
         }
         context.redraw();
     }
+    void onFocus(EventContext &context) override {
+        TextCaretService service(Offset(4, 4), &context);
+        service.commit(m_data.c_str(), m_data.length() * sizeof(GChar), context.getStyle(StyleTableFont));
+
+    }
+
 };
 class RowElement : public Container<DisplayRow> {
 public:
@@ -519,6 +523,105 @@ public:
     }
 
 };
+
+class CodeBlockElement : public Container<> {
+public:
+    CodeBlockElement() {
+        append(new SyntaxLineElement());
+    }
+    static float rad(float deg) {
+        return (float) (deg * 3.1415926 / 180);
+    }
+    static GPath star(int num, float R, float r) {
+        GPath path;
+        float perDeg = 360 / num;
+        float degA = perDeg / 2 / 2;
+        float degB = 360 / (num - 1) / 2 - degA / 2 + degA;
+        path.moveTo(
+                (float) (cos(rad(degA + perDeg * 0)) * R + R * cos(rad(degA))),
+                (float) (-sin(rad(degA + perDeg * 0)) * R + R));
+        for (int i = 0; i < num; i++) {
+            path.lineTo(
+                    (float) (cos(rad(degA + perDeg * i)) * R + R * cos(rad(degA))),
+                    (float) (-sin(rad(degA + perDeg * i)) * R + R));
+            path.lineTo(
+                    (float) (cos(rad(degB + perDeg * i)) * r + R * cos(rad(degA))),
+                    (float) (-sin(rad(degB + perDeg * i)) * r + R));
+        }
+        path.close();
+        return path;
+    }
+
+private:
+    int getWidth(EventContext &context) override {
+        return Element::getWidth(context);
+    }
+    void onEnterReflow(EventContext &context, Offset &offset) override {
+        offset.x += 25;
+    }
+    void onRedraw(EventContext &context) override {
+        Container::onRedraw(context);
+        return;
+        SkPaint paint;
+        paint.setAntiAlias(true);
+        SkPoint points[2] = {{0.0f, 0.0f}, {3.0f, 3.0f}};
+        SkColor colors[2] = {SkColorSetRGB(66,133,244), SkColorSetRGB(15,157,88)};
+        paint.setShader(
+                SkGradientShader::CreateLinear(
+                        points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL));
+        //paint.setColor(SK_ColorBLACK);
+        for_context(ctx, context) {
+            Canvas canvas = ctx.getCanvas();
+            GPath sym = star(5, 5, 2);
+            sym.offset(-8, 10);
+            canvas->drawPath(sym, paint);
+//            canvas->drawCircle(-5, 15, 5.5, paint);
+
+        }
+    }
+
+};
+class ControlLineElement : public Container<> {
+public:
+    ControlLineElement() {
+        append(new CodeBlockElement());
+        append(new CodeBlockElement());
+        append(new CodeBlockElement());
+    }
+private:
+    int getWidth(EventContext &context) override {
+        return Element::getWidth(context);
+    }
+    void onRedraw(EventContext &context) override {
+        Container::onRedraw(context);
+        SkPaint paint;
+        paint.setColor(SK_ColorBLACK);
+        Offset offset = context.offset();
+        Offset runStart;
+        for_context(ctx, context) {
+            Canvas canvas = ctx.getCanvas();
+            if (ctx.isHead()) {
+                runStart = ctx.enter().end().offset() - offset;
+            }
+            if (!ctx.isTail()) {
+                int lineTop = ctx.isHead() ? 15 : 20;
+                canvas->drawLine(-15, lineTop, 0, lineTop, paint);
+                int lineBottom = ctx.height() + 15;
+                canvas->drawLine(-15, lineTop, -15, lineBottom, paint);
+                canvas->drawLine(-15, lineBottom, 0, lineBottom, paint);
+                canvas->drawLine(-6, ctx.height() - 10, 0, ctx.height() - 10, paint);
+
+            }
+        }
+        Canvas canvas = context.getCanvas();
+        canvas->drawLine(18, runStart.y + 25 - 10, 18, context.height(), paint);
+        //canvas->save();
+        //canvas->rotate(90.0f);
+        //canvas->restore();
+
+    }
+
+};
 class SubElement : public Container<> {
 public:
     SubElement() {
@@ -526,9 +629,10 @@ public:
         table->getItem(0, 0)->m_data.append(_GT("function"));
         table->getItem(0, 1)->m_data.append(_GT("function"));
         table->replace(1, 3, new TableElement(2, 2));
-        table->replace(0, 3, new ButtonElement());
+        //table->replace(0, 3, new ButtonElement());
         append(table);
         append(new SyntaxLineElement());
+        append(new ControlLineElement());
     }
 private:
     int getWidth(EventContext &context) override {

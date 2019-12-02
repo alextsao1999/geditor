@@ -44,7 +44,7 @@ Layout(LayoutDisplayCustom);
 class LayoutManager {
 private:
     int m_width = 500;
-    int m_height = 500;
+    int m_height = 2000;
 public:
     LayoutFunc m_layouts[7] = {
             LayoutDisplayNone,

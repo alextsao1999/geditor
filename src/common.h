@@ -20,6 +20,7 @@
 #define gstrcat wcscat
 #define gsprintf swprintf
 #define gstrlen wcslen
+#define gstrcpy wcscpy
 #elif (defined(ANSI))
 #define GChar char
 #define _GT(t) t
@@ -27,6 +28,8 @@
 #define gstrcat strcat
 #define gsprintf sprintf
 #define gstrlen strlen
+#define gstrcpy strcpy
+
 #endif
 
 #include "stdio.h"

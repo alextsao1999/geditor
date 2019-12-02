@@ -227,6 +227,7 @@ public:
     int getLogicHeight(EventContext &context) override { return 25; }
     //int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
+    Tag getTag(EventContext &context) override { return {_GT("LineElement")}; }
     Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas(&style);
@@ -348,11 +349,12 @@ public:
 class ExLineElement : public RelativeElement {
 public:
     int m_height = 30;
+    int m_extendHeight = 130;
     int m_left = 20;
     bool isExtend = false;
     ExLineElement() = default;
     int getLogicHeight(EventContext &context) override {
-        return isExtend ? m_height + 100 : m_height;
+        return isExtend ? m_extendHeight : m_height;
     }
     Display getDisplay() override { return DisplayLine; }
     Element *copy() override { return new ExLineElement(); }
@@ -368,6 +370,24 @@ public:
         if (isExtend) {
             canvas.drawText(_GT("-"), 2, 3, 0, StyleDeafaultFont);
 
+            auto *lexer = context.getLexer();
+            Offset offset(10, 25);
+            while (lexer->has()) {
+                Token token = lexer->next();
+                if (token == TokenSpace) {
+                    continue;
+                }
+                GStyle &token_style = context.getStyle(token.style);
+
+                const GChar *tips = _GT(" -> ");
+                canvas->drawText(tips, gstrlen(tips) * 2, offset.x, offset.y,
+                                 context.getStyle(StyleDeafaultFont).paint());
+                offset.x += token_style.measureText(tips, gstrlen(tips) * 2);
+
+                canvas->drawText(token.c_str(), token.size(), offset.x, offset.y, token_style.paint());
+                offset.y += token_style.getTextSize();
+                offset.x = 10;
+            }
 
         } else {
             canvas.drawText(_GT("+"), 2, 2, 2, StyleDeafaultFont);
@@ -503,9 +523,9 @@ class SyntaxLineElement : public LineElement {
         Offset offset(4, context.height() - 4);
         while (lexer->has()) {
             Token token = lexer->next();
-            if (token == TokenIdentifier) {
-                if (lexer->peek() == _GT("(")) {
-                    token.style = StyleKeywordFont;
+            if (token == TokenIdentifier && token.style != StyleKeywordFont) {
+                if (lexer->peek() == _GT("(") || (lexer->peek() == TokenSpace && lexer->peek(2) == _GT("("))) {
+                    token.style = StyleFunctionFont;
                 }
             }
             GStyle &token_style = context.getStyle(token.style);
@@ -670,49 +690,30 @@ public:
     }
 
 };
-
-class CodeBlockElement : public Container<> {
+class PathUtil {
 public:
-    CodeBlockElement() {
-        append(new SyntaxLineElement());
-        append(new SyntaxLineElement());
-    }
-
-    void replace(int index, Element *ele) {
-        Element *old = m_index.at(index);
-        delete old;
-        m_index.at(index) = ele;
-
-    }
-private:
-    int getWidth(EventContext &context) override {
-        return Element::getWidth(context);
-    }
-    void onEnterReflow(EventContext &context, Offset &offset) override {
-        offset.x += 25;
-    }
-    void onRedraw(EventContext &context) override {
-        Container::onRedraw(context);
-        return;
-        SkPaint paint;
-        paint.setAntiAlias(true);
-        SkPoint points[2] = {{0.0f, 0.0f}, {3.0f, 3.0f}};
-        SkColor colors[2] = {SkColorSetRGB(66,133,244), SkColorSetRGB(15,157,88)};
-        paint.setShader(
-                SkGradientShader::CreateLinear(
-                        points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL));
-        //paint.setColor(SK_ColorBLACK);
-        for_context(ctx, context) {
-            Canvas canvas = ctx.getCanvas();
-            GPath sym = star(5, 5, 2);
-            sym.offset(-8, 10);
-            canvas->drawPath(sym, paint);
-//            canvas->drawCircle(-5, 15, 5.5, paint);
-
-        }
-    }
     static float rad(float deg) {
         return (float) (deg * 3.1415926 / 180);
+    }
+    static GPath triangleDown(GScalar length, GScalar dx, GScalar dy) {
+        GPath path;
+        float v = length * cos(rad(45));
+        path.moveTo(0, 0);
+        path.lineTo(v * 2, 0);
+        path.lineTo(v, v);
+        path.close();
+        path.offset(dx - v, dy);
+        return path;
+    }
+    static GPath triangleRight(GScalar length, GScalar dx, GScalar dy) {
+        GPath path;
+        float v = length * cos(rad(45));
+        path.moveTo(0, 0);
+        path.lineTo(0, v * 2);
+        path.lineTo(v, v);
+        path.close();
+        path.offset(dx, dy - v);
+        return path;
     }
     static GPath star(int num, float R, float r) {
         GPath path;
@@ -733,13 +734,60 @@ private:
         path.close();
         return path;
     }
+};
+class CodeBlockElement : public Container<> {
+public:
+    CodeBlockElement() {
+        append(new SyntaxLineElement());
+        append(new SyntaxLineElement());
+    }
+
+    Tag getTag(EventContext &context) override {
+        return _GT("CodeBlock");
+    }
+
+    void replace(int index, Element *ele) {
+        Element *old = m_index.at(index);
+        delete old;
+        m_index.at(index) = ele;
+    }
+    int getWidth(EventContext &context) override {
+        return Element::getWidth(context);
+    }
+    void onEnterReflow(EventContext &context, Offset &offset) override {
+        offset.x += 25;
+    }
+    void onRedraw(EventContext &context) override {
+        Container::onRedraw(context);
+        return;
+        SkPaint paint;
+        paint.setAntiAlias(true);
+        SkPoint points[2] = {{0.0f, 0.0f}, {3.0f, 3.0f}};
+        SkColor colors[2] = {SkColorSetRGB(66,133,244), SkColorSetRGB(15,157,88)};
+        paint.setShader(
+                SkGradientShader::CreateLinear(
+                        points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL));
+        //paint.setColor(SK_ColorBLACK);
+        for_context(ctx, context) {
+            Canvas canvas = ctx.getCanvas();
+            GPath sym = PathUtil::star(5, 5, 2);
+            sym.offset(-8, 10);
+            canvas->drawPath(sym, paint);
+//            canvas->drawCircle(-5, 15, 5.5, paint);
+
+        }
+    }
 
 };
-class ControlLineElement : public Container<> {
+class SwitchElement : public Container<> {
 public:
-    ControlLineElement() {
+    SwitchElement() {
         append(new CodeBlockElement());
         append(new CodeBlockElement());
+    }
+
+    Tag getTag(EventContext &context) override {
+        return {_GT("Switch CodeBlock")};
     }
     CodeBlockElement *addBlock() {
         auto *ele = new CodeBlockElement();
@@ -766,45 +814,82 @@ private:
             }
             if (!ctx.isTail()) {
                 int lineTop = ctx.isHead() ? 15 : 20;
+                if (ctx.isHead() && (
+                        context.outer->tag() == _GT("CodeBlock") ||
+                        context.nearby(-1).tag().contain(_GT("CodeBlock")))) {
+                    lineTop = 20;
+                }
                 canvas->drawLine(-15, lineTop, 0, lineTop, paint);
+
                 int lineBottom = ctx.height() + 15;
-                canvas->drawLine(-15, lineTop, -15, lineBottom, paint);
-                canvas->drawLine(-15, lineBottom, 0, lineBottom, paint);
-                GPath path = triangle2(6, -2, lineBottom);
-                canvas->drawPath(path, paint);
-                canvas->drawLine(-6, ctx.height() - 10, 0, ctx.height() - 10, paint);
+                canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
+                int underlineRight;
+                if (ctx.nearby(1).enter().tag().contain(_GT("CodeBlock"))) {
+                    underlineRight = 25;
+                } else {
+                    underlineRight = 0;
+                }
+                canvas->drawLine(-15, lineBottom, underlineRight, lineBottom, paint); // 下边线
+                GPath path = PathUtil::triangleRight(6, underlineRight - 2, lineBottom);
+                canvas->drawPath(path, paint);// 下边线三角形
+                canvas->drawLine(-6, ctx.height() - 10, 0, ctx.height() - 10, paint); // 逃逸线横线
             }
         }
         Canvas canvas = context.getCanvas();
-        canvas->drawLine(18, runStart.y + 25 - 10, 18, context.height(), paint);
-        GPath path = triangle1(6, 18, context.height() - 2);
-        // 有可能后面还有流程语句 需要连接
-        canvas->drawPath(path, paint);
+        if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
+            int runawayBottom = context.height() + 15;
+            // 逃逸线竖线
+            canvas->drawLine(18, runStart.y + 15, 18, runawayBottom, paint);
+            // 逃逸线 下边右横线
+            canvas->drawLine(18, runawayBottom, 24, runawayBottom, paint);
+            GPath path = PathUtil::triangleRight(6, 23, runawayBottom); // 右三角
+            canvas->drawPath(path, paint);
+        } else {
+            // 逃逸线竖线
+            canvas->drawLine(18, runStart.y + 15, 18, context.height(), paint);
+            // 逃逸线向下
+            GPath path = PathUtil::triangleDown(6, 18, context.height() - 2);
+            // 有可能后面还有流程语句 需要连接
+            canvas->drawPath(path, paint);
+        }
 
     }
-    static float rad(float deg) {
-        return (float) (deg * 3.1415926 / 180);
+};
+class SingleBlockElement : public CodeBlockElement {
+    Tag getTag(EventContext &context) override {
+        return _GT("Single CodeBlock");
     }
-    static GPath triangle1(GScalar length, GScalar dx, GScalar dy) {
-        GPath path;
-        float v = length * cos(rad(45));
-        path.moveTo(0, 0);
-        path.lineTo(v * 2, 0);
-        path.lineTo(v, v);
-        path.close();
-        path.offset(dx - v, dy);
-        return path;
-    }
-    static GPath triangle2(GScalar length, GScalar dx, GScalar dy) {
-        GPath path;
-        float v = length * cos(rad(45));
-        path.moveTo(0, 0);
-        path.lineTo(0, v * 2);
-        path.lineTo(v, v);
-        path.close();
-        path.offset(dx, dy - v);
 
-        return path;
+public:
+    void onRedraw(EventContext &context) override {
+        CodeBlockElement::onRedraw(context);
+        Canvas canvas = context.getCanvas();
+        SkPaint paint;
+        GScalar inter[2] = {3, 2};
+        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25));
+        paint.setColor(SK_ColorBLACK);
+        paint.setAlpha(180);
+
+        int lineTop = 15;
+        if (context.outer->tag() == _GT("CodeBlock") ||
+            context.nearby(-1).tag().contain(_GT("CodeBlock"))) {
+            lineTop = 20;
+        }
+        canvas->drawLine(-15, lineTop, 0, lineTop, paint);
+        if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
+            int lineBottom = context.height() + 15;
+            canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
+
+            canvas->drawLine(-15, lineBottom, 0, lineBottom, paint); // 下边线
+            GPath path = PathUtil::triangleRight(6, 0, lineBottom);
+            canvas->drawPath(path, paint);
+
+        } else {
+            int lineBottom = context.height() - 5;
+            canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
+            GPath path = PathUtil::triangleDown(6, -15, lineBottom);
+            canvas->drawPath(path, paint);
+        }
     }
 };
 class SubElement : public Container<> {
@@ -818,9 +903,12 @@ public:
         append(table);
         append(new SyntaxLineElement());
 
-        auto *control = new ControlLineElement();
-        control->addBlock()->replace(0, new ControlLineElement());
+        auto *control = new SwitchElement();
+        control->addBlock()->replace(0, new SwitchElement());
         append(control);
+        append(new SwitchElement());
+        append(new SingleBlockElement());
+        append(new SyntaxLineElement());
 
     }
 private:

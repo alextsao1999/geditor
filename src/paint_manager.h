@@ -62,6 +62,8 @@ enum {
     StyleStringFont,
     StyleNumberFont,
     StyleKeywordFont,
+    StyleFunctionFont,
+
     StyleTableFont,
 };
 class GStyle {
@@ -148,20 +150,23 @@ public:
         paint.setColor(SK_ColorBLACK);
         add(StyleDeafaultFont, paint);
 
-        paint.setColor(ParseColor("#FF8C00"));
+        paint.setColor(SkColorSetRGB(255, 165, 0));
         add(StyleErrorFont, paint);
 
-        paint.setColor(ParseColor("#0000FF"));
+        paint.setColor(SkColorSetRGB(65, 105, 225));
         add(StyleKeywordFont, paint);
 
-        paint.setColor(ParseColor("#8B7D7B"));
+        paint.setColor(SkColorSetRGB(105, 105, 105));
         add(StyleOperatorFont, paint);
 
-        paint.setColor(ParseColor("#008B8B"));
+        paint.setColor(SkColorSetRGB(0, 128, 128));
         add(StyleStringFont, paint);
 
-        paint.setColor(ParseColor("#9400D3"));
+        paint.setColor(SkColorSetRGB(138, 43, 226));
         add(StyleNumberFont, paint);
+
+        paint.setColor(SkColorSetRGB(160, 82, 45));
+        add(StyleFunctionFont, paint);
 
         paint.reset();
         paint.setFont("DengXian", GStyle::kNormal);
@@ -235,10 +240,7 @@ public:
     Canvas(EventContext *context, SkCanvas *canvas);
     ~Canvas();
 
-    void save() {
-        m_count = m_canvas->save();
-        m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
-    }
+    void save();
     void save(SkPaint *paint);
     void restore() {
         if (m_count) {
@@ -288,7 +290,6 @@ public:
             DeleteObject(m_hBitmap);
         ////////////////////////////////
     }
-    static RenderManager *FromWindow(HWND hwnd) { return new RenderManager(hwnd); }
     virtual void refresh() { InvalidateRect(m_hWnd, nullptr, false); }
     virtual void update() { m_canvas->clear(SK_ColorWHITE); }
     virtual void resize() {
@@ -325,8 +326,14 @@ public:
         return hBmp;
     }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
-    virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) { return Canvas(ctx, m_canvas.get(), paint); }
-    virtual Canvas getCanvas(EventContext *ctx) { return Canvas(ctx, m_canvas.get()); }
+    virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) {
+//        return Canvas(ctx, m_canvas.get(), paint);
+        return Canvas(ctx, new SkCanvas(m_bitmap), paint);
+    }
+    virtual Canvas getCanvas(EventContext *ctx) {
+//        return Canvas(ctx, m_canvas.get());
+        return Canvas(ctx, new SkCanvas(m_bitmap));
+    }
     inline Offset getViewportOffset() { return m_offset; }
     virtual void setViewportOffset(Offset offset) { m_offset = offset; }
     virtual void updateViewport(LayoutManager *layoutManager) {

@@ -70,15 +70,11 @@ struct Context {
 };
 struct Tag {
     GChar str[255]{_GT('\0')};
-    explicit Tag(const GChar* string) {
-        gsprintf(str, _GT("%s"), string);
-    }
-    bool operator==(const Tag &rvalue) {
-        return gstrcmp(str, rvalue.str);
-    }
-    bool operator==(const GChar *rvalue) {
-        return gstrcmp(str, rvalue);
-    }
+    Tag() = default;
+    Tag(const GChar* string) { gstrcpy(str, string); }
+    bool empty() { return gstrlen(str) == 0; }
+    bool operator==(const Tag &rvalue) { return gstrcmp(str, rvalue.str); }
+    bool operator==(const GChar *rvalue) { return gstrcmp(str, rvalue) == 0; }
     bool contain(const GChar *item) {
         for (int i = 0; str[i] != _GT('\0'); ++i) {
             if (item[0] != str[i])
@@ -95,8 +91,12 @@ struct Tag {
         }
         return false;
     }
-    void append(const GChar *value) {
+    Tag &append(const GChar *value) {
         gstrcat(str, value);
+        return *this;
+    }
+    void dump() {
+        printf("Tag -> %ws\n", str);
     }
 };
 
@@ -145,6 +145,7 @@ struct EventContext {
     void notify(int type, int param, int other);
     void post();
 
+    Tag tag();
     GRect rect();
     GRect logicRect();
     Offset offset();
@@ -184,6 +185,7 @@ struct EventContext {
     explicit EventContext(const EventContext *context, EventContext *out);
     EventContext begin() { return EventContext(doc, buffer, outer, 0); }
     EventContext end() { return EventContext(doc, buffer, outer, buffer->size() - 1); }
+    EventContext nearby(int value) { return EventContext(doc, buffer, outer, index + value); }
     EventContext enter(int idx = 0);
     void leave() {
         if (outer) {
@@ -238,6 +240,7 @@ public:
     inline ElementIterator end() {  if(hasChild()) return children()->end(); return {}; }
     ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
+    virtual Tag getTag(EventContext &context) { return Tag(_GT("Element")); }
 
     // 获取对于父元素的相对偏移
     virtual Offset getLogicOffset() { return {0, 0}; }

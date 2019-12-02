@@ -193,7 +193,16 @@ void EventContext::notify(int type, int param, int other) {
     current()->onNotify(*this, type, param, other);
 }
 
+#define OutOfBound() (index < 0 || index >= buffer->size())
+Tag EventContext::tag() {
+    if (OutOfBound()) {
+        return {};
+    }
+    return current()->getTag(*this);
+}
+
 GRect EventContext::logicRect() {
+    ASSERT(index > 0 && index < buffer->size(), "Index Error ! ");
     Offset pos = current()->getLogicOffset();
     return GRect::MakeXYWH(pos.x, pos.y, width(), height());
 }

@@ -27,7 +27,7 @@ void Lexer::enter(EventContext *ctx, int column) {
 }
 
 bool Lexer::has() {
-    return CURRENT_POS < length;
+    return HAS_CHAR || !peeks.empty();
 }
 
 void Lexer::ParseSpace() {
@@ -54,7 +54,7 @@ void Lexer::ParseString() {
     NEXT();
     while (CURRENT_CHAR != first) {
         NEXT();
-        if (!has()) {
+        if (!HAS_CHAR) {
             TOKEN_END(TokenString, StyleErrorFont);
             return;
         }

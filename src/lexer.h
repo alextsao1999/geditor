@@ -13,6 +13,7 @@
 #define _HM_C _GT
 
 //当前位置
+#define HAS_CHAR (CURRENT_POS < length)
 #define CURRENT_POS position
 #define CURRENT_CHAR string[position]
 #define CURRENT_TOKEN current
@@ -43,7 +44,7 @@ enum TokenType {
 
 struct Token {
     int style{0};
-    int type{TokenNone};
+    int type{TokenEol};
     const GChar *start{nullptr};
     int length{0};
     int index{0};

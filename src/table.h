@@ -501,12 +501,11 @@ class SyntaxLineElement : public LineElement {
         //canvas->drawRect(canvas.bound(0.5, 0.5), border);
         auto *lexer = context.getLexer();
         Offset offset(4, context.height() - 4);
-        printf("\n");
         while (lexer->has()) {
             Token token = lexer->next();
             if (token == TokenIdentifier) {
                 if (lexer->peek() == _GT("(")) {
-                    token.style = StyleErrorFont;
+                    token.style = StyleKeywordFont;
                 }
             }
             GStyle &token_style = context.getStyle(token.style);

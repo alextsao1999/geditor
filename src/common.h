@@ -16,9 +16,17 @@
 #ifdef UNICODE
 #define GChar _TCHAR
 #define _GT(t) _T(t)
+#define gstrcmp wcscmp
+#define gstrcat wcscat
+#define gsprintf swprintf
+#define gstrlen wcslen
 #elif (defined(ANSI))
 #define GChar char
 #define _GT(t) t
+#define gstrcmp strcmp
+#define gstrcat strcat
+#define gsprintf sprintf
+#define gstrlen strlen
 #endif
 
 #include "stdio.h"

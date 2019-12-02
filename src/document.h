@@ -68,6 +68,37 @@ struct Context {
     explicit Context(RenderManager *renderManager) : m_renderManager(renderManager),
                                                      m_caretManager(CaretManager(renderManager)) {}
 };
+struct Tag {
+    GChar str[255]{_GT('\0')};
+    explicit Tag(const GChar* string) {
+        gsprintf(str, _GT("%s"), string);
+    }
+    bool operator==(const Tag &rvalue) {
+        return gstrcmp(str, rvalue.str);
+    }
+    bool operator==(const GChar *rvalue) {
+        return gstrcmp(str, rvalue);
+    }
+    bool contain(const GChar *item) {
+        for (int i = 0; str[i] != _GT('\0'); ++i) {
+            if (item[0] != str[i])
+                continue;
+            int j;
+            for (j = 0; item[j] != _GT('\0') && str[i + j] != _GT('\0'); ++j) {
+                if (item[j] != str[i + j]) {
+                    break;
+                }
+            }
+            if (item[j] == _GT('\0')) {
+                return true;
+            }
+        }
+        return false;
+    }
+    void append(const GChar *value) {
+        gstrcat(str, value);
+    }
+};
 
 class Element;
 class ElementIndex;
@@ -178,7 +209,7 @@ struct EventContext {
             str.append(outer->path());
         }
         char buf[255] = {"\0"};
-        sprintf(buf, "/%d\0", index);
+        sprintf(buf, "/%d", index);
         str.append(buf);
         return str;
     }

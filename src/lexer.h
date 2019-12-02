@@ -8,6 +8,8 @@
 #include "text_buffer.h"
 #include "paint_manager.h"
 #include <set>
+#include <deque>
+
 #define _HM_C _GT
 
 //当前位置
@@ -47,6 +49,10 @@ struct Token {
     int next;
     const GChar *c_str() { return start; }
     size_t size() { return length * sizeof(GChar); }
+    bool operator==(const GChar *str) {
+        return gstrlen(str) == length && memcmp(start, str, length * sizeof(GChar)) == 0;
+    }
+    bool operator==(const int &rvalue) { return type == rvalue; }
 };
 
 static GString symbols = _GT("+-*/");
@@ -67,16 +73,19 @@ class Lexer {
     int position = 0;
     int length = 0;
     Token current;
+    std::deque<Token> peeks;
 public:
     explicit Lexer() = default;
     virtual void enter(EventContext *context, int column);
     virtual bool has();
     virtual Token next();
+    virtual Token peek(int num);
 private:
     void ParseSpace();
     void ParseIdentifier();
     void ParseString();
     void ParseNumber();
+    void ParseNextToken();
 };
 
 #endif //GEDITOR_LEXER_H

@@ -225,7 +225,7 @@ public:
     SkPaint style;
     LineElement() = default;
     int getLogicHeight(EventContext &context) override { return 25; }
-    int getLogicWidth(EventContext &context) override { return 25; }
+    //int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
     Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
@@ -345,6 +345,148 @@ public:
 */
     }
 };
+class ExLineElement : public RelativeElement {
+public:
+    int m_height = 30;
+    int m_left = 20;
+    bool isExtend = false;
+    ExLineElement() = default;
+    int getLogicHeight(EventContext &context) override {
+        return isExtend ? m_height + 100 : m_height;
+    }
+    Display getDisplay() override { return DisplayLine; }
+    Element *copy() override { return new ExLineElement(); }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        LineViewer viewer = context.getLineViewer();
+        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
+        canvas.drawText(viewer.c_str(), viewer.size(), m_left, 2, StyleDeafaultFont);
+        if (isExtend) {
+            canvas.drawText(_GT("-"), 2, 3, 0, StyleDeafaultFont);
+
+
+        } else {
+            canvas.drawText(_GT("+"), 2, 2, 2, StyleDeafaultFont);
+        }
+
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        if (context.relative(x, y).x < 20) {
+            isExtend = !isExtend;
+            context.reflow();
+            context.redraw();
+        }
+        context.focus();
+        TextCaretService service(Offset(m_left, 6), &context);
+        service.moveTo(context.relative(x, y));
+        service.commit(context.getStyle(StyleDeafaultFont));
+    }
+    void onMouseMove(EventContext &context, int x, int y) override {
+        if (context.selecting()) {
+            context.focus();
+            TextCaretService service(Offset(m_left, 6), &context);
+            service.moveTo(context.relative(x, y));
+            service.commit(context.getStyle(StyleDeafaultFont));
+        }
+    }
+    void onKeyDown(EventContext &context, int code, int status) override {
+        GStyle &paint = context.getStyle(StyleDeafaultFont);
+        auto caret = context.getCaretManager();
+        TextCaretService service(Offset(m_left, 5), &context);
+        if (code == VK_LEFT) {
+            service.moveLeft();
+            if (!service.commit(paint)) {
+                caret->prev();
+                service.moveToIndex(-1);
+                service.commit(paint);
+            }
+        }
+        if (code == VK_RIGHT) {
+            service.moveRight();
+            if (!service.commit(paint)) {
+                if (caret->next()) {
+                    service.moveToIndex(0);
+                    service.commit(paint);
+                }
+            }
+        }
+        if (code == VK_UP) {
+            service.commit(paint);
+            caret->prev();
+            service.commit(paint);
+        }
+        if (code == VK_DOWN) {
+            service.commit(paint);
+            caret->next();
+            service.commit(paint);
+        }
+    };
+    void onInputChar(EventContext &context, int ch) override {
+        GStyle&paint = context.getStyle(StyleDeafaultFont);
+        auto* caret = context.getCaretManager();
+        TextCaretService service(Offset(m_left, 6), &context);
+        auto line = context.getLineViewer();
+        switch (ch) {
+            case VK_BACK:
+                if (service.index() > 0) {
+                    line.remove(service.index() - 1);
+                    service.moveLeft();
+                } else {
+                    if (caret->prev()) {
+                        service.moveToIndex(-1);
+                        service.commit(paint);
+                        context.combine(); // 因为combine要delete本对象 之后paint就不存在了 所以移动要在之前调用
+                        context.reflow();
+                        context.redraw();
+                        return;
+                    }
+                }
+                break;
+            case VK_RETURN:
+                context.copyLine();
+                context.reflow();
+                if (caret->next()) {
+                    int idx = service.index();
+                    context.getLineViewer().append(line.c_str() + idx, line.length() - idx);
+                    line.erase(idx, line.length() - idx);
+                    service.moveToIndex(0);
+                }
+                break;
+            default:
+                line.insert(service.index(), ch);
+                context.push(CommandType::Add, CommandData(service.index(), ch));
+                service.moveRight();
+                break;
+        }
+        service.commit(paint);
+        context.redraw();
+    }
+    void onFocus(EventContext &context) override {
+        // 选中
+        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode));
+        // 设置文字
+        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcIn_Mode));
+        // 设置背景
+        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kColorDodge_Mode));
+/*
+        style.setColorFilter(SkColorFilter::CreateModeFilter(
+                        SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
+        context.redraw();
+*/
+
+    }
+    void onBlur(EventContext &context) override {
+/*
+        style.setColorFilter(nullptr);
+        context.redraw();
+*/
+    }
+};
+
 class SyntaxLineElement : public LineElement {
     Element *copy() override { return new SyntaxLineElement(); }
     void onRedraw(EventContext &context) override {
@@ -528,30 +670,15 @@ class CodeBlockElement : public Container<> {
 public:
     CodeBlockElement() {
         append(new SyntaxLineElement());
-    }
-    static float rad(float deg) {
-        return (float) (deg * 3.1415926 / 180);
-    }
-    static GPath star(int num, float R, float r) {
-        GPath path;
-        float perDeg = 360 / num;
-        float degA = perDeg / 2 / 2;
-        float degB = 360 / (num - 1) / 2 - degA / 2 + degA;
-        path.moveTo(
-                (float) (cos(rad(degA + perDeg * 0)) * R + R * cos(rad(degA))),
-                (float) (-sin(rad(degA + perDeg * 0)) * R + R));
-        for (int i = 0; i < num; i++) {
-            path.lineTo(
-                    (float) (cos(rad(degA + perDeg * i)) * R + R * cos(rad(degA))),
-                    (float) (-sin(rad(degA + perDeg * i)) * R + R));
-            path.lineTo(
-                    (float) (cos(rad(degB + perDeg * i)) * r + R * cos(rad(degA))),
-                    (float) (-sin(rad(degB + perDeg * i)) * r + R));
-        }
-        path.close();
-        return path;
+        append(new SyntaxLineElement());
     }
 
+    void replace(int index, Element *ele) {
+        Element *old = m_index.at(index);
+        delete old;
+        m_index.at(index) = ele;
+
+    }
 private:
     int getWidth(EventContext &context) override {
         return Element::getWidth(context);
@@ -579,6 +706,28 @@ private:
 
         }
     }
+    static float rad(float deg) {
+        return (float) (deg * 3.1415926 / 180);
+    }
+    static GPath star(int num, float R, float r) {
+        GPath path;
+        float perDeg = 360 / num;
+        float degA = perDeg / 2 / 2;
+        float degB = 360 / (num - 1) / 2 - degA / 2 + degA;
+        path.moveTo(
+                (float) (cos(rad(degA + perDeg * 0)) * R + R * cos(rad(degA))),
+                (float) (-sin(rad(degA + perDeg * 0)) * R + R));
+        for (int i = 0; i < num; i++) {
+            path.lineTo(
+                    (float) (cos(rad(degA + perDeg * i)) * R + R * cos(rad(degA))),
+                    (float) (-sin(rad(degA + perDeg * i)) * R + R));
+            path.lineTo(
+                    (float) (cos(rad(degB + perDeg * i)) * r + R * cos(rad(degA))),
+                    (float) (-sin(rad(degB + perDeg * i)) * r + R));
+        }
+        path.close();
+        return path;
+    }
 
 };
 class ControlLineElement : public Container<> {
@@ -586,7 +735,11 @@ public:
     ControlLineElement() {
         append(new CodeBlockElement());
         append(new CodeBlockElement());
-        append(new CodeBlockElement());
+    }
+    CodeBlockElement *addBlock() {
+        auto *ele = new CodeBlockElement();
+        append(ele);
+        return ele;
     }
 private:
     int getWidth(EventContext &context) override {
@@ -595,7 +748,10 @@ private:
     void onRedraw(EventContext &context) override {
         Container::onRedraw(context);
         SkPaint paint;
+        GScalar inter[2] = {3, 2};
+        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25));
         paint.setColor(SK_ColorBLACK);
+        paint.setAlpha(180);
         Offset offset = context.offset();
         Offset runStart;
         for_context(ctx, context) {
@@ -609,18 +765,42 @@ private:
                 int lineBottom = ctx.height() + 15;
                 canvas->drawLine(-15, lineTop, -15, lineBottom, paint);
                 canvas->drawLine(-15, lineBottom, 0, lineBottom, paint);
+                GPath path = triangle2(6, -2, lineBottom);
+                canvas->drawPath(path, paint);
                 canvas->drawLine(-6, ctx.height() - 10, 0, ctx.height() - 10, paint);
-
             }
         }
         Canvas canvas = context.getCanvas();
         canvas->drawLine(18, runStart.y + 25 - 10, 18, context.height(), paint);
-        //canvas->save();
-        //canvas->rotate(90.0f);
-        //canvas->restore();
+        GPath path = triangle1(6, 18, context.height() - 2);
+        // 有可能后面还有流程语句 需要连接
+        canvas->drawPath(path, paint);
 
     }
+    static float rad(float deg) {
+        return (float) (deg * 3.1415926 / 180);
+    }
+    static GPath triangle1(GScalar length, GScalar dx, GScalar dy) {
+        GPath path;
+        float v = length * cos(rad(45));
+        path.moveTo(0, 0);
+        path.lineTo(v * 2, 0);
+        path.lineTo(v, v);
+        path.close();
+        path.offset(dx - v, dy);
+        return path;
+    }
+    static GPath triangle2(GScalar length, GScalar dx, GScalar dy) {
+        GPath path;
+        float v = length * cos(rad(45));
+        path.moveTo(0, 0);
+        path.lineTo(0, v * 2);
+        path.lineTo(v, v);
+        path.close();
+        path.offset(dx, dy - v);
 
+        return path;
+    }
 };
 class SubElement : public Container<> {
 public:
@@ -632,7 +812,11 @@ public:
         //table->replace(0, 3, new ButtonElement());
         append(table);
         append(new SyntaxLineElement());
-        append(new ControlLineElement());
+
+        auto *control = new ControlLineElement();
+        control->addBlock()->replace(0, new ControlLineElement());
+        append(control);
+
     }
 private:
     int getWidth(EventContext &context) override {

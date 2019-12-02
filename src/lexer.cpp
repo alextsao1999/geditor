@@ -26,7 +26,7 @@ void Lexer::enter(EventContext *ctx, int column) {
 }
 
 bool Lexer::has() {
-    return position < length;
+    return CURRENT_POS < length;
 }
 
 void Lexer::ParseSpace() {
@@ -71,6 +71,24 @@ void Lexer::ParseNumber() {
 }
 
 Token Lexer::next() {
+    if (peeks.empty()) {
+        ParseNextToken();
+    } else {
+        CURRENT_TOKEN = peeks.front();
+        peeks.pop_front();
+    }
+    return CURRENT_TOKEN;
+}
+
+Token Lexer::peek(int num) {
+    while (peeks.size() < num && has()) {
+        ParseNextToken();
+        peeks.push_back(CURRENT_TOKEN);
+    }
+    return peeks[num];
+}
+
+void Lexer::ParseNextToken() {
     switch (CURRENT_CHAR) {
         case _HM_C(';'):case _HM_C('('):case _HM_C(')'):case _HM_C('['):
         case _HM_C(']'):case _HM_C('{'):case _HM_C('}'):case _HM_C('.'):
@@ -79,7 +97,7 @@ Token Lexer::next() {
         case _HM_C('='):case _HM_C('%'):case _HM_C('-'):case _HM_C('*'):
         case _HM_C(','):
         case _HM_C('/'):
-            TOKEN_START();
+        TOKEN_START();
             NEXT();
             if (NEXT_CHAR == _HM_C('/') || NEXT_CHAR == _HM_C('*')) {
                 NEXT();
@@ -99,6 +117,5 @@ Token Lexer::next() {
                 NEXT();
             }
     }
-    return current;
 }
 

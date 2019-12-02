@@ -33,6 +33,7 @@ bool IsCodeChar(GChar ch);
 bool IsSpace(GChar ch);
 enum TokenType {
     TokenNone,
+    TokenEol,
     TokenSpace,
     TokenIdentifier,
     TokenNumber,
@@ -45,14 +46,17 @@ struct Token {
     int type{TokenNone};
     const GChar *start{nullptr};
     int length{0};
-    int index;
-    int next;
+    int index{0};
+    int next{0};
     const GChar *c_str() { return start; }
     size_t size() { return length * sizeof(GChar); }
     bool operator==(const GChar *str) {
         return gstrlen(str) == length && memcmp(start, str, length * sizeof(GChar)) == 0;
     }
     bool operator==(const int &rvalue) { return type == rvalue; }
+    void dump() {
+        printf("type: %d content: %ws length:%d\n", type, GString(start, length).c_str(), length);
+    }
 };
 
 static GString symbols = _GT("+-*/");
@@ -78,8 +82,9 @@ public:
     explicit Lexer() = default;
     virtual void enter(EventContext *context, int column);
     virtual bool has();
+    virtual bool canNext();
     virtual Token next();
-    virtual Token peek(int num);
+    Token peek(int num = 1);
 private:
     void ParseSpace();
     void ParseIdentifier();

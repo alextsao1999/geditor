@@ -23,6 +23,7 @@ void Lexer::enter(EventContext *ctx, int column) {
     string = viewer.c_str();
     length = viewer.length();
     position = 0;
+    peeks.clear();
 }
 
 bool Lexer::has() {
@@ -81,14 +82,22 @@ Token Lexer::next() {
 }
 
 Token Lexer::peek(int num) {
-    while (peeks.size() < num && has()) {
+    while (peeks.size() < num) {
         ParseNextToken();
+        if (CURRENT_TOKEN == TokenEol) {
+            return CURRENT_TOKEN;
+        }
         peeks.push_back(CURRENT_TOKEN);
     }
-    return peeks[num];
+    return peeks[num - 1];
 }
 
 void Lexer::ParseNextToken() {
+    if (!has()) {
+        CURRENT_TOKEN = Token();
+        current.type = TokenEol;
+        return;
+    }
     switch (CURRENT_CHAR) {
         case _HM_C(';'):case _HM_C('('):case _HM_C(')'):case _HM_C('['):
         case _HM_C(']'):case _HM_C('{'):case _HM_C('}'):case _HM_C('.'):
@@ -117,5 +126,9 @@ void Lexer::ParseNextToken() {
                 NEXT();
             }
     }
+}
+
+bool Lexer::canNext() {
+    return CURRENT_POS < length - 1;
 }
 

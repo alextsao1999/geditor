@@ -6,6 +6,7 @@
 #define _DOCUMENT_H
 
 #include <queue>
+#include <mutex>
 #include "common.h"
 #include "layout.h"
 #include "paint_manager.h"
@@ -34,6 +35,7 @@
 
 struct Context {
     std::queue<EventContext *> m_animator;
+    std::mutex m_lock;
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
     StyleManager m_styleManager;
@@ -277,6 +279,7 @@ public:
     /////////////////////////////////////////
     virtual void onRedraw(EventContext &context);
     virtual void onRemove(EventContext &context);
+    virtual bool onFrame(EventContext &context) { return false; }
     /////////////////////////////////////////
 };
 
@@ -371,7 +374,7 @@ class Document : public Container<DisplayBlock> {
 public:
     Context m_context;
 public:
-    explicit Document(RenderManager *renderManager) : m_context(Context(renderManager)) {}
+    explicit Document(RenderManager *renderManager) : m_context(renderManager) {}
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
     void flow() {

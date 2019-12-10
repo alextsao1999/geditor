@@ -222,6 +222,19 @@ public:
         draw(11, 0, 0,
              SkColorSetRGB(166, 166, 166), SkColorSetRGB(204, 204, 204));
         context.redraw();
+        context.post();
+    }
+
+    int counter = 0;
+    bool onFrame(EventContext &context) override {
+        counter += 10;
+        if (counter >= 200) {
+            counter = 0;
+        }
+        draw(11, counter, 0,
+             SkColorSetRGB(166, 166, 166), SkColorSetRGB(204, 204, 204));
+        context.redraw();
+        return true;
     }
 };
 class LineElement : public RelativeElement {

@@ -83,8 +83,8 @@ void RenderManager::redraw(EventContext *ctx) {
     rect.top = offset.y;
     rect.right = rect.left + ctx->width();
     rect.bottom = rect.top + ctx->height();
-//    InvalidateRect(m_hWnd, &rect, false);
-    InvalidateRect(m_hWnd, nullptr, false);
+    InvalidateRect(m_hWnd, &rect, false);
+    //InvalidateRect(m_hWnd, nullptr, false);
 }
 
 void RenderManager::redraw(GEditorData *data, EventContext &context, GRect &rect) {

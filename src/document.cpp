@@ -143,7 +143,6 @@ void EventContext::relayout() {
 }
 
 void EventContext::redraw() {
-    // onRedraw 需要更新宽度!!!
     doc->getContext()->m_renderManager->redraw(this);
 }
 
@@ -191,11 +190,7 @@ LineViewer EventContext::copyLine() {
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), type, data});
 }
-
-void EventContext::notify(int type, int param, int other) {
-    current()->onNotify(*this, type, param, other);
-}
-
+void EventContext::notify(int type, int param, int other) { current()->onNotify(*this, type, param, other); }
 #define OutOfBound() (index < 0 || index >= buffer->size())
 Tag EventContext::tag() {
     if (OutOfBound()) {
@@ -203,69 +198,31 @@ Tag EventContext::tag() {
     }
     return current()->getTag(*this);
 }
-
 GRect EventContext::logicRect() {
     ASSERT(index > 0 && index < buffer->size(), "Index Error ! ");
     Offset pos = current()->getLogicOffset();
     return GRect::MakeXYWH(pos.x, pos.y, width(), height());
 }
-
 GRect EventContext::rect() {
     Offset pos = offset();
     return GRect::MakeXYWH(pos.x, pos.y, width(), height());
 }
-
 GRect EventContext::viewportRect() {
     Offset pos = viewportOffset();
     return GRect::MakeXYWH(SkIntToScalar(pos.x), SkIntToScalar(pos.y), SkIntToScalar(width()), SkIntToScalar(height()));
 }
-
-Offset EventContext::viewportOffset() {
-    return offset() - doc->getContext()->m_renderManager->getViewportOffset();
-}
-
-Offset EventContext::offset() {
-    return current()->getOffset(*this);
-}
-
-Offset EventContext::relative(int x, int y) {
-    return Offset{x, y}  - offset();
-}
-Display EventContext::display() {
-    return current()->getDisplay();
-}
-
-int EventContext::height() {
-    return current()->getHeight(*this);
-}
-
-int EventContext::width() {
-    return current()->getWidth(*this);
-}
-
-int EventContext::logicHeight() {
-    return current()->getLogicHeight(*this);
-}
-
-int EventContext::logicWidth() {
-    return current()->getLogicWidth(*this);
-}
-
-int EventContext::minHeight() {
-    return current()->getMinHeight(*this);
-}
-
-int EventContext::minWidth() {
-    return current()->getMinWidth(*this);
-}
-
-void EventContext::setLogicHeight(int height) {
-    current()->setLogicHeight(*this, height);
-}
-
-void EventContext::setLogicWidth(int width) {
-    current()->setLogicWidth(*this, width);
-}
+Offset EventContext::viewportOffset() { return offset() - doc->getContext()->m_renderManager->getViewportOffset(); }
+Offset EventContext::offset() { return current()->getOffset(*this); }
+Offset EventContext::relative(int x, int y) { return Offset{x, y}  - offset(); }
+Display EventContext::display() { return current()->getDisplay(); }
+int EventContext::height() { return current()->getHeight(*this); }
+int EventContext::width() { return current()->getWidth(*this); }
+int EventContext::logicHeight() { return current()->getLogicHeight(*this); }
+int EventContext::logicWidth() { return current()->getLogicWidth(*this); }
+int EventContext::minHeight() { return current()->getMinHeight(*this); }
+int EventContext::minWidth() { return current()->getMinWidth(*this); }
+void EventContext::setLogicHeight(int height) { current()->setLogicHeight(*this, height); }
+void EventContext::setLogicWidth(int width) { current()->setLogicWidth(*this, width); }
 
 EventContext::EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx) :
 doc(doc), buffer(buffer), outer(out), index(idx) {
@@ -280,7 +237,9 @@ EventContext::EventContext(const EventContext *context, EventContext *out) :
         doc(context->doc), buffer(context->buffer), index(context->index), counter(context->counter), outer(out) {}
 
 void EventContext::post() {
+    doc->getContext()->m_lock.lock();
     doc->getContext()->m_animator.push(copy());
+    doc->getContext()->m_lock.unlock();
 }
 
 Context *EventContext::getDocContext() {

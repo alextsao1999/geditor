@@ -20,7 +20,7 @@ struct GEditorData {
     EventContext m_begin;
 
     explicit GEditorData(HWND hwnd) :
-            m_hwnd(hwnd), m_document(Document(&m_renderManager)), m_renderManager(hwnd),
+            m_hwnd(hwnd), m_document(&m_renderManager), m_renderManager(hwnd),
             m_begin(&m_document) {
 
     }
@@ -45,6 +45,8 @@ public:
         m_data->m_document.appendElement(new ExLineElement());
         m_data->m_document.appendElement(new SubElement());
         m_data->m_document.appendElement(new SubElement());
+        std::thread animator(onAnimator, m_data);
+        animator.detach();
 /*
         m_data->m_document.appendElement(table);
         m_data->m_document.appendLine(new LineElement()).append(L"var a = 100;");
@@ -52,11 +54,27 @@ public:
         //m_data->m_document.append(new ButtonElement());
         m_data->m_document.appendElement(new SubElement());
 */
-
         m_data->m_document.flow();
     }
     ~GEditor() {
         delete m_data;
+    }
+
+    static void onAnimator(GEditorData *data) {
+        while (data->m_hwnd) {
+            while (!data->m_document.m_context.m_animator.empty()) {
+                auto *context = data->m_document.m_context.m_animator.front();
+                data->m_document.m_context.m_lock.lock();
+                data->m_document.m_context.m_animator.pop();
+                if (context->current()->onFrame(*context)) {
+                    data->m_document.m_context.m_animator.push(context);
+                } else {
+                    context->free();
+                }
+                data->m_document.m_context.m_lock.unlock();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25 * 4));
+            }
+        }
     }
 
 };

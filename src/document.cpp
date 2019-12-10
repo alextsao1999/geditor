@@ -65,7 +65,7 @@ void Element::onPreMouseMove(EventContext &context, int x, int y) {
 }
 
 LineViewer EventContext::getLineViewer(int column) {
-    return doc->getContext()->m_textBuffer.getLine(getLineIndex(), column);
+    return doc->getContext()->m_textBuffer.getLine(getLineCounter(), column);
 }
 
 void EventContext::init(Root *element, int idx) {
@@ -163,10 +163,12 @@ void EventContext::combine() {
     }
     auto &text = doc->getContext()->m_textBuffer;
     Element *ele = buffer->at(next);
-    int cur = getLineIndex();
+    auto cur = getLineCounter();
     if (current()->getDisplay() == DisplayLine && ele->getDisplay() == DisplayLine) {
-        text.getLine(cur).append(text.getLine(cur + 1).c_str());
-        text.deleteLine(cur + 1);
+        auto curLineViewer = text.getLine(cur);
+        cur.increase(this, 1);
+        curLineViewer.append(text.getLine(cur).c_str());
+        text.deleteLine(cur);
         buffer->erase(next);
         remove(ele);
     }
@@ -174,7 +176,8 @@ void EventContext::combine() {
 
 LineViewer EventContext::copyLine() {
     if (current()->getDisplay() == DisplayLine) {
-        int next = getLineIndex() + 1;
+        auto next = getLineCounter();
+        next.increase(this, 1);
         Element *element = current()->copy();
         if (!element) {
             return {};
@@ -265,10 +268,16 @@ void EventContext::setLogicWidth(int width) {
 }
 
 EventContext::EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx) :
-doc(doc), buffer(buffer), outer(out), index(idx) {}
+doc(doc), buffer(buffer), outer(out), index(idx) {
+    /*更新line*/
+    for (int j = 0; j < idx; ++j) {
+        int count = buffer->at(j)->getLineNumber();
+        counter.increase(this, count);
+    }
+}
 
 EventContext::EventContext(const EventContext *context, EventContext *out) :
-        doc(context->doc), buffer(context->buffer), index(context->index), line(context->line), outer(out) {}
+        doc(context->doc), buffer(context->buffer), index(context->index), counter(context->counter), outer(out) {}
 
 void EventContext::post() {
     doc->getContext()->m_animator.push(copy());

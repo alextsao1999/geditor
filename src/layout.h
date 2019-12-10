@@ -6,6 +6,7 @@
 #define GEDITOR_LAYOUT_H
 
 #include "common.h"
+
 //typedef int Display;
 enum Display {
     DisplayNone,
@@ -21,6 +22,7 @@ class RelativeElement;
 class Document;
 class Element;
 class LayoutManager;
+class RenderManager;
 struct EventContext;
 struct Offset;
 struct LayoutContext {
@@ -43,9 +45,11 @@ Layout(LayoutDisplayCustom);
 
 class LayoutManager {
 private:
-    int m_width = 500;
-    int m_height = 2000;
+    uint32_t m_width = 500;
+    uint32_t m_height = 2000;
+    RenderManager *m_renderManager;
 public:
+    LayoutManager(RenderManager *renderManager);
     LayoutFunc m_layouts[7] = {
             LayoutDisplayNone,
             LayoutDisplayInline,
@@ -58,8 +62,8 @@ public:
     static void ReflowAll(Document *doc);
     void reflow(EventContext context, bool relayout = false, bool outset = false);
     void relayout(EventContext context);
-    int getHeight() { return m_height; }
-    int getWidth() { return m_width; }
+    uint32_t getHeight() { return m_height; }
+    uint32_t getWidth() { return m_width; }
     LayoutFunc getLayoutFunc(Display display) { return m_layouts[display]; }
 };
 

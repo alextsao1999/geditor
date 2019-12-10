@@ -5,6 +5,8 @@
 #include "layout.h"
 #include "document.h"
 #include "table.h"
+LayoutManager::LayoutManager(RenderManager *renderManager) : m_renderManager(renderManager) {}
+
 void LayoutManager::ReflowAll(Document *doc) {
     EventContext context = EventContextBuilder::build(doc);
     context.init(doc);
@@ -54,7 +56,8 @@ void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
         }
     } else {
         //m_width = layoutContext.blockMaxWidth;
-        //m_height = offset.y;
+        m_height = offset.y;
+        m_renderManager->setVertScroll(m_height);
     }
 }
 
@@ -77,7 +80,7 @@ Layout(LayoutDisplayNone) {}
 Layout(LayoutDisplayInline) {
     layoutContext.blockMaxWidth = 0;
     next.x += context.width();
-    int value = context.height();
+    uint32_t value = context.height();
     if (value > layoutContext.lineMaxHeight) {
         layoutContext.lineMaxHeight = value;
     }
@@ -87,7 +90,7 @@ Layout(LayoutDisplayBlock) {
         sender->reflow(context.enter(), true, true);
     }
     layoutContext.lineMaxHeight = 0;
-    int value = context.width();
+    uint32_t value = context.width();
     if (value > layoutContext.blockMaxWidth) {
         layoutContext.blockMaxWidth = value;
     }
@@ -103,13 +106,13 @@ Layout(LayoutDisplayLine) {
 
 Layout(LayoutDisplayTable) {
     if (relayout) {
-        Buffer<int> MaxWidthBuffer;
-        Buffer<int> MaxHeightBuffer;
+        Buffer<uint32_t> MaxWidthBuffer;
+        Buffer<uint32_t> MaxHeightBuffer;
         for_context(row, context) {
             for_context(col, row) {
                 col.relayout();
-                int width = col.minWidth();
-                int height = col.minHeight();
+                uint32_t width = col.minWidth();
+                uint32_t height = col.minHeight();
                 if (width > MaxWidthBuffer[col.index]) MaxWidthBuffer[col.index] = width;
                 if (height > MaxHeightBuffer[row.index]) MaxHeightBuffer[row.index] = height;
             }
@@ -130,7 +133,7 @@ Layout(LayoutDisplayTable) {
             context_on(row, FinishReflow, pos_col.x, MaxHeightBuffer[row.index]);
             pos_row.y += MaxHeightBuffer[row.index];
         }
-        int table_width = 0;
+        uint32_t table_width = 0;
         for (auto iter = MaxWidthBuffer.iter(); iter.has(); iter.next()) {
             table_width += iter.current();
         }

@@ -7,6 +7,7 @@
 
 #include <Windows.h>
 #include <wingdi.h>
+#include "WinUser.h"
 #include <tchar.h>
 #include <string>
 #include "memory.h"

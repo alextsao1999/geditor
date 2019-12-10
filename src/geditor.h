@@ -41,10 +41,10 @@ public:
         auto *table = new TableElement(2, 2);
         auto *table_inner = new TableElement(2, 2);
         table->replace(0, 0, table_inner);
+        m_data->m_document.append(new ButtonElement());
         m_data->m_document.appendElement(new ExLineElement());
         m_data->m_document.appendElement(new SubElement());
         m_data->m_document.appendElement(new SubElement());
-        m_data->m_document.append(new ButtonElement());
 /*
         m_data->m_document.appendElement(table);
         m_data->m_document.appendLine(new LineElement()).append(L"var a = 100;");
@@ -181,16 +181,17 @@ public:
         return 0;
     }
     static void onHandleScroll(int nBar, GEditorData *data, HWND hWnd, WPARAM wParam) {
+        int step = (nBar == SB_VERT ? data->m_renderManager.getViewportSize().height / 8 : 1);
         int prev = GetScrollPos(hWnd, nBar);
-        int movement = ((int16_t) HIWORD(wParam)) / -60;
+        int movement = (((int16_t) HIWORD(wParam)) / -60) * step;
         prev += movement;
         int status = LOWORD(wParam);
         switch (status) {
             case SB_LINEUP:
-                prev -= 1;
+                prev -= step;
                 break;
             case SB_LINEDOWN:
-                prev += 1;
+                prev += step;
                 break;
             case SB_THUMBTRACK:
             {
@@ -202,10 +203,10 @@ public:
             }
                 break;
             case SB_PAGEUP:
-                prev -= 1;
+                prev -= step;
                 break;
             case SB_PAGEDOWN:
-                prev += 1;
+                prev += step;
                 break;
             case SB_ENDSCROLL:
                 break;

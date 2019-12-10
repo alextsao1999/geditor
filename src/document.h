@@ -13,6 +13,8 @@
 #include "text_buffer.h"
 #include "caret_manager.h"
 #include "lexer.h"
+#include "line_index.h"
+
 #define CallChildEvent(name) \
     EventContext event = context.enter(); \
     while (event.has()) { \
@@ -66,7 +68,7 @@ struct Context {
         return rect;
     }
     explicit Context(RenderManager *renderManager) : m_renderManager(renderManager),
-                                                     m_caretManager(CaretManager(renderManager)) {}
+                                                     m_caretManager(renderManager), m_layoutManager(renderManager){}
 };
 struct Tag {
     GChar str[255]{_GT('\0')};
@@ -123,7 +125,7 @@ struct EventContext {
     ElementIndexPtr buffer = nullptr;
     EventContext *outer = nullptr;
     int index = 0;
-    int line = 0;
+    LineCounter counter;
     Context *getDocContext();
     inline bool empty() { return buffer == nullptr || doc == nullptr; }
     inline bool has() { return buffer!= nullptr && index < buffer->size(); }
@@ -131,10 +133,10 @@ struct EventContext {
     bool next();
     bool outerNext();
     bool outerPrev();
-    int getLineIndex() { if (outer) { return outer->getLineIndex() + line; } else { return line; } }
+    LineCounter getLineCounter() { if (outer) { return outer->getLineCounter() + counter; } else { return counter; } }
     // 只改变本层次Line
-    void prevLine(int count = 1) { line -= count; }
-    void nextLine(int count = 1) { line += count; }
+    void prevLine(int count = 1) { counter.decrease(this, count); }
+    void nextLine(int count = 1) { counter.increase(this, count); }
     void reflow(bool relayout = false);
     void redraw();
     void relayout();
@@ -163,7 +165,6 @@ struct EventContext {
     void setLogicHeight(int height);
     void remove(Root *element);
     void init(Root *element, int index = 0);
-    Element *get(int idx) { return buffer->at(idx); }
     inline Element *current() { return buffer->at(index); }
     Painter getPainter();
     Canvas getCanvas(SkPaint *paint);
@@ -182,16 +183,15 @@ struct EventContext {
     EventContext() = default;
     explicit EventContext(Document *doc) : doc(doc) {}
     explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx);
-    explicit EventContext(const EventContext *context, EventContext *out);
+    explicit EventContext(const EventContext *context, EventContext *out); // copy context
     EventContext begin() { return EventContext(doc, buffer, outer, 0); }
-    EventContext end() { return EventContext(doc, buffer, outer, buffer->size() - 1); }
-    EventContext nearby(int value) { return EventContext(doc, buffer, outer, index + value); }
-    EventContext enter(int idx = 0);
-    void leave() {
-        if (outer) {
-            outer->nextLine(line);
-        }
+    EventContext end() {
+        return EventContext(doc, buffer, outer, buffer->size() - 1);
     }
+    EventContext nearby(int value) {
+        return EventContext(doc, buffer, outer, index + value);
+    }
+    EventContext enter(int idx = 0);
     EventContext *copy() { return new EventContext(this, outer ? outer->copy() : nullptr); }
     void free() {
         if (outer) {
@@ -203,7 +203,7 @@ struct EventContext {
         if (outer) {
             outer->dump();
         }
-        printf(" { index = %d, line = %d }", index, line);
+        printf(" { index = %d, line = %d }", index, counter.line);
     }
     std::string path() {
         std::string str;
@@ -312,7 +312,6 @@ public:
     DEFINE_EVENT(onEnterReflow, Offset &offset);
     DEFINE_EVENT(onLeaveReflow);
     DEFINE_EVENT(onFinishReflow, int width, int height);
-
     enum NotifyType {
         None,
         Update,

@@ -1,13 +1,13 @@
 //
 // Created by Alex on 2019/6/29.
 //  先用ArrayMethod 看看效果 之后试试加成内存池和PieceTable
-// Line都是index
 //
 
 #ifndef GEDITOR_TEXT_BUFFER_H
 #define GEDITOR_TEXT_BUFFER_H
 
 #include "common.h"
+#include "line_index.h"
 #include <vector>
 #include <iostream>
 #define GString std::wstring
@@ -136,6 +136,28 @@ public:
             }
         }
         return {line, column, &m_buffer};
+    }
+
+    LineViewer insertLine(LineCounter counter) {
+        if (counter.line >= m_buffer.size()) {
+            return getLine(counter.line);
+        }
+        m_buffer.insert(m_buffer.begin() + counter.line, TextLine());
+        return {counter.line, 0, &m_buffer};
+    }
+    void deleteLine(LineCounter counter) {
+        if (m_buffer.size() == 1) { return; }
+        m_buffer[counter.line].free();
+        m_buffer.erase(m_buffer.begin() + counter.line);
+    }
+    LineViewer getLine(LineCounter counter, int column = 0) {
+        if (counter.line >= m_buffer.size()) {
+            int rm = counter.line - (int) m_buffer.size() + 1;
+            while (rm--) {
+                m_buffer.emplace_back();
+            }
+        }
+        return {counter.line, column, &m_buffer};
     }
 };
 

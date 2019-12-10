@@ -22,7 +22,7 @@ private:
     Offset m_current;
     CaretData m_data;
 public:
-    explicit CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
+    CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();
     Element *getFocus ();
     EventContext *getEventContext() { return m_context; }

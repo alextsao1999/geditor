@@ -13,6 +13,8 @@ Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(con
 void Painter::drawText(const void *text, size_t byteLength, GScalar x, GScalar y, int style) {
     GStyle gstyle = m_context->getStyle(style);
     gstyle.attach(m_HDC);
+    SetTextColor(m_HDC, gstyle.paint().getColor() << 8);
+    SetBkMode(m_HDC, TRANSPARENT);
     TextOut(m_HDC, m_offset.x + x, m_offset.y + y, (const GChar *) text, gstyle.countText(text, byteLength));
 }
 

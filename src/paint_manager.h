@@ -80,26 +80,24 @@ public:
         kBoldItalic = 0x03
     };
     SkPaint m_paint;
-    HGDIOBJ fObject = nullptr;
     HFONT fFont = nullptr;
     ~GStyle() {
-        DeleteObject(fObject);
         DeleteObject(fFont);
     }
     explicit operator SkPaint() { return m_paint; }
     inline SkPaint *operator->() { return &m_paint; }
     inline SkPaint &paint() { return m_paint; }
     inline void attach(HDC hdc) {
-        if (m_paint.getStyle() == SkPaint::kStroke_Style) {
-            fObject = CreatePen(PS_SOLID, 1, m_paint.getColor());
+        HGDIOBJ obj;
+        if (m_paint.getStyle() == SkPaint::Style::kStroke_Style) {
+            int stroke = m_paint.getStrokeWidth() == 0 ? 1 : (int) m_paint.getStrokeWidth();
+            obj = CreatePen(PS_SOLID, stroke, m_paint.getColor());
         } else {
-            fObject = CreateSolidBrush(m_paint.getColor());
+            obj = CreateSolidBrush(m_paint.getColor());
         }
-
-        auto hOld = SelectObject(hdc, fObject);
+        auto hOld = SelectObject(hdc, obj);
         DeleteObject(hOld);
         SelectObject(hdc, fFont);
-        printf("fFont %p\n", fFont);
     }
     inline void reset() { m_paint.reset(); }
     inline void setStyle(StyleType type) { m_paint.setStyle((SkPaint::Style) type); }
@@ -108,6 +106,10 @@ public:
     inline void setTextEncoding(SkPaint::TextEncoding encoding) { m_paint.setTextEncoding(encoding); }
     inline void setFont(const char *name, FontType type) {
         m_paint.setTypeface(SkTypeface::CreateFromName(name, (SkTypeface::Style) type));
+        fFont = CreateFontA(m_paint.getTextSize(), 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS,
+                            CLIP_DEFAULT_PRECIS,
+                            DEFAULT_QUALITY,
+                            DEFAULT_PITCH | FF_SWISS, "宋体");
     }
     inline void setAntiAlias(bool aa) { m_paint.setAntiAlias(aa); }
     inline void setFakeBoldText(bool b) { m_paint.setFakeBoldText(b); }
@@ -142,8 +144,8 @@ public:
         add(StyleTableBorderSelected, paint);
 
         paint.reset();
-        paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextSize(20);
+        paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setFakeBoldText(true);
         paint.setAntiAlias(true);
@@ -169,8 +171,8 @@ public:
         add(StyleFunctionFont, paint);
 
         paint.reset();
-        paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextSize(18);
+        paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
@@ -216,18 +218,10 @@ public:
         drawLine(x1, y2, x2, y2);
         drawLine(x1, y1, x1, y2);
     }
-    void setTextColor(GColor color) {
-        SetTextColor(m_HDC, color);
-    }
     void setBkColor(GColor color) {
         SetBkColor(m_HDC, color);
     }
-    void drawText(int x, int y, const GChar *str, int count) {
-        SetBkMode(m_HDC, TRANSPARENT);
-        TextOut(m_HDC, m_offset.x + x, m_offset.y + y, str, count);
-    }
     void drawText(const void* text, size_t byteLength, GScalar x, GScalar y, int style);
-
 };
 class Canvas {
 public:
@@ -239,7 +233,6 @@ public:
     Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint);
     Canvas(EventContext *context, SkCanvas *canvas);
     ~Canvas();
-
     void save();
     void save(SkPaint *paint);
     void restore() {
@@ -251,20 +244,12 @@ public:
     void translate(GScalar x, GScalar y) {
         m_canvas->translate(x, y);
     }
-
     void drawRect(const GRect &rect, int style);
     void drawText(const void* text, size_t byteLength, GScalar x, GScalar y, int style);
-    inline SkCanvas *operator->() {
-        return m_canvas;
-    }
-    inline SkCanvas &operator*() {
-        return *m_canvas;
-    };
-
+    inline SkCanvas *operator->() { return m_canvas; }
+    inline SkCanvas &operator*() { return *m_canvas; };
     GRect bound(Offset inset = Offset());
-
     GRect bound(GScalar dx = 0, GScalar dy = 0);
-
 };
 
 class RenderManager {
@@ -273,6 +258,7 @@ public:
     HDC m_hMemDC = nullptr;
     HDC m_hWndDC = nullptr;
     HBITMAP m_hBitmap = nullptr;
+    Offset m_viewportOffset{10, 10};
     Offset m_offset{-10, -10};
     SkBitmap m_bitmap;
     std::shared_ptr<SkCanvas> m_canvas;
@@ -335,7 +321,19 @@ public:
         return Canvas(ctx, new SkCanvas(m_bitmap));
     }
     inline Offset getViewportOffset() { return m_offset; }
-    virtual void setViewportOffset(Offset offset) { m_offset = offset; }
+    virtual void setVertScroll(uint32_t height) {
+        SCROLLINFO info;
+        info.cbSize = sizeof(SCROLLINFO);
+        info.fMask = SIF_ALL;
+        GetScrollInfo(m_hWnd, SB_VERT, &info);
+        uint32_t vHeight = getViewportSize().height;
+        info.nMax = height - vHeight + 20;
+        info.nPage = vHeight * (vHeight / height);
+
+        info.cbSize = sizeof(SCROLLINFO);
+        info.fMask = SIF_ALL;
+        SetScrollInfo(m_hWnd, SB_VERT, &info, true);
+    }
     virtual void updateViewport(LayoutManager *layoutManager) {
         Offset offset;
         offset.x = GetScrollPos(m_hWnd, SB_HORZ);
@@ -344,7 +342,6 @@ public:
         // 根据整体画布的宽高来确定显示的偏移
         SCROLLINFO info;
         GetScrollInfo(m_hWnd, SB_VERT, &info);
-        //info.nPage
         auto realWidth = (float) (layoutManager->getWidth() - size.width + 20) + 10;
         auto realHeight = (float) (layoutManager->getHeight() - size.height + 20) + 10;
         if (realWidth < 0.0) {
@@ -353,11 +350,14 @@ public:
         if (realHeight < 0.0) {
             realHeight = 0.0;
         }
-        m_offset.x = (int) (realWidth * ((float) offset.x / 100)) - 10;
-        m_offset.y = (int) (realHeight * ((float) offset.y / 100)) - 10;
+        m_offset = offset;
+//        m_offset.x = (int) (realWidth * ((float) offset.x / 100));
+//        m_offset.y = (int) (realHeight * ((float) offset.y / 100));
+        m_offset -= m_viewportOffset;
         update();
         refresh();
     }
+
     virtual Size getViewportSize() {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);

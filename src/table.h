@@ -116,6 +116,10 @@ public:
         Canvas canvas = context.getCanvas();
         canvas->drawBitmap(bitmap, 0, 0);
         canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
+        auto painter = context.getPainter();
+        const GChar *str = L"let me test it";
+        painter.drawText(str, gstrlen(str) * sizeof(GChar), 10.0f, 10.0f, StyleStringFont);
+
 /*
         SkPaint style;
         style.setColor(SK_ColorBLACK);
@@ -222,7 +226,6 @@ public:
 };
 class LineElement : public RelativeElement {
 public:
-    SkPaint style;
     LineElement() = default;
     int getLogicHeight(EventContext &context) override { return 25; }
     //int getLogicWidth(EventContext &context) override { return 25; }
@@ -230,7 +233,7 @@ public:
     Tag getTag(EventContext &context) override { return {_GT("LineElement")}; }
     Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas(&style);
+        Canvas canvas = context.getCanvas();
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
@@ -510,7 +513,7 @@ public:
 class SyntaxLineElement : public LineElement {
     Element *copy() override { return new SyntaxLineElement(); }
     void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas(&style);
+        Canvas canvas = context.getCanvas();
         SkPaint border;
         if (context.selected()) {
             border.setStyle(SkPaint::Style::kStrokeAndFill_Style);

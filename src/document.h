@@ -32,10 +32,7 @@
 #define for_context(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
 #define cur_context(ctx, method, ...) ((ctx).current()->method(ctx, ##__VA_ARGS__))
 #define context_on(ctx, method, ...) ((ctx).current()->on##method(ctx, ##__VA_ARGS__))
-
 struct Context {
-    std::queue<EventContext *> m_animator;
-    std::mutex m_lock;
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
     StyleManager m_styleManager;
@@ -51,14 +48,14 @@ struct Context {
     Offset m_selectEnd;
     void startSelect() {
         m_selecting = true;
-        m_selectStart = m_caretManager.getCurrent();
+        m_selectStart = m_caretManager.current();
         m_selectEnd = m_selectStart;
     }
     void endSelect() {
         m_selecting = false;
     }
     void selecting() {
-        m_selectEnd = m_caretManager.getCurrent();
+        m_selectEnd = m_caretManager.current();
     }
 
     inline GRect getSelectRect() {
@@ -147,7 +144,7 @@ struct EventContext {
     void push(CommandType type, CommandData data);
     void insert(int idx, Element *ele) { buffer->insert(idx, ele); }
     void notify(int type, int param, int other);
-    void post();
+    void timer(long long interval, int id = 0, int count = 0);
 
     Tag tag();
     GRect rect();
@@ -182,18 +179,15 @@ struct EventContext {
     }
     LineViewer getLineViewer(int column = 0);
     LineViewer copyLine();
-    EventContext() = default;
     explicit EventContext(Document *doc) : doc(doc) {}
     explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx);
     explicit EventContext(const EventContext *context, EventContext *out); // copy context
+    bool canEnter();
     EventContext begin() { return EventContext(doc, buffer, outer, 0); }
-    EventContext end() {
-        return EventContext(doc, buffer, outer, buffer->size() - 1);
-    }
-    EventContext nearby(int value) {
-        return EventContext(doc, buffer, outer, index + value);
-    }
+    EventContext end() { return EventContext(doc, buffer, outer, buffer->size() - 1); }
+    EventContext nearby(int value) { return EventContext(doc, buffer, outer, index + value); }
     EventContext enter(int idx = 0);
+    EventContext enterEnd() { return enter().end();}
     EventContext *copy() { return new EventContext(this, outer ? outer->copy() : nullptr); }
     void free() {
         if (outer) {
@@ -220,8 +214,63 @@ struct EventContext {
 
     bool selecting() { return getDocContext()->m_selecting; }
     bool selected();
+    bool visible();
     bool isHead() { return index == 0; }
     bool isTail() { return index == buffer->size() - 1; }
+    EventContext *findNext(const GChar *tag) {
+        EventContext *res = findNextBrother(tag);
+        if (res == nullptr && outer) {
+            return outer->findNext(tag);
+        }
+        return res;
+    }
+    EventContext *findNextBrother(const GChar *tag, bool skipSelf = true) {
+        EventContext context = *this;
+        if (skipSelf) {
+            context.next();
+        }
+        while (context.has()) {
+            if (context.tag().contain(tag)) {
+                return context.copy();
+            } else {
+                if (context.canEnter()) {
+                    EventContext *res = context.enter().findNextBrother(tag, false);
+                    if (res != nullptr) {
+                        return res;
+                    }
+                }
+            }
+            context.next();
+        }
+        return nullptr;
+    }
+    EventContext *findPrev(const GChar *tag) {
+        EventContext *res = findPrevBrother(tag);
+        if (res == nullptr && outer) {
+            return outer->findPrev(tag);
+        }
+        return res;
+    }
+    EventContext *findPrevBrother(const GChar *tag, bool skipSelf = true) {
+        EventContext context = *this;
+        if (skipSelf) {
+            if (!context.prev())
+                return nullptr;
+        }
+        do {
+            if (context.tag().contain(tag)) {
+                return context.copy();
+            } else {
+                if (context.canEnter()) {
+                    EventContext *res = context.enterEnd().findPrevBrother(tag, false);
+                    if (res != nullptr) {
+                        return res;
+                    }
+                }
+            }
+        } while (context.prev());
+        return nullptr;
+    }
 };
 
 class EventContextBuilder {
@@ -279,7 +328,7 @@ public:
     /////////////////////////////////////////
     virtual void onRedraw(EventContext &context);
     virtual void onRemove(EventContext &context);
-    virtual bool onFrame(EventContext &context) { return false; }
+    virtual bool onTimer(EventContext &context, int id) { return false; }
     /////////////////////////////////////////
 };
 

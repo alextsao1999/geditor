@@ -83,17 +83,19 @@ void RenderManager::redraw(EventContext *ctx) {
     rect.top = offset.y;
     rect.right = rect.left + ctx->width();
     rect.bottom = rect.top + ctx->height();
-    InvalidateRect(m_hWnd, &rect, false);
-    //InvalidateRect(m_hWnd, nullptr, false);
+    //InvalidateRect(m_hWnd, &rect, false);
+    InvalidateRect(m_hWnd, nullptr, false);
 }
 
-void RenderManager::redraw(GEditorData *data, EventContext &context, GRect &rect) {
-    GRect select = data->m_document.getContext()->getSelectRect();
+void RenderManager::redrawRect(GRect *rect) {
+    m_data->m_begin.init(&m_data->m_document);
+    EventContext context = m_data->m_begin;
+    GRect select = m_data->m_document.getContext()->getSelectRect();
     update();
     while (context.has()) {
-        if (context.current()->getDisplay() != DisplayNone) {
+        if (context.display() != DisplayNone) {
             context.current()->onRedraw(context);
-            if (GRect::Intersects(context.rect(), select)) {
+            if (context.selected()) {
                 Canvas canvas = context.getCanvas();
                 SkPaint color;
                 color.setColor(SK_ColorCYAN);
@@ -104,12 +106,14 @@ void RenderManager::redraw(GEditorData *data, EventContext &context, GRect &rect
         }
         context.next();
     }
+/*
     SkPaint paint;
     paint.setColor(SK_ColorBLACK);
     paint.setStyle(SkPaint::Style::kStroke_Style);
     paint.setStrokeWidth(1);
-    rect.inset(0.5, 0.5);
-    m_canvas->drawRect(rect, paint);
+    rect->inset(0.5, 0.5);
+    m_canvas->drawRect(*rect, paint);
+*/
 
 }
 

@@ -24,10 +24,10 @@ protected:
     Offset m_offset;
     Offset m_move;
     EventContext* m_context = nullptr;
-    int m_index = 0;
+    int m_index = 0; // 没有匹配到m_move 就直接设置index
 public:
     TextCaretService(const Offset& offset, EventContext* context) : m_offset(offset), m_context(context) {
-        m_index = m_context->getCaretManager()->data()->index;
+        m_index = m_context->getCaretManager()->data().index;
     }
     void setTextOffset(Offset offset) { m_offset = offset; }
     int& index() { return m_index; }
@@ -39,9 +39,15 @@ public:
         LineViewer viewer = m_context->getLineViewer(column);
         return commit(viewer.c_str(), viewer.size(), style, bound);
     }
-    bool commit(const void* text, size_t bytelength, GStyle& paint, SkRect* bound = nullptr, int index_start = 0) {
+    bool commit() {
+        return commit(m_context->getStyle(StyleDeafaultFont));
+    }
+    bool commit(GString &string, int style) {
+        return commit(string.c_str(), string.length() * sizeof(GChar), m_context->getStyle(style));
+    }
+    bool commit(const void* text, size_t bytelength, GStyle& paint, SkRect* bound = nullptr) {
         bool res; // 是否未越界
-        int index = m_index - index_start;
+        int index = m_index;
         int length = paint.countText(text, bytelength);
         auto *widths = new SkScalar[length];
         auto *rects = new SkRect[length];
@@ -85,18 +91,17 @@ public:
             }
         }
         caret.y = m_offset.y;
-        show(caret, index + index_start);
+        show(caret, index);
         delete[] widths;
         delete[] rects;
         if (res) {
-            m_move = caret;
+            m_move = Offset(0, 0);
         }
         return res;
     }
-
     void show(Offset offset, int index) {
         CaretManager* m_caret = m_context->getCaretManager();
-        m_caret->data()->index = index;
+        m_caret->data().set(index, m_context->offset() + offset);
         m_caret->set(offset.x, offset.y);
         m_caret->show();
     }
@@ -116,10 +121,6 @@ public:
         Canvas canvas = context.getCanvas();
         canvas->drawBitmap(bitmap, 0, 0);
         canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
-        auto painter = context.getPainter();
-        const GChar *str = L"let me test it";
-        painter.drawText(str, gstrlen(str) * sizeof(GChar), 10.0f, 10.0f, StyleStringFont);
-
 /*
         SkPaint style;
         style.setColor(SK_ColorBLACK);
@@ -148,28 +149,6 @@ public:
         canvas->drawPath(mystar, paint);
 */
     }
-    static float rad(float deg) {
-        return (float) (deg * 3.1415926 / 180);
-    }
-    static GPath star(int num, float R, float r) {
-        GPath path;
-        float perDeg = 360 / num;
-        float degA = perDeg / 2 / 2;
-        float degB = 360 / (num - 1) / 2 - degA / 2 + degA;
-        path.moveTo(
-                (float) (cos(rad(degA + perDeg * 0)) * R + R * cos(rad(degA))),
-                (float) (-sin(rad(degA + perDeg * 0)) * R + R));
-        for (int i = 0; i < num; i++) {
-            path.lineTo(
-                    (float) (cos(rad(degA + perDeg * i)) * R + R * cos(rad(degA))),
-                    (float) (-sin(rad(degA + perDeg * i)) * R + R));
-            path.lineTo(
-                    (float) (cos(rad(degB + perDeg * i)) * r + R * cos(rad(degA))),
-                    (float) (-sin(rad(degB + perDeg * i)) * r + R));
-        }
-        path.close();
-        return path;
-    }
     void draw(int sigma, int posx = 0, int posy = 0, SkColor border = 0, SkColor color = 0) {
 
         SkRect rect{};
@@ -183,7 +162,7 @@ public:
         paint.setStyle(SkPaint::Style::kFill_Style);
         paint.setColor(color);
         paint.setAntiAlias(true);
-        paint.setLooper(SkBlurDrawLooper::Create(color, sigma, posx, posy));
+        paint.setLooper(SkBlurDrawLooper::Create(color, sigma, posx, posy))->unref();
         canvas.drawRoundRect(rect, 4, 4, paint);
 
         paint.reset();
@@ -192,12 +171,6 @@ public:
         paint.setStrokeWidth(1);
         paint.setAntiAlias(true);
         canvas.drawRoundRect(rect, 4, 4, paint);
-
-        SkPaint font;
-        font.setColor(SK_ColorBLACK);
-        char str[255] = {'\0'};
-        sprintf(str, "first button");
-        canvas.drawText(str, strlen(str), 90, 35, font);
 
     }
     EventContext *ctx{nullptr};
@@ -222,19 +195,53 @@ public:
         draw(11, 0, 0,
              SkColorSetRGB(166, 166, 166), SkColorSetRGB(204, 204, 204));
         context.redraw();
-        context.post();
+        context.timer(100, 100);
     }
 
+    bool direction = false;
     int counter = 0;
-    bool onFrame(EventContext &context) override {
-        counter += 10;
-        if (counter >= 200) {
-            counter = 0;
+    int tranform = 0;
+    bool onTimer(EventContext &context, int id) override {
+        if (!context.visible()) {
+            return true;
         }
-        draw(11, counter, 0,
-             SkColorSetRGB(166, 166, 166), SkColorSetRGB(204, 204, 204));
+        if (counter >= 20 || counter < 0) {
+            direction = !direction;
+            tranform++;
+        }
+        counter = direction ? counter - 1 : counter + 1;
+        draw(counter, 0, 0,
+             SkColorSetRGB(166, 166, 166), SkColorSetRGB(204, 204, 204 + counter));
         context.redraw();
         return true;
+    }
+};
+class MoveElement : public RelativeElement {
+public:
+    Display getDisplay() override { return DisplayBlock; }
+    int getLogicHeight(EventContext &context) override { return 100; }
+    int getLogicWidth(EventContext &context) override { return 200; }
+    bool is_moving = false;
+    Offset m_click;
+    void onLeftButtonUp(EventContext &context, int x, int y) override {
+        is_moving = false;
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        is_moving = true;
+        m_click = context.relative(x, y);
+    }
+    void onMouseMove(EventContext &context, int x, int y) override {
+        if (is_moving) {
+            Offset offset = context.relative(x, y) - m_click;
+            Offset logic = getLogicOffset() + offset;
+            setLogicOffset(logic);
+            context.reflow();
+            context.redraw();
+        }
+    }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
     }
 };
 class LineElement : public RelativeElement {
@@ -243,7 +250,7 @@ public:
     int getLogicHeight(EventContext &context) override { return 25; }
     //int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
-    Tag getTag(EventContext &context) override { return {_GT("LineElement")}; }
+    Tag getTag(EventContext &context) override { return {_GT("LineElement Focus")}; }
     Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
@@ -254,12 +261,11 @@ public:
         LineViewer viewer = context.getLineViewer();
         canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
         canvas.drawText(viewer.c_str(), viewer.size(), 4, 2, StyleDeafaultFont);
+        drawLight(canvas);
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
+        context.getCaretManager()->data().setOffset(context.relative(x, y));
         context.focus();
-        TextCaretService service(Offset(4, 6), &context);
-        service.moveTo(context.relative(x, y));
-        service.commit(context.getStyle(StyleDeafaultFont));
     }
     void onMouseMove(EventContext &context, int x, int y) override {
         if (context.selecting()) {
@@ -270,35 +276,27 @@ public:
         }
     }
     void onKeyDown(EventContext &context, int code, int status) override {
-        GStyle &paint = context.getStyle(StyleDeafaultFont);
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 5), &context);
         if (code == VK_LEFT) {
             service.moveLeft();
-            if (!service.commit(paint)) {
-                caret->prev();
-                service.moveToIndex(-1);
-                service.commit(paint);
+            if (!service.commit()) {
+                caret->data().setIndex(-1);
+                caret->findPrev(_GT("Focus"));
             }
         }
         if (code == VK_RIGHT) {
             service.moveRight();
-            if (!service.commit(paint)) {
-                if (caret->next()) {
-                    service.moveToIndex(0);
-                    service.commit(paint);
-                }
+            if (!service.commit()) {
+                caret->data().setIndex(0);
+                caret->findNext(_GT("Focus"));
             }
         }
         if (code == VK_UP) {
-            service.commit(paint);
-            caret->prev();
-            service.commit(paint);
+            caret->findPrev(_GT("Focus"));
         }
         if (code == VK_DOWN) {
-            service.commit(paint);
-            caret->next();
-            service.commit(paint);
+            caret->findNext(_GT("Focus"));
         }
     };
     void onInputChar(EventContext &context, int ch) override {
@@ -342,24 +340,35 @@ public:
         context.redraw();
     }
     void onFocus(EventContext &context) override {
+        auto caret = context.getCaretManager();
+        TextCaretService service(Offset(4, 5), &context);
+        service.moveTo(caret->data().getOffset() - context.offset());
+        service.commit();
         // 选中
-        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode));
+        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode)
         // 设置文字
-        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcIn_Mode));
+        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcIn_Mode);
         // 设置背景
-        //style.setColorFilter(SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kColorDodge_Mode));
+        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kColorDodge_Mode);
 /*
         style.setColorFilter(SkColorFilter::CreateModeFilter(
                         SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
-        context.redraw();
 */
 
     }
-    void onBlur(EventContext &context) override {
-/*
-        style.setColorFilter(nullptr);
+    bool show = false;
+    void drawLight(Canvas &canvas) {
+        if (show) {
+            SkPaint border;
+            border.setStyle(SkPaint::Style::kStroke_Style);
+            border.setColor(SK_ColorRED);
+            canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        }
+    }
+    bool onTimer(EventContext &context, int id) override {
+        show = !show;
         context.redraw();
-*/
+        return true;
     }
 };
 class ExLineElement : public RelativeElement {
@@ -549,6 +558,8 @@ class SyntaxLineElement : public LineElement {
             offset.x += token_style.measureText(token.c_str(), token.size());
         }
 
+        drawLight(canvas);
+
     }
 };
 class TextElement : public RelativeElement {
@@ -559,6 +570,7 @@ public:
     int m_width = 0;
     int m_height = 25;
     explicit TextElement() = default;
+    Tag getTag(EventContext &context) override { return {_GT("TextElement Focus")}; }
     int getMinWidth(EventContext &context) override {
         int width = (int) context.getStyle(StyleTableFont)
                 .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 15;
@@ -602,21 +614,23 @@ public:
         TextCaretService service(Offset(4, 4), &context);
         if (code == VK_LEFT) {
             service.moveLeft();
-            bool res = service
-                    .commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
-            if (!res) {
-                caret->data()->index = -1;
-                caret->prev();
+            if (!service.commit(m_data, StyleTableFont)) {
+                caret->data().setIndex(-1);
+                caret->findPrev(_GT("Focus"));
             }
         }
         if (code == VK_RIGHT) {
             service.moveRight();
-            bool res = service
-                    .commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
-            if (!res) {
-                caret->data()->index = 0;
-                caret->next();
+            if (!service.commit(m_data, StyleTableFont)) {
+                caret->data().setIndex(0);
+                caret->findNext(_GT("Focus"));
             }
+        }
+        if (code == VK_DOWN) {
+            //service.commit(m_data, StyleTableFont);
+        }
+        if (code == VK_UP) {
+            //service.commit(m_data, StyleTableFont);
         }
 
     };
@@ -644,7 +658,8 @@ public:
     }
     void onFocus(EventContext &context) override {
         TextCaretService service(Offset(4, 4), &context);
-        service.commit(m_data.c_str(), m_data.length() * sizeof(GChar), context.getStyle(StyleTableFont));
+        service.moveTo(context.getCaretManager()->data().getOffset() - context.offset());
+        service.commit(m_data, StyleTableFont);
 
     }
 
@@ -750,6 +765,7 @@ public:
         path.close();
         return path;
     }
+
 };
 class CodeBlockElement : public Container<> {
 public:
@@ -782,7 +798,8 @@ public:
         SkColor colors[2] = {SkColorSetRGB(66,133,244), SkColorSetRGB(15,157,88)};
         paint.setShader(
                 SkGradientShader::CreateLinear(
-                        points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL));
+                        points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL))
+                ->unref();
         //paint.setColor(SK_ColorBLACK);
         for_context(ctx, context) {
             Canvas canvas = ctx.getCanvas();
@@ -818,7 +835,7 @@ private:
         Container::onRedraw(context);
         SkPaint paint;
         GScalar inter[2] = {3, 2};
-        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25));
+        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
         paint.setColor(SK_ColorBLACK);
         paint.setAlpha(180);
         Offset offset = context.offset();
@@ -826,7 +843,7 @@ private:
         for_context(ctx, context) {
             Canvas canvas = ctx.getCanvas();
             if (ctx.isHead()) {
-                runStart = ctx.enter().end().offset() - offset;
+                runStart = ctx.enterEnd().offset() - offset;
             }
             if (!ctx.isTail()) {
                 int lineTop = ctx.isHead() ? 15 : 20;
@@ -868,7 +885,6 @@ private:
             // 有可能后面还有流程语句 需要连接
             canvas->drawPath(path, paint);
         }
-
     }
 };
 class SingleBlockElement : public CodeBlockElement {
@@ -882,7 +898,7 @@ public:
         Canvas canvas = context.getCanvas();
         SkPaint paint;
         GScalar inter[2] = {3, 2};
-        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25));
+        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
         paint.setColor(SK_ColorBLACK);
         paint.setAlpha(180);
 
@@ -899,7 +915,6 @@ public:
             canvas->drawLine(-15, lineBottom, 0, lineBottom, paint); // 下边线
             GPath path = PathUtil::triangleRight(6, 0, lineBottom);
             canvas->drawPath(path, paint);
-
         } else {
             int lineBottom = context.height() - 5;
             canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线

@@ -20,7 +20,7 @@ struct GEditorData {
     EventContext m_begin;
 
     explicit GEditorData(HWND hwnd) :
-            m_hwnd(hwnd), m_document(&m_renderManager), m_renderManager(hwnd),
+            m_hwnd(hwnd), m_document(&m_renderManager), m_renderManager(hwnd, this),
             m_begin(&m_document) {
 
     }
@@ -41,12 +41,11 @@ public:
         auto *table = new TableElement(2, 2);
         auto *table_inner = new TableElement(2, 2);
         table->replace(0, 0, table_inner);
-        m_data->m_document.append(new ButtonElement());
         m_data->m_document.appendElement(new ExLineElement());
+        m_data->m_document.append(new MoveElement());
+        m_data->m_document.append(new ButtonElement());
         m_data->m_document.appendElement(new SubElement());
         m_data->m_document.appendElement(new SubElement());
-        std::thread animator(onAnimator, m_data);
-        animator.detach();
 /*
         m_data->m_document.appendElement(table);
         m_data->m_document.appendLine(new LineElement()).append(L"var a = 100;");
@@ -56,27 +55,7 @@ public:
 */
         m_data->m_document.flow();
     }
-    ~GEditor() {
-        delete m_data;
-    }
-
-    static void onAnimator(GEditorData *data) {
-        while (data->m_hwnd) {
-            while (!data->m_document.m_context.m_animator.empty()) {
-                auto *context = data->m_document.m_context.m_animator.front();
-                data->m_document.m_context.m_lock.lock();
-                data->m_document.m_context.m_animator.pop();
-                if (context->current()->onFrame(*context)) {
-                    data->m_document.m_context.m_animator.push(context);
-                } else {
-                    context->free();
-                }
-                data->m_document.m_context.m_lock.unlock();
-                std::this_thread::sleep_for(std::chrono::milliseconds(25 * 4));
-            }
-        }
-    }
-
+    ~GEditor() { delete m_data; }
 };
 
 class GEditorBuilder {
@@ -182,7 +161,7 @@ public:
                 MsgCallFocus(onKeyUp, wParam, lParam);
                 break;
             case WM_PAINT:
-                onPaint(hWnd, data, context);
+                onPaint(hWnd, data);
                 break;
             case WM_DESTROY:
                 PostQuitMessage(0);
@@ -235,11 +214,11 @@ public:
         data->m_renderManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
         data->m_document.getContext()->m_caretManager.update();
     }
-    static void onPaint(HWND hWnd, GEditorData *data, EventContext &context) {
+    static void onPaint(HWND hWnd, GEditorData *data) {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
         GRect rect = GRect::MakeLTRB(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
-        data->m_renderManager.redraw(data, context, rect);
+        data->m_renderManager.redrawRect(&rect);
         data->m_renderManager.copy();
         EndPaint(hWnd, &ps);
     }

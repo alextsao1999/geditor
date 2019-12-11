@@ -12,8 +12,13 @@
 #include <SkString.h>
 #include <SkTypeface.h>
 #include <SkParse.h>
+#include <SkFontStyle.h>
+#include <SkFontMgr.h>
+#include <SkFont.h>
+#include <SkTextBlob.h>
 #include "common.h"
 #include "layout.h"
+
 struct EventContext;
 class GEditorData;
 typedef SkColor GColor;
@@ -102,8 +107,8 @@ public:
     inline void reset() { m_paint.reset(); }
     inline void setStyle(StyleType type) { m_paint.setStyle((SkPaint::Style) type); }
     inline void setColor(GColor color) { m_paint.setColor((SkColor) color); }
-    inline void setTextSize(GScalar scalar) { m_paint.setTextSize(scalar); }
     inline void setTextEncoding(SkPaint::TextEncoding encoding) { m_paint.setTextEncoding(encoding); }
+    inline void setTextSize(GScalar scalar) { m_paint.setTextSize(scalar); }
     inline void setFont(const char *name, FontType type) {
         m_paint.setTypeface(SkTypeface::CreateFromName(name, (SkTypeface::Style) type));
         fFont = CreateFontA(m_paint.getTextSize(), 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS,
@@ -147,7 +152,7 @@ public:
         paint.setTextSize(20);
         paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
-        paint.setFakeBoldText(true);
+        //paint.setFakeBoldText(true);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
         add(StyleDeafaultFont, paint);
@@ -262,21 +267,22 @@ public:
     Offset m_offset{-10, -10};
     SkBitmap m_bitmap;
     std::shared_ptr<SkCanvas> m_canvas;
-
+    GEditorData *m_data = nullptr;
 public:
     RenderManager() = default;
-    explicit RenderManager(HWND hwnd)  {
-        m_hWnd = hwnd;
+
+    explicit RenderManager(HWND hwnd, GEditorData *data) : m_hWnd(hwnd), m_data(data) {
         m_hWndDC = GetDC(hwnd);
         m_hMemDC = CreateCompatibleDC(m_hWndDC);
         resize();
-    }
+    };
     ~RenderManager() {
         if (m_hBitmap)
             DeleteObject(m_hBitmap);
         ////////////////////////////////
     }
     virtual void refresh() { InvalidateRect(m_hWnd, nullptr, false); }
+    virtual void invalidate() { InvalidateRect(m_hWnd, nullptr, false); }
     virtual void update() { m_canvas->clear(SK_ColorWHITE); }
     virtual void resize() {
         RECT rect;
@@ -287,13 +293,11 @@ public:
         m_hBitmap = CreateBitmap(w, h, &bits);
         HGDIOBJ hOldBitmap = SelectObject(m_hMemDC, m_hBitmap);
         DeleteObject(hOldBitmap);
-
         SkImageInfo info = SkImageInfo::Make(w, h, kN32_SkColorType, kPremul_SkAlphaType);
         m_bitmap.installPixels(info, bits, info.minRowBytes());
         m_canvas = std::make_shared<SkCanvas>(m_bitmap);
-        update();
     }
-    virtual void redraw(GEditorData *data, EventContext &context, GRect &rect);
+    virtual void redrawRect(GRect *rect);
     virtual void redraw(EventContext *ctx);
     static HBITMAP CreateBitmap(int nWid, int nHei, void **ppBits) {
         BITMAPINFO bmi;
@@ -313,7 +317,7 @@ public:
     }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
     virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) {
-//        return Canvas(ctx, m_canvas.get(), paint);
+        //return Canvas(ctx, m_canvas.get(), paint);
         return Canvas(ctx, new SkCanvas(m_bitmap), paint);
     }
     virtual Canvas getCanvas(EventContext *ctx) {
@@ -354,10 +358,8 @@ public:
 //        m_offset.x = (int) (realWidth * ((float) offset.x / 100));
 //        m_offset.y = (int) (realHeight * ((float) offset.y / 100));
         m_offset -= m_viewportOffset;
-        update();
         refresh();
     }
-
     virtual Size getViewportSize() {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);

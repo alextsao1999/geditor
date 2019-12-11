@@ -87,6 +87,10 @@ Canvas EventContext::getCanvas() {
     return doc->getContext()->m_renderManager->getCanvas(this);
 }
 
+bool EventContext::canEnter() {
+    return current()->hasChild();
+}
+
 EventContext EventContext::enter(int idx) {
     return EventContext(doc, current()->children(), this, idx);
 }
@@ -123,14 +127,14 @@ bool EventContext::next() {
 bool EventContext::outerNext() {
     if (outer) {
         outer->next();
-        buffer = outer->current()->children();
+        *this = outer->enter(index);
     }
     return index < buffer->size();
 }
 bool EventContext::outerPrev() {
     if (outer) {
         outer->prev();
-        buffer = outer->current()->children();
+        *this = outer->enter(index);
     }
     return index < buffer->size();
 }
@@ -147,7 +151,7 @@ void EventContext::redraw() {
 }
 
 void EventContext::focus() {
-    doc->m_context.m_caretManager.focus(this);
+    doc->m_context.m_caretManager.focus(copy());
 }
 
 void EventContext::remove(Root *element) {
@@ -236,10 +240,18 @@ doc(doc), buffer(buffer), outer(out), index(idx) {
 EventContext::EventContext(const EventContext *context, EventContext *out) :
         doc(context->doc), buffer(context->buffer), index(context->index), counter(context->counter), outer(out) {}
 
-void EventContext::post() {
-    doc->getContext()->m_lock.lock();
-    doc->getContext()->m_animator.push(copy());
-    doc->getContext()->m_lock.unlock();
+void EventContext::timer(long long interval, int id, int count) {
+    std::thread timer([=](EventContext *context, Element *element) {
+        int tick = count;
+        while (element->onTimer(*context, id)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(interval));
+            if (count && --tick == 0) {
+                break;
+            }
+        }
+        context->free();
+    }, copy(), current());
+    timer.detach();
 }
 
 Context *EventContext::getDocContext() {
@@ -254,6 +266,11 @@ bool EventContext::selected() {
     GRect rect = this->rect();
     GRect selected = getDocContext()->getSelectRect();
     return GRect::Intersects(rect, selected);
+}
+
+bool EventContext::visible() {
+    Size size = doc->m_context.m_renderManager->getViewportSize();
+    return GRect::Intersects(GRect::MakeWH(size.width, size.height), viewportRect());
 }
 
 Root *Root::getContain(EventContext &context, int x, int y) {

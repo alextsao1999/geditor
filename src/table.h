@@ -311,7 +311,7 @@ public:
         drawLight(canvas);
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
-        context.pos().setOffset(context.relative(x, y));
+        context.pos().setOffset(context.absolute(x, y));
         context.focus();
     }
     void onMouseMove(EventContext &context, int x, int y) override {
@@ -717,7 +717,7 @@ public:
             context.outer->notify(type, param, other);
         }
     }
-    TextElement *getCol(int col) { return (TextElement *) m_index.at(col); }
+    TextElement *getCol(int col) { return (TextElement *) get(col); }
 };
 class TableElement : public Container<DisplayTable> {
 public:
@@ -728,13 +728,11 @@ public:
         }
     }
     void replace(int line, int column, Element *element) {
-        auto *row = (Container *) m_index.at(line);
-        auto *old = row->m_index.at(column);
-        row->m_index.at(column) = element;
-        delete old;
+        auto *row = (Container *) get(line);
+        row->replace(column, element)->free();
     }
     template <typename Type = TextElement>
-    Type *getItem(int row, int col) { return (Type *) ((RowElement *) m_index.at(row))->m_index.at(col); }
+    Type *getItem(int row, int col) { return (Type *) ((RowElement *) get(row))->get(col); }
     void onNotify(EventContext &context, int type, int param, int other) override {
         if (context.outer && context.outer->display() == DisplayRow) {
             context.outer->notify(type, param, other);
@@ -772,12 +770,6 @@ public:
     Tag getTag(EventContext &context) override {
         return _GT("CodeBlock");
     }
-
-    void replace(int index, Element *ele) {
-        Element *old = m_index.at(index);
-        delete old;
-        m_index.at(index) = ele;
-    }
     int getWidth(EventContext &context) override {
         return Element::getWidth(context);
     }
@@ -813,14 +805,9 @@ public:
         append(new CodeBlockElement());
         append(new CodeBlockElement());
     }
-
-    Tag getTag(EventContext &context) override {
-        return {_GT("Switch CodeBlock")};
-    }
+    Tag getTag(EventContext &context) override { return {_GT("Switch CodeBlock")}; }
     CodeBlockElement *addBlock() {
-        auto *ele = new CodeBlockElement();
-        append(ele);
-        return ele;
+        return (CodeBlockElement *) append(new CodeBlockElement());
     }
 private:
     int getWidth(EventContext &context) override {
@@ -838,7 +825,7 @@ private:
         for_context(ctx, context) {
             Canvas canvas = ctx.getCanvas();
             if (ctx.isHead()) {
-                runStart = ctx.enterEnd().offset() - offset;
+                runStart = ctx.enter(-1).offset() - offset;
             }
             if (!ctx.isTail()) {
                 int lineTop = ctx.isHead() ? 15 : 20;
@@ -883,11 +870,8 @@ private:
     }
 };
 class SingleBlockElement : public CodeBlockElement {
-    Tag getTag(EventContext &context) override {
-        return _GT("Single CodeBlock");
-    }
-
 public:
+    Tag getTag(EventContext &context) override { return _GT("Single CodeBlock"); }
     void onRedraw(EventContext &context) override {
         CodeBlockElement::onRedraw(context);
         Canvas canvas = context.getCanvas();

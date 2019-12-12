@@ -78,8 +78,6 @@ public:
     // 当前Focus的EventContext
     bool next();
     bool prev();
-    bool outerNext();
-    bool outerPrev();
     bool enter(int index = 0);
     void leave();
 

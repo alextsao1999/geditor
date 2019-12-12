@@ -8,7 +8,7 @@
 void CaretManager::focus(EventContext *context) {
     Element *focus = getFocus();
     if (focus) {
-        if (focus == context->current()) {
+        if (focus == context->current()) { // 元素相同 FIXME 可能有问题
             //return;
             focus->onBlur(*m_context);
             focus->onFocus(*m_context);
@@ -18,6 +18,8 @@ void CaretManager::focus(EventContext *context) {
         m_context->free();
     }
     m_context = context;
+    context->timer(500, 0, 10);
+
     focus = context->current();
     focus->onFocus(*m_context);
     // 更新光标位置
@@ -44,7 +46,7 @@ Element *CaretManager::getFocus() {
 
 bool CaretManager::enter(int index) {
     if (m_context && m_context->canEnter()) {
-        m_context = new EventContext(m_context->doc, m_context->current()->children(), m_context, index);
+        m_context = new EventContext(m_context, index);
         return true;
     }
     return false;
@@ -82,33 +84,6 @@ bool CaretManager::prev() {
     return false;
 }
 
-bool CaretManager::outerNext() {
-    if (m_context) {
-        EventContext cur = *m_context;
-        if (!m_context->outerNext()) {
-            m_context->outerPrev();
-            return false;
-        }
-        cur.current()->onBlur(cur);
-        m_context->current()->onFocus(*m_context);
-        m_context->focus();
-        return true;
-    }
-    return false;
-}
-
-bool CaretManager::outerPrev() {
-    if (m_context) {
-        EventContext last = *m_context;
-        if (m_context->outerPrev()) {
-            last.current()->onBlur(last);
-            m_context->current()->onFocus(*m_context);
-            return true;
-        }
-    }
-    return false;
-}
-
 Offset CaretManager::current() {
     if (m_context) {
         return m_context->offset() + m_current;
@@ -128,9 +103,10 @@ bool CaretManager::findNext(const GChar *tag) {
 }
 
 bool CaretManager::findPrev(const GChar *tag) {
+    printf("start \n");
     EventContext *prev = m_context->findPrev(tag);
     if (prev != nullptr) {
-        prev->focus();
+        focus(prev);
         return true;
     }
     m_data.setIndex(0);

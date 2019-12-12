@@ -8,13 +8,7 @@
 #include <queue>
 #include <mutex>
 #include "common.h"
-#include "layout.h"
-#include "paint_manager.h"
-#include "command_queue.h"
-#include "text_buffer.h"
-#include "caret_manager.h"
-#include "lexer.h"
-#include "line_index.h"
+#include "event.h"
 
 #define CallChildEvent(name) \
     EventContext event = context.enter(); \
@@ -32,269 +26,13 @@
 #define for_context(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
 #define cur_context(ctx, method, ...) ((ctx).current()->method(ctx, ##__VA_ARGS__))
 #define context_on(ctx, method, ...) ((ctx).current()->on##method(ctx, ##__VA_ARGS__))
-struct Context {
-    RenderManager *m_renderManager;
-    LayoutManager m_layoutManager;
-    StyleManager m_styleManager;
-    CaretManager m_caretManager;
-    CommandQueue m_queue;
-    Lexer m_lexer;
-    TextBuffer m_textBuffer;
-    Element *m_enterElement = nullptr;
-    GRect m_enterRect{};
-    //////////////////////////
-    bool m_selecting = false;
-    Offset m_selectStart;
-    Offset m_selectEnd;
-    void startSelect() {
-        m_selecting = true;
-        m_selectStart = m_caretManager.current();
-        m_selectEnd = m_selectStart;
-    }
-    void endSelect() {
-        m_selecting = false;
-    }
-    void selecting() {
-        m_selectEnd = m_caretManager.current();
-    }
-
-    inline GRect getSelectRect() {
-        Offset start = m_selectStart;
-        Offset end = m_selectEnd;
-
-        SkRect rect{};
-        rect.set({(SkScalar) start.x, (SkScalar) start.y}, {(SkScalar) end.x, (SkScalar) end.y});
-        return rect;
-    }
-    explicit Context(RenderManager *renderManager) : m_renderManager(renderManager),
-                                                     m_caretManager(renderManager), m_layoutManager(renderManager){}
-};
-struct Tag {
-    GChar str[255]{_GT('\0')};
-    Tag() = default;
-    Tag(const GChar* string) { gstrcpy(str, string); }
-    bool empty() { return gstrlen(str) == 0; }
-    bool operator==(const Tag &rvalue) { return gstrcmp(str, rvalue.str); }
-    bool operator==(const GChar *rvalue) { return gstrcmp(str, rvalue) == 0; }
-    bool contain(const GChar *item) {
-        for (int i = 0; str[i] != _GT('\0'); ++i) {
-            if (item[0] != str[i])
-                continue;
-            int j;
-            for (j = 0; item[j] != _GT('\0') && str[i + j] != _GT('\0'); ++j) {
-                if (item[j] != str[i + j]) {
-                    break;
-                }
-            }
-            if (item[j] == _GT('\0')) {
-                return true;
-            }
-        }
-        return false;
-    }
-    Tag &append(const GChar *value) {
-        gstrcat(str, value);
-        return *this;
-    }
-    void dump() {
-        printf("Tag -> %ws\n", str);
-    }
-};
-
-class Element;
-class ElementIndex;
-using ElementIterator = std::vector<Element *>::iterator;
-using ElementIndexPtr = ElementIndex *;
-class ElementIndex {
-public:
-    std::vector<Element *> m_buffer;
-public:
-    virtual void append(Element *element) { m_buffer.push_back(element); }
-    virtual Element *&at(int index) { return m_buffer[index]; }
-    virtual ElementIterator begin() { return m_buffer.begin(); }
-    virtual ElementIterator end() { return m_buffer.end(); }
-    virtual void insert(int index, Element *element) { m_buffer.insert(m_buffer.begin() + index, element); }
-    virtual void erase(int index) { m_buffer.erase(m_buffer.begin() + index); }
-    virtual bool empty() { return m_buffer.empty(); }
-    virtual int size() { return m_buffer.size(); }
-};
-
-struct EventContext {
-    Document *doc = nullptr;
-    ElementIndexPtr buffer = nullptr;
-    EventContext *outer = nullptr;
-    int index = 0;
-    LineCounter counter;
-    Context *getDocContext();
-    inline bool empty() { return buffer == nullptr || doc == nullptr; }
-    inline bool has() { return buffer!= nullptr && index < buffer->size(); }
-    bool prev();
-    bool next();
-    bool outerNext();
-    bool outerPrev();
-    LineCounter getLineCounter() { if (outer) { return outer->getLineCounter() + counter; } else { return counter; } }
-    // 只改变本层次Line
-    void prevLine(int count = 1) { counter.decrease(this, count); }
-    void nextLine(int count = 1) { counter.increase(this, count); }
-    void reflow(bool relayout = false);
-    void redraw();
-    void relayout();
-    void focus();
-    void combine();
-    void push(CommandType type, CommandData data);
-    void insert(int idx, Element *ele) { buffer->insert(idx, ele); }
-    void notify(int type, int param, int other);
-    void timer(long long interval, int id = 0, int count = 0);
-
-    Tag tag();
-    GRect rect();
-    GRect logicRect();
-    Offset offset();
-    GRect viewportRect();
-    Offset viewportOffset();
-    Offset relative(int x, int y);
-    Offset absolute(int x, int y) { return {x, y}; } // 将 x, y 转为 绝对offset
-    Offset relOffset(Offset abs) {return abs - offset(); }
-    Offset absOffset(Offset rel) { return rel + offset(); }
-    Display display();
-    int width();
-    int height();
-    int logicWidth();
-    int logicHeight();
-    int minWidth();
-    int minHeight();
-    void setLogicWidth(int width);
-    void setLogicHeight(int height);
-    void remove(Root *element);
-    void init(Root *element, int index = 0);
-    inline CaretPos &pos() { return getCaretManager()->data(); }
-    inline Element *current() { return buffer->at(index); }
-    Painter getPainter();
-    Canvas getCanvas(SkPaint *paint);
-    Canvas getCanvas();
-    RenderManager *getRenderManager();
-    LayoutManager *getLayoutManager();
-    CaretManager *getCaretManager();
-    StyleManager *getStyleManager();
-    inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
-    Lexer *getLexer(int column = 0) {
-        getDocContext()->m_lexer.enter(this, column);
-        return &getDocContext()->m_lexer;
-    }
-    LineViewer getLineViewer(int column = 0);
-    LineViewer copyLine();
-    explicit EventContext(Document *doc) : doc(doc) {}
-    explicit EventContext(Document *doc, ElementIndexPtr buffer, EventContext *out, int idx);
-    explicit EventContext(const EventContext *context, EventContext *out); // copy context
-    bool canEnter();
-    EventContext begin() { return EventContext(doc, buffer, outer, 0); }
-    EventContext end() { return EventContext(doc, buffer, outer, buffer->size() - 1); }
-    EventContext nearby(int value) { return EventContext(doc, buffer, outer, index + value); }
-    EventContext enter(int idx = 0);
-    EventContext enterEnd() { return enter().end();}
-    EventContext *copy() { return new EventContext(this, outer ? outer->copy() : nullptr); }
-    void free() {
-        if (outer) {
-            outer->free();
-        }
-        delete this;
-    }
-    void dump() {
-        if (outer) {
-            outer->dump();
-        }
-        printf(" { index = %d, line = %d }", index, counter.line);
-    }
-    std::string path() {
-        std::string str;
-        if (outer) {
-            str.append(outer->path());
-        }
-        char buf[255] = {"\0"};
-        sprintf(buf, "/%d", index);
-        str.append(buf);
-        return str;
-    }
-
-    bool selecting() { return getDocContext()->m_selecting; }
-    bool selected();
-    bool visible();
-    bool isHead() { return index == 0; }
-    bool isTail() { return index == buffer->size() - 1; }
-    EventContext *findNext(const GChar *tag) {
-        EventContext *res = findNextBrother(tag);
-        if (res == nullptr && outer) {
-            return outer->findNext(tag);
-        }
-        return res;
-    }
-    EventContext *findNextBrother(const GChar *tag, bool skipSelf = true) {
-        EventContext context = *this;
-        if (skipSelf) {
-            context.next();
-        }
-        while (context.has()) {
-            if (context.tag().contain(tag)) {
-                return context.copy();
-            } else {
-                if (context.canEnter()) {
-                    EventContext *res = context.enter().findNextBrother(tag, false);
-                    if (res != nullptr) {
-                        return res;
-                    }
-                }
-            }
-            context.next();
-        }
-        return nullptr;
-    }
-    EventContext *findPrev(const GChar *tag) {
-        EventContext *res = findPrevBrother(tag);
-        if (res == nullptr && outer) {
-            return outer->findPrev(tag);
-        }
-        return res;
-    }
-    EventContext *findPrevBrother(const GChar *tag, bool skipSelf = true) {
-        EventContext context = *this;
-        if (skipSelf) {
-            if (!context.prev())
-                return nullptr;
-        }
-        do {
-            if (context.tag().contain(tag)) {
-                return context.copy();
-            } else {
-                if (context.canEnter()) {
-                    EventContext *res = context.enterEnd().findPrevBrother(tag, false);
-                    if (res != nullptr) {
-                        return res;
-                    }
-                }
-            }
-        } while (context.prev());
-        return nullptr;
-    }
-};
-
-class EventContextBuilder {
-public:
-    inline static EventContext build(Document *doc) {
-        return EventContext(doc);
-    }
-};
-
 // Root 无 父元素
 class Root {
 public:
     virtual ~Root() = default;
     ///////////////////////////////////////////////////////////////////
-    virtual bool hasChild() { return false; };
-    virtual ElementIndex *children() { return nullptr; }
-    inline ElementIterator begin() { if(hasChild()) return children()->begin();return {}; }
-    inline ElementIterator end() {  if(hasChild()) return children()->end(); return {}; }
-    ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
+    virtual void free() { delete this; }
     virtual Tag getTag(EventContext &context) { return Tag(_GT("Element")); }
 
     // 获取对于父元素的相对偏移
@@ -341,8 +79,27 @@ class Element : public Root {
     friend Document;
 public:
     Element() = default;
-    inline Offset getRelOffset(EventContext &context, int x, int y) { return Offset(x, y) - getOffset(context); }
     Offset getOffset(EventContext &context) override;
+    virtual Element *getHead() { return nullptr; }
+    virtual Element *getTail() { return nullptr; }
+    virtual Element *getNext() { return nullptr; }
+    virtual Element *getPrev(){ return nullptr; }
+    Element *getNextCount(int count) {
+        Element *next = this;
+        while (count-- && next) {
+            next = next->getNext();
+        }
+        return next;
+    }
+    Element *getPrevCount(int count) {
+        Element *prev = this;
+        while (count-- && prev) {
+            prev = prev->getPrev();
+        }
+        return prev;
+    }
+    virtual void setNext(Element *next) {}
+    virtual void setPrev(Element *prev){}
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return DisplayNone; };
     virtual void onPreMouseMove(EventContext &context, int x, int y);
@@ -378,13 +135,24 @@ public:
     int getWidth(EventContext &context) override;
 };
 
-class RelativeElement : public Element {
+class LinkedElement : public Element {
+protected:
+    Element *m_prev = nullptr;
+    Element *m_next = nullptr;
+public:
+    Element *getNext() override { return m_next; }
+    Element *getPrev() override { return m_prev; }
+    void setNext(Element *next) override { m_next = next; }
+    void setPrev(Element *prev) override { m_prev = prev; }
+};
+
+class RelativeElement : public LinkedElement {
     friend LayoutManager;
     friend Document;
 protected:
     Offset m_offset;
 public:
-    using Element::Element;
+    using LinkedElement::LinkedElement;
     Offset getLogicOffset() override { return m_offset; }
     void setLogicOffset(Offset offset) override { m_offset = offset; }
     void dump() override {
@@ -397,18 +165,23 @@ public:
 template <Display D = DisplayBlock>
 class Container : public RelativeElement {
 public:
-    ElementIndex m_index;
+    Element *m_head = nullptr;
+    Element *m_tail = nullptr;
     int m_width = 0;
     int m_height = 0;
 public:
     Container() = default;
-    ~Container() override {
-        for (auto element : m_index) {
-            // FIXME mouseEnter可能和element指向同一个元素
-            delete element;
+    void free() override {
+        Element *start = m_head;
+        while (start != nullptr) {
+            Element *next = start->getNext();
+            next->free();
+            start = next;
         }
+        delete this;
     }
-    bool hasChild() override { return m_index.size() > 0; }
+    Element *getHead() override { return m_head; }
+    Element *getTail() override { return m_tail; }
     void setLogicWidth(EventContext &context, int width) override { m_width = width; }
     void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     int getLogicWidth(EventContext &context) override { return m_width; }
@@ -416,10 +189,58 @@ public:
     int getHeight(EventContext &context) override { return getLogicHeight(context); }
     int getWidth(EventContext &context) override { return getLogicWidth(context); }
     void onFinishReflow(EventContext &context, int width, int height) override { m_width = width;m_height = height; }
-    ElementIndex *children() override { return &m_index; }
     Display getDisplay() override { return D; }
-    virtual void append(Element *element) {
-        m_index.append(element);
+
+    virtual Element *append(Element *element) {
+        if (m_tail == nullptr) {
+            m_tail = m_head = element;
+        } else {
+            m_tail->setNext(element);
+            element->setPrev(m_tail);
+            m_tail = element;
+        }
+        return element;
+    }
+    virtual Element *get(int index) {
+        return index >= 0 ? m_head->getNextCount(index) : m_tail->getPrevCount(-index - 1);
+    }
+    virtual Element *remove(int index) {
+        Element *ele = get(index);
+        if (ele == nullptr) {
+            return nullptr;
+        }
+        if (ele == m_head) {
+            m_head = m_head->getNext();
+            m_head->setPrev(nullptr);
+        } else {
+            ele->getPrev()->setNext(ele->getNext());
+        }
+        if (ele == m_tail) {
+            m_tail = m_tail->getPrev();
+            m_tail->setNext(nullptr);
+        } else {
+            ele->getNext()->setPrev(ele->getPrev());
+        }
+        return ele;
+    }
+    virtual Element *replace(int index, Element *element) {
+        Element *before = get(index);
+        if (before == nullptr) {
+            return nullptr;
+        }
+        element->setNext(before->getNext());
+        element->setPrev(before->getPrev());
+        if (before == m_head) {
+            m_head = element;
+        } else {
+            before->getPrev()->setNext(element);
+        }
+        if (before == m_tail) {
+            m_tail = element;
+        } else {
+            before->getNext()->setPrev(element);
+        }
+        return before;
     }
 };
 
@@ -433,16 +254,17 @@ public:
     void flow() {
         LayoutManager::ReflowAll(this);
     }
-    void append(Element *element) override {
-        m_index.append(element);
+
+    Element *append(Element *element) override {
         int count = element->getLineNumber();
         for (int i = 0; i < count; ++i) {
             m_context.m_textBuffer.appendLine();
         }
+        return Container<>::append(element);
     };
     EventContext appendElement(Element *element) {
         EventContext context = EventContextBuilder::build(this);
-        context.init(this, m_index.size());
+        context.init(this, false);
         append(element);
         return context;
     }

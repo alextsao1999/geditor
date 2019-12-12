@@ -141,6 +141,7 @@ bool EventContext::outerPrev() {
 
 void EventContext::reflow(bool relayout) {
     doc->m_context.m_layoutManager.reflow(*this, relayout);
+    doc->getContext()->m_caretManager.update();
 }
 void EventContext::relayout() {
     doc->m_context.m_layoutManager.relayout(*this);
@@ -204,8 +205,8 @@ Tag EventContext::tag() {
 }
 GRect EventContext::logicRect() {
     ASSERT(index > 0 && index < buffer->size(), "Index Error ! ");
-    Offset pos = current()->getLogicOffset();
-    return GRect::MakeXYWH(pos.x, pos.y, width(), height());
+    //Offset pos = current()->getLogicOffset();
+    return GRect::MakeXYWH(0, 0, logicWidth(), logicHeight());
 }
 GRect EventContext::rect() {
     Offset pos = offset();

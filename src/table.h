@@ -19,6 +19,53 @@
 #include <iostream>
 #include "document.h"
 #include "utils.h"
+#define TAG_FOCUS _GT("Focus")
+class PathUtil {
+public:
+    static float rad(float deg) {
+        return (float) (deg * 3.1415926 / 180);
+    }
+    static GPath triangleDown(GScalar length, GScalar dx, GScalar dy) {
+        GPath path;
+        float v = length * cos(rad(45));
+        path.moveTo(0, 0);
+        path.lineTo(v * 2, 0);
+        path.lineTo(v, v);
+        path.close();
+        path.offset(dx - v, dy);
+        return path;
+    }
+    static GPath triangleRight(GScalar length, GScalar dx, GScalar dy) {
+        GPath path;
+        float v = length * cos(rad(45));
+        path.moveTo(0, 0);
+        path.lineTo(0, v * 2);
+        path.lineTo(v, v);
+        path.close();
+        path.offset(dx, dy - v);
+        return path;
+    }
+    static GPath star(int num, float R, float r) {
+        GPath path;
+        float perDeg = 360 / num;
+        float degA = perDeg / 2 / 2;
+        float degB = 360 / (num - 1) / 2 - degA / 2 + degA;
+        path.moveTo(
+                (float) (cos(rad(degA + perDeg * 0)) * R + R * cos(rad(degA))),
+                (float) (-sin(rad(degA + perDeg * 0)) * R + R));
+        for (int i = 0; i < num; i++) {
+            path.lineTo(
+                    (float) (cos(rad(degA + perDeg * i)) * R + R * cos(rad(degA))),
+                    (float) (-sin(rad(degA + perDeg * i)) * R + R));
+            path.lineTo(
+                    (float) (cos(rad(degB + perDeg * i)) * r + R * cos(rad(degA))),
+                    (float) (-sin(rad(degB + perDeg * i)) * r + R));
+        }
+        path.close();
+        return path;
+    }
+
+};
 class TextCaretService {
 protected:
     Offset m_offset;
@@ -101,7 +148,7 @@ public:
     }
     void show(Offset offset, int index) {
         CaretManager* m_caret = m_context->getCaretManager();
-        m_caret->data().set(index, m_context->offset() + offset);
+        m_caret->data().set(index, m_context->absOffset(offset));
         m_caret->set(offset.x, offset.y);
         m_caret->show();
     }
@@ -241,7 +288,7 @@ public:
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
+        canvas.drawRect(context.logicRect(), StyleTableBorder);
     }
 };
 class LineElement : public RelativeElement {
@@ -264,15 +311,13 @@ public:
         drawLight(canvas);
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
-        context.getCaretManager()->data().setOffset(context.relative(x, y));
+        context.pos().setOffset(context.relative(x, y));
         context.focus();
     }
     void onMouseMove(EventContext &context, int x, int y) override {
         if (context.selecting()) {
+            context.pos().setOffset(context.absolute(x, y));
             context.focus();
-            TextCaretService service(Offset(4, 6), &context);
-            service.moveTo(context.relative(x, y));
-            service.commit(context.getStyle(StyleDeafaultFont));
         }
     }
     void onKeyDown(EventContext &context, int code, int status) override {
@@ -282,25 +327,24 @@ public:
             service.moveLeft();
             if (!service.commit()) {
                 caret->data().setIndex(-1);
-                caret->findPrev(_GT("Focus"));
+                caret->findPrev(TAG_FOCUS);
             }
         }
         if (code == VK_RIGHT) {
             service.moveRight();
             if (!service.commit()) {
                 caret->data().setIndex(0);
-                caret->findNext(_GT("Focus"));
+                caret->findNext(TAG_FOCUS);
             }
         }
         if (code == VK_UP) {
-            caret->findPrev(_GT("Focus"));
+            caret->findPrev(TAG_FOCUS);
         }
         if (code == VK_DOWN) {
-            caret->findNext(_GT("Focus"));
+            caret->findNext(TAG_FOCUS);
         }
     };
     void onInputChar(EventContext &context, int ch) override {
-        GStyle&paint = context.getStyle(StyleDeafaultFont);
         auto* caret = context.getCaretManager();
         TextCaretService service(Offset(4, 6), &context);
         auto line = context.getLineViewer();
@@ -312,12 +356,15 @@ public:
                 } else {
                     if (caret->prev()) {
                         service.moveToIndex(-1);
-                        service.commit(paint);
+                        service.commit();
                         context.combine(); // 因为combine要delete本对象 之后paint就不存在了 所以移动要在之前调用
                         context.reflow();
                         context.redraw();
-                        return;
+                    } else {
+                        context.pos().setIndex(-1);
+                        caret->findPrev(TAG_FOCUS);
                     }
+                    return;
                 }
                 break;
             case VK_RETURN:
@@ -336,13 +383,13 @@ public:
                 service.moveRight();
                 break;
         }
-        service.commit(paint);
+        service.commit();
         context.redraw();
     }
     void onFocus(EventContext &context) override {
         auto caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 5), &context);
-        service.moveTo(caret->data().getOffset() - context.offset());
+        TextCaretService service(Offset(4, 6), &context);
+        service.moveTo(context.relOffset(caret->data().getOffset()));
         service.commit();
         // 选中
         //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode)
@@ -531,7 +578,6 @@ public:
 */
     }
 };
-
 class SyntaxLineElement : public LineElement {
     Element *copy() override { return new SyntaxLineElement(); }
     void onRedraw(EventContext &context) override {
@@ -596,17 +642,13 @@ public:
         canvas.drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, StyleTableFont);
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
+        context.pos().setOffset(context.absolute(x, y));
         context.focus();
-        TextCaretService service(Offset(4, 4), &context);
-        service.moveTo(context.relative(x, y));
-        service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
     }
     void onMouseMove(EventContext &context, int x, int y) override {
         if (context.selecting()) {
+            context.pos().setOffset(context.absolute(x, y));
             context.focus();
-            TextCaretService service(Offset(4, 4), &context);
-            service.moveTo(context.relative(x, y));
-            service.commit(m_data.c_str(), m_data.length() * 2, context.getStyle(StyleTableFont));
         }
     }
     void onKeyDown(EventContext &context, int code, int status) override {
@@ -616,14 +658,14 @@ public:
             service.moveLeft();
             if (!service.commit(m_data, StyleTableFont)) {
                 caret->data().setIndex(-1);
-                caret->findPrev(_GT("Focus"));
+                caret->findPrev(TAG_FOCUS);
             }
         }
         if (code == VK_RIGHT) {
             service.moveRight();
             if (!service.commit(m_data, StyleTableFont)) {
                 caret->data().setIndex(0);
-                caret->findNext(_GT("Focus"));
+                caret->findNext(TAG_FOCUS);
             }
         }
         if (code == VK_DOWN) {
@@ -650,7 +692,7 @@ public:
                 service.moveRight();
                 break;
         }
-        service.commit(m_data.c_str(), m_data.length() * sizeof(GChar), context.getStyle(StyleTableFont));
+        service.commit(m_data, StyleTableFont);
         if (context.outer) {
             context.outer->notify(Update, 0, 0);
         }
@@ -658,9 +700,8 @@ public:
     }
     void onFocus(EventContext &context) override {
         TextCaretService service(Offset(4, 4), &context);
-        service.moveTo(context.getCaretManager()->data().getOffset() - context.offset());
+        service.moveTo(context.relOffset(context.pos().getOffset()));
         service.commit(m_data, StyleTableFont);
-
     }
 
 };
@@ -718,52 +759,6 @@ public:
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 4;
         offset.y += 5;
-    }
-
-};
-class PathUtil {
-public:
-    static float rad(float deg) {
-        return (float) (deg * 3.1415926 / 180);
-    }
-    static GPath triangleDown(GScalar length, GScalar dx, GScalar dy) {
-        GPath path;
-        float v = length * cos(rad(45));
-        path.moveTo(0, 0);
-        path.lineTo(v * 2, 0);
-        path.lineTo(v, v);
-        path.close();
-        path.offset(dx - v, dy);
-        return path;
-    }
-    static GPath triangleRight(GScalar length, GScalar dx, GScalar dy) {
-        GPath path;
-        float v = length * cos(rad(45));
-        path.moveTo(0, 0);
-        path.lineTo(0, v * 2);
-        path.lineTo(v, v);
-        path.close();
-        path.offset(dx, dy - v);
-        return path;
-    }
-    static GPath star(int num, float R, float r) {
-        GPath path;
-        float perDeg = 360 / num;
-        float degA = perDeg / 2 / 2;
-        float degB = 360 / (num - 1) / 2 - degA / 2 + degA;
-        path.moveTo(
-                (float) (cos(rad(degA + perDeg * 0)) * R + R * cos(rad(degA))),
-                (float) (-sin(rad(degA + perDeg * 0)) * R + R));
-        for (int i = 0; i < num; i++) {
-            path.lineTo(
-                    (float) (cos(rad(degA + perDeg * i)) * R + R * cos(rad(degA))),
-                    (float) (-sin(rad(degA + perDeg * i)) * R + R));
-            path.lineTo(
-                    (float) (cos(rad(degB + perDeg * i)) * r + R * cos(rad(degA))),
-                    (float) (-sin(rad(degB + perDeg * i)) * r + R));
-        }
-        path.close();
-        return path;
     }
 
 };

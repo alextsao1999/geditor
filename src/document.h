@@ -153,6 +153,9 @@ struct EventContext {
     GRect viewportRect();
     Offset viewportOffset();
     Offset relative(int x, int y);
+    Offset absolute(int x, int y) { return {x, y}; } // 将 x, y 转为 绝对offset
+    Offset relOffset(Offset abs) {return abs - offset(); }
+    Offset absOffset(Offset rel) { return rel + offset(); }
     Display display();
     int width();
     int height();
@@ -164,6 +167,7 @@ struct EventContext {
     void setLogicHeight(int height);
     void remove(Root *element);
     void init(Root *element, int index = 0);
+    inline CaretPos &pos() { return getCaretManager()->data(); }
     inline Element *current() { return buffer->at(index); }
     Painter getPainter();
     Canvas getCanvas(SkPaint *paint);

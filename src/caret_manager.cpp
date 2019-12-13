@@ -8,18 +8,18 @@
 void CaretManager::focus(EventContext *context) {
     Element *focus = getFocus();
     if (focus) {
+/*
         if (focus == context->current()) { // 元素相同 FIXME 可能有问题
             //return;
             focus->onBlur(*m_context);
             focus->onFocus(*m_context);
             return;
         }
+*/
         focus->onBlur(*m_context);
         m_context->free();
     }
     m_context = context;
-    context->timer(500, 0, 10);
-
     focus = context->current();
     focus->onFocus(*m_context);
     // 更新光标位置
@@ -61,8 +61,9 @@ void CaretManager::leave() {
 bool CaretManager::next() {
     if (m_context) {
         EventContext cur = *m_context;
-        if (!m_context->next()) {
-            m_context->prev();
+        m_context->next();
+        if (!m_context->has()) {
+            *m_context = cur;
             return false;
         }
         cur.current()->onBlur(cur);
@@ -75,11 +76,15 @@ bool CaretManager::next() {
 bool CaretManager::prev() {
     if (m_context) {
         EventContext last = *m_context;
-        if (m_context->prev()) {
-            last.current()->onBlur(last);
-            m_context->current()->onFocus(*m_context);
-            return true;
+        m_context->prev();
+        if (!m_context->has()) {
+            *m_context = last;
+            return false;
         }
+        last.current()->onBlur(last);
+        m_context->current()->onFocus(*m_context);
+        return true;
+
     }
     return false;
 }
@@ -94,7 +99,7 @@ Offset CaretManager::current() {
 bool CaretManager::findNext(const GChar *tag) {
     EventContext *next = m_context->findNext(tag);
     if (next != nullptr) {
-        next->focus();
+        focus(next);
         return true;
     }
     m_data.setIndex(-1);
@@ -103,7 +108,6 @@ bool CaretManager::findNext(const GChar *tag) {
 }
 
 bool CaretManager::findPrev(const GChar *tag) {
-    printf("start \n");
     EventContext *prev = m_context->findPrev(tag);
     if (prev != nullptr) {
         focus(prev);

@@ -25,7 +25,7 @@
 #define CallEvent(context, event, ...) ((context).current()->event(context, ##__VA_ARGS__))
 #define for_context(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
 #define cur_context(ctx, method, ...) ((ctx).current()->method(ctx, ##__VA_ARGS__))
-#define context_on(ctx, method, ...) ((ctx).current()->on##method(ctx, ##__VA_ARGS__))
+#define context_on(ctx, method, ...) {auto &&__ctx = (ctx);if (!__ctx.empty())__ctx.current()->on##method(__ctx, ##__VA_ARGS__);}
 // Root 无 父元素
 class Root {
 public:
@@ -247,14 +247,13 @@ public:
 class Document : public Container<DisplayBlock> {
 public:
     Context m_context;
+    EventContext m_last;
 public:
-    explicit Document(RenderManager *renderManager) : m_context(renderManager) {}
+    explicit Document(RenderManager *renderManager) : m_context(renderManager), m_last(this) {}
+    Tag getTag(EventContext &context) override { return {_GT("Document")}; }
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
-    void flow() {
-        LayoutManager::ReflowAll(this);
-    }
-
+    void flow() { LayoutManager::ReflowAll(this); }
     Element *append(Element *element) override {
         int count = element->getLineNumber();
         for (int i = 0; i < count; ++i) {
@@ -263,10 +262,13 @@ public:
         return Container<>::append(element);
     };
     EventContext appendElement(Element *element) {
-        EventContext context = EventContextBuilder::build(this);
-        context.init(this, false);
         append(element);
-        return context;
+        if (m_last.empty()) {
+            m_last.init(this);
+        } else {
+            m_last.next();
+        }
+        return m_last;
     }
     LineViewer appendLine(Element *element) {
         if (element->getDisplay() != DisplayLine) {

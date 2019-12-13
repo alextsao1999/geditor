@@ -4,13 +4,16 @@
 
 #include "event.h"
 #include "document.h"
+
+#define OutOfBound() (!element)
+#define CheckBound(ret) if (OutOfBound()) return ret
 LineViewer EventContext::getLineViewer(int column) {
     return doc->getContext()->m_textBuffer.getLine(getLineCounter(), column);
 }
 
-void EventContext::init(Element *ele, bool head) {
-    element = head ? ele->getHead() : ele->getTail();
-    // TODO 跳转到tail时候 index 未设置
+void EventContext::init(Element *ele) {
+    element = ele->getHead();
+    index = 0;
 }
 
 Painter EventContext::getPainter() {
@@ -51,16 +54,17 @@ bool EventContext::prev() {
         return false;
     }
     index--;
-    prevLine(element->getLineNumber());
     element = element->getPrev();
+    if (element) {
+        prevLine(element->getLineNumber());
+    }
     return true;
 }
 bool EventContext::next() {
-    // next失败时 要prev一下 因为当前的索引已经改变为下一个index
     if (element == nullptr) {
         return false;
     }
-    index++; // FIXME 这里有点问题
+    index++;
     nextLine(element->getLineNumber());
     element = element->getNext();
     return true;
@@ -119,8 +123,10 @@ LineViewer EventContext::copyLine() {
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), type, data});
 }
-void EventContext::notify(int type, int param, int other) { current()->onNotify(*this, type, param, other); }
-#define OutOfBound() (!element)
+void EventContext::notify(int type, int param, int other) {
+    CheckBound(void(0));
+    current()->onNotify(*this, type, param, other);
+}
 Tag EventContext::tag() {
     if (OutOfBound()) {
         return {};
@@ -128,30 +134,40 @@ Tag EventContext::tag() {
     return current()->getTag(*this);
 }
 GRect EventContext::logicRect() {
+    CheckBound({});
     //Offset pos = current()->getLogicOffset();
     return GRect::MakeXYWH(0, 0, logicWidth(), logicHeight());
 }
 GRect EventContext::rect() {
+    CheckBound({});
     Offset pos = offset();
     return GRect::MakeXYWH(pos.x, pos.y, width(), height());
 }
 GRect EventContext::viewportRect() {
+    CheckBound({});
     Offset pos = viewportOffset();
     return GRect::MakeXYWH(SkIntToScalar(pos.x), SkIntToScalar(pos.y), SkIntToScalar(width()), SkIntToScalar(height()));
 }
-Offset EventContext::viewportOffset() { return offset() - doc->getContext()->m_renderManager->getViewportOffset(); }
-Offset EventContext::offset() { return current()->getOffset(*this); }
+Offset EventContext::viewportOffset() {
+    CheckBound({});
+    return offset() - doc->getContext()->m_renderManager->getViewportOffset();
+}
+Offset EventContext::offset() {
+    CheckBound({});
+    return current()->getOffset(*this);
+}
 Offset EventContext::relative(int x, int y) { return Offset{x, y}  - offset(); }
-Display EventContext::display() { return current()->getDisplay(); }
-int EventContext::height() { return current()->getHeight(*this); }
-int EventContext::width() { return current()->getWidth(*this); }
-int EventContext::logicHeight() { return current()->getLogicHeight(*this); }
-int EventContext::logicWidth() { return current()->getLogicWidth(*this); }
-int EventContext::minHeight() { return current()->getMinHeight(*this); }
-int EventContext::minWidth() { return current()->getMinWidth(*this); }
-void EventContext::setLogicHeight(int height) { current()->setLogicHeight(*this, height); }
-void EventContext::setLogicWidth(int width) { current()->setLogicWidth(*this, width); }
+Display EventContext::display() { CheckBound(DisplayNone);return current()->getDisplay(); }
+int EventContext::height() { CheckBound(0);return current()->getHeight(*this); }
+int EventContext::width() { CheckBound(0);return current()->getWidth(*this); }
+int EventContext::logicHeight() { CheckBound(0);return current()->getLogicHeight(*this); }
+int EventContext::logicWidth() { CheckBound(0);return current()->getLogicWidth(*this); }
+int EventContext::minHeight() { CheckBound(0);return current()->getMinHeight(*this); }
+int EventContext::minWidth() { CheckBound(0);return current()->getMinWidth(*this); }
+void EventContext::setLogicHeight(int height) { CheckBound(void(0));current()->setLogicHeight(*this, height); }
+void EventContext::setLogicWidth(int width) { CheckBound(void(0));current()->setLogicWidth(*this, width); }
 
+EventContext::EventContext(Document *doc) : doc(doc), element(doc) {}
 EventContext::EventContext(EventContext *out, int idx) : doc(out->doc), outer(out) {
     /*更新line*/
     if (idx >= 0) {
@@ -160,15 +176,16 @@ EventContext::EventContext(EventContext *out, int idx) : doc(out->doc), outer(ou
             next();
         }
     } else {
-        element = outer->current()->getTail();
-        counter.increase(this, outer->current()->getLineNumber());
         index = -1;
+        element = outer->current()->getTail();
+        if (element) {
+            counter.increase(this, outer->current()->getLineNumber() - element->getLineNumber());
+        }
         for (int j = 0; j < -idx - 1; ++j) {
             prev();
         }
     }
 }
-
 EventContext::EventContext(const EventContext *context, EventContext *out) :
         doc(context->doc), element(context->element), index(context->index), counter(context->counter), outer(out) {}
 
@@ -195,12 +212,14 @@ StyleManager *EventContext::getStyleManager() {
 }
 
 bool EventContext::selected() {
+    CheckBound(false);
     GRect rect = this->rect();
     GRect selected = getDocContext()->getSelectRect();
     return GRect::Intersects(rect, selected);
 }
 
 bool EventContext::visible() {
+    CheckBound(false);
     Size size = doc->m_context.m_renderManager->getViewportSize();
     return GRect::Intersects(GRect::MakeWH(size.width, size.height), viewportRect());
 }

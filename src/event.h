@@ -13,16 +13,10 @@
 #include "text_buffer.h"
 #include "caret_manager.h"
 #include "lexer.h"
-#include <vector>
-#include <gl/GL.h>
-
 struct Context;
 class Root;
 class Element;
 class Document;
-class ElementIndex;
-using ElementIterator = std::vector<Element *>::iterator;
-using ElementIndexPtr = ElementIndex *;
 struct Context {
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
@@ -48,7 +42,6 @@ struct Context {
     void selecting() {
         m_selectEnd = m_caretManager.current();
     }
-
     inline GRect getSelectRect() {
         Offset start = m_selectStart;
         Offset end = m_selectEnd;
@@ -59,19 +52,6 @@ struct Context {
     }
     explicit Context(RenderManager *renderManager) : m_renderManager(renderManager),
                                                      m_caretManager(renderManager), m_layoutManager(renderManager){}
-};
-class ElementIndex {
-public:
-    std::vector<Element *> m_buffer;
-public:
-    virtual void append(Element *element) { m_buffer.push_back(element); }
-    virtual Element *&at(int index) { return m_buffer[index]; }
-    virtual ElementIterator begin() { return m_buffer.begin(); }
-    virtual ElementIterator end() { return m_buffer.end(); }
-    virtual void insert(int index, Element *element) { m_buffer.insert(m_buffer.begin() + index, element); }
-    virtual void erase(int index) { m_buffer.erase(m_buffer.begin() + index); }
-    virtual bool empty() { return m_buffer.empty(); }
-    virtual int size() { return m_buffer.size(); }
 };
 struct Tag {
     GChar str[255]{_GT('\0')};
@@ -148,7 +128,7 @@ struct EventContext {
     void setLogicWidth(int width);
     void setLogicHeight(int height);
     void remove(Root *ele);
-    void init(Element *ele, bool head = true);
+    void init(Element *ele);
     inline CaretPos &pos() { return getCaretManager()->data(); }
     inline Element *current() { return element; }
     Painter getPainter();
@@ -162,15 +142,18 @@ struct EventContext {
     Lexer *getLexer(int column = 0);
     LineViewer getLineViewer(int column = 0);
     LineViewer copyLine();
-    explicit EventContext(Document *doc) : doc(doc) {}
+    EventContext() = default;
+    explicit EventContext(Document *doc);
     explicit EventContext(EventContext *out, int idx);
     explicit EventContext(const EventContext *context, EventContext *new_out); // copy context with new outer
     bool canEnter();
     EventContext begin() { return EventContext(outer, 0); }
-    EventContext end() { return EventContext(outer, 0); }
+    EventContext end() { return EventContext(outer, -1); }
     EventContext nearby(int value) { return EventContext(outer, index + value); }
     EventContext enter(int idx = 0);
+    EventContext parent() { return outer ? *outer : EventContext(); }
     EventContext *copy() { return new EventContext(this, outer ? outer->copy() : nullptr); }
+    bool isDocument() { return outer == nullptr && doc != nullptr; }
     void free() {
         if (outer) {
             outer->free();
@@ -192,6 +175,21 @@ struct EventContext {
         sprintf(buf, "/%d", index);
         str.append(buf);
         return str;
+    }
+
+    static EventContext *Parse(Document *doc, const char *string) {
+        if (string[0] == '/') {
+            int index = atoi(string + 1);
+            do {
+                string++;
+                if (string[0] == '/') {
+                    break;
+                }
+            } while (string[0] != '\0');
+            return new EventContext(doc);
+
+        }
+        return nullptr;
     }
 
     bool selecting();
@@ -253,6 +251,9 @@ struct EventContext {
         }
         return nullptr;
     }
+    
+    template <typename Type>
+    inline Type *cast() { return (Type *) element; }
 };
 class EventContextBuilder {
 public:
@@ -260,4 +261,5 @@ public:
         return EventContext(doc);
     }
 };
+
 #endif //GEDITOR_EVENT_H

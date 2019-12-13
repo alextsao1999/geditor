@@ -79,8 +79,7 @@ public:
         auto &str = content();
         str.insert(str.begin() + pos, (GChar) ch);
     }
-
-    void erase(int pos, int length) {
+    void remove(int pos, int length) {
         auto &str = content();
         str.erase(str.begin() + pos, str.begin() + pos + length);
     }
@@ -92,11 +91,9 @@ public:
         auto &str = content();
         return str.length();
     }
-
     size_t size() {
         return length() * sizeof(GChar);
     }
-
     void append(const GChar *text, int length = 0) {
         auto &str = string(column);
         if (length == 0) {
@@ -142,7 +139,7 @@ public:
         if (counter.line >= m_buffer.size()) {
             return getLine(counter.line);
         }
-        m_buffer.insert(m_buffer.begin() + counter.line, TextLine());
+        m_buffer.insert(m_buffer.begin() + counter.line + 1, TextLine());
         return {counter.line, 0, &m_buffer};
     }
     void deleteLine(LineCounter counter) {

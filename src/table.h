@@ -355,6 +355,8 @@ public:
                     service.moveLeft();
                 } else {
                     if (caret->prev()) {
+                        erase();
+
 /*
                         service.moveToIndex(-1);
                         service.commit();
@@ -369,18 +371,17 @@ public:
                     return;
                 }
                 break;
-            case VK_RETURN:
-                //context.copyLine();
+            case VK_RETURN: {
+                insert();
+                int idx = service.index();
+                auto next = context.insertLine();
+                next.append(line.c_str() + idx, line.length() - idx);
+                line.remove(idx, line.length() - idx);
                 context.reflow();
-                if (caret->next()) {
-/*
-                    int idx = service.index();
-                    context.getLineViewer().append(line.c_str() + idx, line.length() - idx);
-                    line.erase(idx, line.length() - idx);
-                    service.moveToIndex(0);
-*/
-                }
+                caret->data().setIndex(0);
+                caret->next();
                 break;
+            }
             default:
                 line.insert(service.index(), ch);
                 context.push(CommandType::Add, CommandData(service.index(), ch));
@@ -429,6 +430,26 @@ public:
         show = !show;
         context.redraw();
         return true;
+    }
+    void insert() {
+        Element *element = copy();
+        Element *next = getNext();
+        setNext(element);
+        if (next) {
+            element->setPrev(this);
+            element->setNext(next);
+            next->setPrev(element);
+        }
+    }
+    void erase() {
+        Element *removed = getNext();
+        if (!removed) {
+            return;
+        }
+        Element *next = removed->getNext();
+        setNext(next);
+        next->setPrev(this);
+        removed->free();
     }
 };
 class SyntaxLineElement : public LineElement {
@@ -767,7 +788,7 @@ public:
         append(new SyntaxLineElement());
 
         auto *control = new SwitchElement();
-        control->addBlock()->replace(0, new SwitchElement());
+        control->addBlock()->replace(0, new SwitchElement())->free();
         append(control);
         append(new SwitchElement());
         append(new SingleBlockElement());
@@ -779,6 +800,24 @@ private:
     int getWidth(EventContext &context) override {
         return Element::getWidth(context);
     }
+
+};
+
+class MultiLine : public RelativeElement {
+private:
+    class SingleLine : public Element {
+    public:
+        int count = 1;
+        int index = 0;
+        Element *getNext() override { index++;return this; }
+        Element *getPrev() override { index--;return this; }
+
+    };
+
+    SingleLine m_lines;
+public:
+    Element *getHead() override { return &m_lines; }
+    Element *getTail() override { return &m_lines; }
 
 };
 #endif //GEDITOR_TABLE_H

@@ -142,6 +142,7 @@ struct EventContext {
     Lexer *getLexer(int column = 0);
     LineViewer getLineViewer(int column = 0);
     LineViewer copyLine();
+    LineViewer insertLine() { return getDocContext()->m_textBuffer.insertLine(getLineCounter()); }
     EventContext() = default;
     explicit EventContext(Document *doc);
     explicit EventContext(EventContext *out, int idx);
@@ -251,7 +252,7 @@ struct EventContext {
         }
         return nullptr;
     }
-    
+
     template <typename Type>
     inline Type *cast() { return (Type *) element; }
 };

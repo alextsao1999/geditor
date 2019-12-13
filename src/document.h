@@ -32,7 +32,7 @@ public:
     virtual ~Root() = default;
     ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
-    virtual void free() { delete this; }
+    virtual void free() {}
     virtual Tag getTag(EventContext &context) { return Tag(_GT("Element")); }
 
     // 获取对于父元素的相对偏移
@@ -140,6 +140,7 @@ protected:
     Element *m_prev = nullptr;
     Element *m_next = nullptr;
 public:
+    void free() override { delete this; }
     Element *getNext() override { return m_next; }
     Element *getPrev() override { return m_prev; }
     void setNext(Element *next) override { m_next = next; }
@@ -190,7 +191,6 @@ public:
     int getWidth(EventContext &context) override { return getLogicWidth(context); }
     void onFinishReflow(EventContext &context, int width, int height) override { m_width = width;m_height = height; }
     Display getDisplay() override { return D; }
-
     virtual Element *append(Element *element) {
         if (m_tail == nullptr) {
             m_tail = m_head = element;

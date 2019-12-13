@@ -103,7 +103,6 @@ Layout(LayoutDisplayLine) {
     }
     UseDisplayFunc(LayoutDisplayBlock);
 }
-
 Layout(LayoutDisplayTable) {
     if (relayout) {
         Buffer<uint32_t> MaxWidthBuffer;
@@ -139,20 +138,18 @@ Layout(LayoutDisplayTable) {
         }
         context_on(context, FinishReflow, table_width, pos_row.y);
     }
-    if (context.outer && context.outer->display() == DisplayRow) {
+    if (context.parent().display() == DisplayRow) {
         UseDisplayFunc(LayoutDisplayInline);
     } else {
         UseDisplayFunc(LayoutDisplayBlock);
     }
 }
-
 Layout(LayoutDisplayRow) {
     if (relayout) {
 
     }
     UseDisplayFunc(LayoutDisplayBlock);
 }
-
 Layout(LayoutDisplayCustom) {
     CallDisplayFunc(context.current()->onReflow);
 }

@@ -143,6 +143,10 @@ struct EventContext {
     LineViewer getLineViewer(int column = 0);
     LineViewer copyLine();
     LineViewer insertLine() { return getDocContext()->m_textBuffer.insertLine(getLineCounter()); }
+    void deleteLine() {
+        auto c = getLineCounter();
+        getDocContext()->m_textBuffer.deleteLine(c);
+    }
     EventContext() = default;
     explicit EventContext(Document *doc);
     explicit EventContext(EventContext *out, int idx);
@@ -150,7 +154,18 @@ struct EventContext {
     bool canEnter();
     EventContext begin() { return EventContext(outer, 0); }
     EventContext end() { return EventContext(outer, -1); }
-    EventContext nearby(int value) { return EventContext(outer, index + value); }
+    EventContext nearby(int value) {
+        EventContext context = *this;
+        int count = value >= 0 ? value : -value;
+        for (int k = 0; k < count; ++k) {
+            if (value > 0) {
+                context.next();
+            } else {
+                context.prev();
+            }
+        }
+        return context;
+    }
     EventContext enter(int idx = 0);
     EventContext parent() { return outer ? *outer : EventContext(); }
     EventContext *copy() { return new EventContext(this, outer ? outer->copy() : nullptr); }

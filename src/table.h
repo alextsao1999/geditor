@@ -297,7 +297,7 @@ public:
     int getLogicHeight(EventContext &context) override { return 25; }
     //int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
-    Tag getTag(EventContext &context) override { return {_GT("LineElement Focus")}; }
+    Tag getTag(EventContext &context) override { return {_GT("LineElement Focus Line")}; }
     Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
@@ -354,16 +354,17 @@ public:
                     line.remove(service.index() - 1);
                     service.moveLeft();
                 } else {
-                    if (caret->prev()) {
+                    EventContext prev = context.nearby(-1);
+                    if (!prev.empty() && prev.tag().contain(_GT("Line"))) {
+                        auto prevLine = prev.getLineViewer();
+                        context.pos().setIndex(prevLine.length());
+                        prevLine.append(line.c_str());
+                        context.deleteLine();
                         erase();
-
-/*
-                        service.moveToIndex(-1);
-                        service.commit();
-                        context.combine(); // 因为combine要delete本对象 之后paint就不存在了 所以移动要在之前调用
-                        context.reflow();
-                        context.redraw();
-*/
+                        prev.reflow();
+                        prev.redraw();
+                        prev.focus();
+                        return;
                     } else {
                         context.pos().setIndex(-1);
                         caret->findPrev(TAG_FOCUS);
@@ -442,14 +443,12 @@ public:
         }
     }
     void erase() {
-        Element *removed = getNext();
-        if (!removed) {
-            return;
+        Element *prev = getPrev();
+        if (prev) {
+            Element *next = getNext();
+            prev->setNext(next);
+            next->setPrev(prev);
         }
-        Element *next = removed->getNext();
-        setNext(next);
-        next->setPrev(this);
-        removed->free();
     }
 };
 class SyntaxLineElement : public LineElement {
@@ -809,8 +808,10 @@ private:
     public:
         int count = 1;
         int index = 0;
-        Element *getNext() override { index++;return this; }
-        Element *getPrev() override { index--;return this; }
+        Element *getNext() override { index++;if (index > count) return nullptr;return this; }
+        Element *getPrev() override { index--;if (index < 0) return nullptr;return this; }
+        Element *enterHead() override { index = 0;return this; }
+        Element *enterTail() override { index = count;return this; }
 
     };
 

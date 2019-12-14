@@ -138,8 +138,7 @@ void mylalrtest() {
 
 
 }
-
-int main (int argc, char * const argv[]) {
+void ducmentTest() {
     Document doc(nullptr);
     //doc.appendElement(new SubElement());
     doc.append(new SubElement());
@@ -156,6 +155,21 @@ int main (int argc, char * const argv[]) {
 
     sub.dump();
 
+}
+void buffer() {
+    Buffer<int> buffer;
+    buffer.push(1);
+    buffer.push(2);
+    buffer.push(3);
+    buffer.push(4);
+    buffer.reset();
+    buffer[2] = 10;
+    for (auto iter = buffer.iter(); iter.has(); iter.next()) {
+        printf("%d, ", iter.current());
+    }
+}
+int main (int argc, char * const argv[]) {
+    buffer();
     return 0;
 }
 

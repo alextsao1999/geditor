@@ -12,7 +12,7 @@ LineViewer EventContext::getLineViewer(int column) {
 }
 
 void EventContext::init(Element *ele) {
-    element = ele->getHead();
+    element = ele->enterHead();
     index = 0;
 }
 
@@ -171,13 +171,13 @@ EventContext::EventContext(Document *doc) : doc(doc), element(doc) {}
 EventContext::EventContext(EventContext *out, int idx) : doc(out->doc), outer(out) {
     /*更新line*/
     if (idx >= 0) {
-        element = outer->current()->getHead();
+        element = outer->current()->enterHead();
         for (int j = 0; j < idx; ++j) {
             next();
         }
     } else {
         index = -1;
-        element = outer->current()->getTail();
+        element = outer->current()->enterTail();
         if (element) {
             counter.increase(this, outer->current()->getLineNumber() - element->getLineNumber());
         }

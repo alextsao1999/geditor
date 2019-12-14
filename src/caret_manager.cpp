@@ -8,14 +8,12 @@
 void CaretManager::focus(EventContext *context) {
     Element *focus = getFocus();
     if (focus) {
-/*
-        if (focus == context->current()) { // 元素相同 FIXME 可能有问题
+        if (m_context == context) {// 元素相同 FIXME 可能有问题
             //return;
             focus->onBlur(*m_context);
             focus->onFocus(*m_context);
             return;
         }
-*/
         focus->onBlur(*m_context);
         m_context->free();
     }

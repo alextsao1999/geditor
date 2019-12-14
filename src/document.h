@@ -84,6 +84,8 @@ public:
     virtual Element *getTail() { return nullptr; }
     virtual Element *getNext() { return nullptr; }
     virtual Element *getPrev(){ return nullptr; }
+    virtual Element *enterHead() { return getHead(); }
+    virtual Element *enterTail() { return getTail(); }
     Element *getNextCount(int count) {
         Element *next = this;
         while (count-- && next) {

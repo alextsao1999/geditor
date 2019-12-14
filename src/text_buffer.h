@@ -121,7 +121,7 @@ public:
         return {(int) m_buffer.size() - 1, 0, &m_buffer};
     }
     void deleteLine(int line) {
-        if (m_buffer.size() == 1) { return; }
+        if (m_buffer.size() == 1 || line == 0) { return; }
         m_buffer[line].free();
         m_buffer.erase(m_buffer.begin() + line);
     }
@@ -140,10 +140,10 @@ public:
             return getLine(counter.line);
         }
         m_buffer.insert(m_buffer.begin() + counter.line + 1, TextLine());
-        return {counter.line, 0, &m_buffer};
+        return {counter.line + 1, 0, &m_buffer};
     }
     void deleteLine(LineCounter counter) {
-        if (m_buffer.size() == 1) { return; }
+        if (m_buffer.size() == 1 || counter.line == 0) { return; }
         m_buffer[counter.line].free();
         m_buffer.erase(m_buffer.begin() + counter.line);
     }

@@ -144,8 +144,7 @@ struct EventContext {
     LineViewer copyLine();
     LineViewer insertLine() { return getDocContext()->m_textBuffer.insertLine(getLineCounter()); }
     void deleteLine() {
-        auto c = getLineCounter();
-        getDocContext()->m_textBuffer.deleteLine(c);
+        getDocContext()->m_textBuffer.deleteLine(getLineCounter());
     }
     EventContext() = default;
     explicit EventContext(Document *doc);

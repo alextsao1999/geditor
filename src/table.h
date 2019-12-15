@@ -358,6 +358,7 @@ public:
                     if (!prev.empty() && prev.tag().contain(_GT("Line"))) {
                         auto prevLine = prev.getLineViewer();
                         context.pos().setIndex(prevLine.length());
+                        printf(" prev string -> %ws \n", prevLine.c_str());
                         prevLine.append(line.c_str());
                         context.deleteLine();
                         erase();
@@ -432,7 +433,7 @@ public:
         context.redraw();
         return true;
     }
-    void insert() {
+    virtual void insert() {
         Element *element = copy();
         Element *next = getNext();
         setNext(element);
@@ -442,7 +443,7 @@ public:
             next->setPrev(element);
         }
     }
-    void erase() {
+    virtual void erase() {
         Element *prev = getPrev();
         if (prev) {
             Element *next = getNext();
@@ -804,21 +805,45 @@ private:
 
 class MultiLine : public RelativeElement {
 private:
-    class SingleLine : public Element {
+    class SingleLine : public LineElement {
     public:
-        int count = 1;
-        int index = 0;
-        Element *getNext() override { index++;if (index > count) return nullptr;return this; }
-        Element *getPrev() override { index--;if (index < 0) return nullptr;return this; }
-        Element *enterHead() override { index = 0;return this; }
-        Element *enterTail() override { index = count;return this; }
+        int count = 6;
+        Tag getTag(EventContext &context) override { return {_GT("SingleLine Focus Line")}; }
+        Display getDisplay() override { return DisplayLine; }
+        Element *getNextWithContext(EventContext &context) override {
+            while (context.index < 0) context.index = count + context.index;
+            if (context.index >= count) return nullptr;
+            return this;
+        }
+        Element *getPrevWithContext(EventContext &context) override {
+            while (context.index < 0) context.index = count + context.index;
+            if (context.index == 0) return nullptr;
+            return this;
+        }
+        Offset getOffset(EventContext &context) override {
+            while (context.index < 0) context.index = count + context.index;
+            return context.outer->offset() + Offset{0, context.index * 25};
+        }
+        int getLogicHeight(EventContext &context) override { return 25; }
 
+        void insert() override { count++; }
+        void erase() override { count--; }
     };
-
     SingleLine m_lines;
 public:
     Element *getHead() override { return &m_lines; }
     Element *getTail() override { return &m_lines; }
+    Display getDisplay() override { return DisplayBlock; }
+    int getLineNumber() override { return m_lines.count; }
+    int getLogicHeight(EventContext &context) override { return m_lines.count * 25; }
+    void onRedraw(EventContext &context) override {
+        Root::onRedraw(context);
+        Canvas canvas = context.getCanvas();
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
+    }
 
 };
 #endif //GEDITOR_TABLE_H

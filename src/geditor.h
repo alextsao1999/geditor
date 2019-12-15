@@ -39,6 +39,8 @@ public:
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
         m_data->m_document.appendElement(new SyntaxLineElement());
+        m_data->m_document.append(new MultiLine());
+        m_data->m_document.appendElement(new SyntaxLineElement());
 //        m_data->m_document.appendElement(new SyntaxLineElement());
 //        m_data->m_document.appendElement(new SyntaxLineElement());
         //m_data->m_document.appendElement(new SwitchElement());

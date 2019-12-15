@@ -7,6 +7,7 @@
 
 #define OutOfBound() (!element)
 #define CheckBound(ret) if (OutOfBound()) return ret
+
 LineViewer EventContext::getLineViewer(int column) {
     return doc->getContext()->m_textBuffer.getLine(getLineCounter(), column);
 }
@@ -53,10 +54,13 @@ bool EventContext::prev() {
     if (element == nullptr) {
         return false;
     }
-    index--;
-    element = element->getPrev();
+    if (index != 0) {
+
+    }
+    element = element->getPrevWithContext(*this);
     if (element) {
         prevLine(element->getLineNumber());
+        index--;
     }
     return true;
 }
@@ -66,7 +70,7 @@ bool EventContext::next() {
     }
     index++;
     nextLine(element->getLineNumber());
-    element = element->getNext();
+    element = element->getNextWithContext(*this);
     return true;
 }
 void EventContext::reflow(bool relayout) {
@@ -203,13 +207,9 @@ void EventContext::timer(long long interval, int id, int count) {
     timer.detach();
 }
 
-Context *EventContext::getDocContext() {
-    return doc->getContext();
-}
+Context *EventContext::getDocContext() { return doc->getContext(); }
 
-StyleManager *EventContext::getStyleManager() {
-    return &getDocContext()->m_styleManager;
-}
+StyleManager *EventContext::getStyleManager() { return &getDocContext()->m_styleManager; }
 
 bool EventContext::selected() {
     CheckBound(false);
@@ -231,5 +231,5 @@ Lexer *EventContext::getLexer(int column) {
     return &getDocContext()->m_lexer;
 }
 
-bool EventContext::isHead() { return element && element->getPrev() == nullptr; }
-bool EventContext::isTail() { return element && element->getNext() == nullptr; }
+bool EventContext::isHead() { return element && element->isHead(*this); }
+bool EventContext::isTail() { return element && element->isTail(*this); }

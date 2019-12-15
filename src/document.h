@@ -82,8 +82,12 @@ public:
     Offset getOffset(EventContext &context) override;
     virtual Element *getHead() { return nullptr; }
     virtual Element *getTail() { return nullptr; }
+    virtual bool isHead(EventContext &context) { return getPrev() == nullptr; }
+    virtual bool isTail(EventContext &context) { return getNext() == nullptr; }
     virtual Element *getNext() { return nullptr; }
     virtual Element *getPrev(){ return nullptr; }
+    virtual Element *getNextWithContext(EventContext &context) { return getNext(); }
+    virtual Element *getPrevWithContext(EventContext &context){ return getPrev(); }
     virtual Element *enterHead() { return getHead(); }
     virtual Element *enterTail() { return getTail(); }
     Element *getNextCount(int count) {
@@ -133,7 +137,7 @@ public:
     };
     DEFINE_EVENT(onNotify, int type, int param, int other);
     virtual Element *copy() { return nullptr; }
-    int getLineNumber();
+    virtual int getLineNumber();
     int getWidth(EventContext &context) override;
 };
 

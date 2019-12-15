@@ -358,7 +358,6 @@ public:
                     if (!prev.empty() && prev.tag().contain(_GT("Line"))) {
                         auto prevLine = prev.getLineViewer();
                         context.pos().setIndex(prevLine.length());
-                        printf(" prev string -> %ws \n", prevLine.c_str());
                         prevLine.append(line.c_str());
                         context.deleteLine();
                         erase();
@@ -380,9 +379,11 @@ public:
                 next.append(line.c_str() + idx, line.length() - idx);
                 line.remove(idx, line.length() - idx);
                 context.reflow();
+                context.redraw();
+                context.pos().setIndex(0);
                 caret->data().setIndex(0);
                 caret->next();
-                break;
+                return;
             }
             default:
                 line.insert(service.index(), ch);
@@ -805,7 +806,7 @@ private:
 
 class MultiLine : public RelativeElement {
 private:
-    class SingleLine : public LineElement {
+    class SingleLine : public SyntaxLineElement {
     public:
         int count = 6;
         Tag getTag(EventContext &context) override { return {_GT("SingleLine Focus Line")}; }

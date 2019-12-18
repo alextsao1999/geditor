@@ -11,51 +11,25 @@
 LineViewer EventContext::getLineViewer(int column) {
     return doc->getContext()->m_textBuffer.getLine(getLineCounter(), column);
 }
-
 void EventContext::init(Element *ele) {
     element = ele->enterHead();
     index = 0;
 }
-
-Painter EventContext::getPainter() {
-    return doc->getContext()->m_renderManager->getPainter(this);
-}
-
+Painter EventContext::getPainter() { return doc->getContext()->m_renderManager->getPainter(this); }
 Canvas EventContext::getCanvas(SkPaint *paint) {
     return doc->getContext()->m_renderManager->getCanvas(this, paint);
 }
-
-Canvas EventContext::getCanvas() {
-    return doc->getContext()->m_renderManager->getCanvas(this);
-}
-
-bool EventContext::canEnter() {
-    return element && (element->getHead() != nullptr);
-}
-
-EventContext EventContext::enter(int idx) {
-    return EventContext(this, idx);
-}
-
-RenderManager *EventContext::getRenderManager() {
-    return doc->getContext()->m_renderManager;
-}
-
-LayoutManager *EventContext::getLayoutManager() {
-    return &doc->getContext()->m_layoutManager;
-}
-
-CaretManager *EventContext::getCaretManager() {
-    return &doc->getContext()->m_caretManager;
-}
+Canvas EventContext::getCanvas() { return doc->getContext()->m_renderManager->getCanvas(this); }
+bool EventContext::canEnter() { return element && (element->getHead() != nullptr); }
+EventContext EventContext::enter(int idx) { return EventContext(this, idx); }
+RenderManager *EventContext::getRenderManager() { return doc->getContext()->m_renderManager; }
+LayoutManager *EventContext::getLayoutManager() { return &doc->getContext()->m_layoutManager; }
+CaretManager *EventContext::getCaretManager() { return &doc->getContext()->m_caretManager; }
 
 bool EventContext::prev() {
     // prev失败时 并不会改变索引 因此不需要next
     if (element == nullptr) {
         return false;
-    }
-    if (index != 0) {
-
     }
     element = element->getPrevWithContext(*this);
     if (element) {
@@ -77,19 +51,13 @@ void EventContext::reflow(bool relayout) {
     doc->m_context.m_layoutManager.reflow(*this, relayout);
     doc->getContext()->m_caretManager.update();
 }
-void EventContext::relayout() {
-    doc->m_context.m_layoutManager.relayout(*this);
-}
-void EventContext::redraw() {
-    doc->getContext()->m_renderManager->redraw(this);
-}
-void EventContext::focus() {
-    doc->m_context.m_caretManager.focus(copy());
-}
 void EventContext::remove(Root *root) {
     root->onRemove(*this);
     root->free();
 }
+void EventContext::relayout() { doc->m_context.m_layoutManager.relayout(*this); }
+void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
+void EventContext::focus() { doc->m_context.m_caretManager.focus(copy()); }
 void EventContext::combine() {
 /*
     int next = index + 1;
@@ -109,7 +77,6 @@ void EventContext::combine() {
     }
 */
 }
-
 LineViewer EventContext::copyLine() {
     if (current()->getDisplay() == DisplayLine) {
         auto next = getLineCounter();

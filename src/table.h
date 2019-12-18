@@ -297,7 +297,7 @@ public:
     int getLogicHeight(EventContext &context) override { return 25; }
     //int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
-    Tag getTag(EventContext &context) override { return {_GT("LineElement Focus Line")}; }
+    Tag getTag(EventContext &context) override { return {_GT("Line Focus")}; }
     Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
@@ -355,12 +355,12 @@ public:
                     service.moveLeft();
                 } else {
                     EventContext prev = context.nearby(-1);
-                    if (!prev.empty() && prev.tag().contain(_GT("Line"))) {
+                    if (prev.tag().contain(_GT("Line"))) {
                         auto prevLine = prev.getLineViewer();
                         context.pos().setIndex(prevLine.length());
                         prevLine.append(line.c_str());
                         context.deleteLine();
-                        erase();
+                        erase(context);
                         prev.reflow();
                         prev.redraw();
                         prev.focus();
@@ -373,7 +373,7 @@ public:
                 }
                 break;
             case VK_RETURN: {
-                insert();
+                insert(context);
                 int idx = service.index();
                 auto next = context.insertLine();
                 next.append(line.c_str() + idx, line.length() - idx);
@@ -427,6 +427,7 @@ public:
             char str[255];
             sprintf(str, "%s : %d ", context.path().c_str(), context.getLineCounter().line);
             canvas->drawText(str, strlen(str), context.width(), 15, font);
+
         }
     }
     bool onTimer(EventContext &context, int id) override {
@@ -434,22 +435,37 @@ public:
         context.redraw();
         return true;
     }
-    virtual void insert() {
+    virtual void insert(EventContext &context) {
         Element *element = copy();
         Element *next = getNext();
         setNext(element);
+        element->setPrev(this);
         if (next) {
-            element->setPrev(this);
             element->setNext(next);
             next->setPrev(element);
+        } else {
+            if (context.outer) {
+                context.outer->current()->setTail(element);
+            } else {
+                //TODO 设置doc
+            }
         }
     }
-    virtual void erase() {
+    virtual void erase(EventContext &context) {
         Element *prev = getPrev();
         if (prev) {
             Element *next = getNext();
             prev->setNext(next);
-            next->setPrev(prev);
+            if (next) {
+                next->setPrev(prev);
+            } else {
+                if (context.outer) {
+                    context.outer->current()->setTail(prev);
+                } else {
+                    //TODO 设置doc
+                }
+
+            }
         }
     }
 };
@@ -491,7 +507,7 @@ public:
     int m_width = 0;
     int m_height = 25;
     explicit TextElement() = default;
-    Tag getTag(EventContext &context) override { return {_GT("TextElement Focus")}; }
+    Tag getTag(EventContext &context) override { return {_GT("Text Focus")}; }
     int getMinWidth(EventContext &context) override {
         int width = (int) context.getStyle(StyleTableFont)
                 .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 15;
@@ -601,6 +617,11 @@ public:
         for (int i = 0; i < line; ++i) {
             append(new RowElement(column));
         }
+    }
+
+    TableElement *addRow(int column) {
+        append(new RowElement(column));
+        return this;
     }
     void replace(int line, int column, Element *element) {
         auto *row = (Container *) get(line);
@@ -791,9 +812,10 @@ public:
         auto *control = new SwitchElement();
         control->addBlock()->replace(0, new SwitchElement())->free();
         append(control);
-        append(new SwitchElement());
-        append(new SingleBlockElement());
         append(new SyntaxLineElement());
+        append(new SwitchElement());
+        append(new SyntaxLineElement());
+        append(new SingleBlockElement());
 
     }
     Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }
@@ -803,13 +825,12 @@ private:
     }
 
 };
-
 class MultiLine : public RelativeElement {
 private:
     class SingleLine : public SyntaxLineElement {
     public:
         int count = 6;
-        Tag getTag(EventContext &context) override { return {_GT("SingleLine Focus Line")}; }
+        Tag getTag(EventContext &context) override { return {_GT("SingleLine Focus")}; }
         Display getDisplay() override { return DisplayLine; }
         Element *getNextWithContext(EventContext &context) override {
             while (context.index < 0) context.index = count + context.index;
@@ -826,9 +847,8 @@ private:
             return context.outer->offset() + Offset{0, context.index * 25};
         }
         int getLogicHeight(EventContext &context) override { return 25; }
-
-        void insert() override { count++; }
-        void erase() override { count--; }
+        void insert(EventContext &context) override { count++; }
+        void erase(EventContext &context) override { count--; }
     };
     SingleLine m_lines;
 public:
@@ -847,4 +867,5 @@ public:
     }
 
 };
+
 #endif //GEDITOR_TABLE_H

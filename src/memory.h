@@ -137,5 +137,4 @@ public:
 
 template<typename Type>
 CachedList<Type> Cached<Type>::List;
-
 #endif //GEDITOR_MEMORY_H

@@ -82,10 +82,12 @@ public:
     Offset getOffset(EventContext &context) override;
     virtual Element *getHead() { return nullptr; }
     virtual Element *getTail() { return nullptr; }
-    virtual bool isHead(EventContext &context) { return getPrev() == nullptr; }
-    virtual bool isTail(EventContext &context) { return getNext() == nullptr; }
+    virtual void setHead(Element *ele) {}
+    virtual void setTail(Element *ele) {}
     virtual Element *getNext() { return nullptr; }
     virtual Element *getPrev(){ return nullptr; }
+    virtual bool isHead(EventContext &context) { return getPrev() == nullptr; }
+    virtual bool isTail(EventContext &context) { return getNext() == nullptr; }
     virtual Element *getNextWithContext(EventContext &context) { return getNext(); }
     virtual Element *getPrevWithContext(EventContext &context){ return getPrev(); }
     virtual Element *enterHead() { return getHead(); }
@@ -104,7 +106,7 @@ public:
         }
         return prev;
     }
-    virtual void setNext(Element *next) {}
+    virtual void setNext(Element *next){}
     virtual void setPrev(Element *prev){}
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return DisplayNone; };
@@ -189,6 +191,8 @@ public:
     }
     Element *getHead() override { return m_head; }
     Element *getTail() override { return m_tail; }
+    void setHead(Element *ele) override { m_head = ele; }
+    void setTail(Element *ele) override { m_tail = ele; }
     void setLogicWidth(EventContext &context, int width) override { m_width = width; }
     void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     int getLogicWidth(EventContext &context) override { return m_width; }

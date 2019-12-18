@@ -154,6 +154,7 @@ struct EventContext {
     EventContext begin() { return EventContext(outer, 0); }
     EventContext end() { return EventContext(outer, -1); }
     EventContext nearby(int value) {
+        //return EventContext(outer, index + value);
         EventContext context = *this;
         int count = value >= 0 ? value : -value;
         for (int k = 0; k < count; ++k) {

@@ -14,22 +14,21 @@ static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
 struct GEditorData {
-    HWND m_hwnd{};
+    HWND m_hwnd;
     Document m_document;
     RenderManager m_renderManager;
     EventContext m_begin;
-
     explicit GEditorData(HWND hwnd) :
-            m_hwnd(hwnd), m_document(&m_renderManager), m_renderManager(hwnd, this),
-            m_begin(&m_document) {
-
-    }
+    m_hwnd(hwnd),
+    m_document(&m_renderManager),
+    m_renderManager(hwnd, this){}
 };
 class GEditor {
 public:
     GEditorData *m_data;
 public:
-    GEditor() : m_data(nullptr) {}
+    GEditor() :
+    m_data(nullptr) {}
     explicit GEditor(HWND parent, int x, int y, int nWidth, int nHeight) {
         HWND hwnd = CreateWindowEx(0, GEDITOR_CLASSNAME, _GT("GEditor"),
                                    WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL,
@@ -38,9 +37,9 @@ public:
         ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-        m_data->m_document.appendElement(new SyntaxLineElement());
+        m_data->m_document.append(new SyntaxLineElement());
         m_data->m_document.append(new MultiLine());
-        m_data->m_document.appendElement(new SyntaxLineElement());
+        m_data->m_document.append(new SyntaxLineElement());
 //        m_data->m_document.appendElement(new SyntaxLineElement());
 //        m_data->m_document.appendElement(new SyntaxLineElement());
         //m_data->m_document.appendElement(new SwitchElement());
@@ -53,8 +52,8 @@ public:
         //m_data->m_document.appendElement(new ExLineElement());
         m_data->m_document.append(new MoveElement());
         m_data->m_document.append(new ButtonElement());
-        m_data->m_document.appendElement(new SubElement());
-        m_data->m_document.appendElement(new SubElement());
+        m_data->m_document.append(new SubElement());
+        m_data->m_document.append(new SubElement());
 /*
         m_data->m_document.appendElement(table);
         m_data->m_document.appendLine(new LineElement()).append(L"var a = 100;");
@@ -115,7 +114,6 @@ public:
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
-        data->m_begin.init(&data->m_document);
         EventContext context = data->m_begin;
         switch (message) {
             case WM_MOUSEMOVE:
@@ -127,10 +125,10 @@ public:
                 break;
             case WM_MOUSEWHEEL:
             case WM_VSCROLL:
-                onHandleScroll(SB_VERT, data, hWnd, wParam);
+                onHandleScroll(SB_VERT, data, wParam);
                 break;
             case WM_HSCROLL:
-                onHandleScroll(SB_HORZ, data, hWnd, wParam);
+                onHandleScroll(SB_HORZ, data, wParam);
                 break;
             case WM_SIZE:
                 data->m_renderManager.resize();
@@ -186,13 +184,12 @@ public:
         }
         return 0;
     }
-    static void onHandleScroll(int nBar, GEditorData *data, HWND hWnd, WPARAM wParam) {
-        int step = (nBar == SB_VERT ? data->m_renderManager.getViewportSize().height / 8 : 1);
-        int prev = GetScrollPos(hWnd, nBar);
+    static void onHandleScroll(int nBar, GEditorData *data, WPARAM wParam) {
+        int step = (nBar == SB_VERT ? 25 : 1);
+        int prev = GetScrollPos(data->m_hwnd, nBar);
         int movement = (((int16_t) HIWORD(wParam)) / -60) * step;
         prev += movement;
-        int status = LOWORD(wParam);
-        switch (status) {
+        switch (LOWORD(wParam)) {
             case SB_LINEUP:
                 prev -= step;
                 break;
@@ -204,7 +201,7 @@ public:
                 SCROLLINFO si;
                 si.cbSize = sizeof(SCROLLINFO);
                 si.fMask = SIF_ALL;
-                GetScrollInfo(hWnd, nBar, &si);
+                GetScrollInfo(data->m_hwnd, nBar, &si);
                 prev = si.nTrackPos;
             }
                 break;
@@ -219,7 +216,7 @@ public:
             default:
                 break;
         }
-        SetScrollPos(hWnd, nBar, prev, true);
+        SetScrollPos(data->m_hwnd, nBar, prev, true);
         data->m_renderManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
         data->m_document.getContext()->m_caretManager.update();
     }

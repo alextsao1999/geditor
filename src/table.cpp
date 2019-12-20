@@ -3,3 +3,10 @@
 //
 
 #include "table.h"
+
+void LineElement::onRightButtonUp(EventContext &context, int x, int y) {
+    context.replace(new SingleBlockElement());
+    //
+    context.reflow();
+    context.redraw();
+}

@@ -58,39 +58,6 @@ void EventContext::remove(Root *root) {
 void EventContext::relayout() { doc->m_context.m_layoutManager.relayout(*this); }
 void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
 void EventContext::focus() { doc->m_context.m_caretManager.focus(copy()); }
-void EventContext::combine() {
-/*
-    int next = index + 1;
-    if (next >= buffer->size()) {
-        return;
-    }
-    auto &text = doc->getContext()->m_textBuffer;
-    Element *ele = buffer->at(next);
-    auto cur = getLineCounter();
-    if (current()->getDisplay() == DisplayLine && ele->getDisplay() == DisplayLine) {
-        auto curLineViewer = text.getLine(cur);
-        cur.increase(this, 1);
-        curLineViewer.append(text.getLine(cur).c_str());
-        text.deleteLine(cur);
-        buffer->erase(next);
-        remove(ele);
-    }
-*/
-}
-LineViewer EventContext::copyLine() {
-    if (current()->getDisplay() == DisplayLine) {
-        auto next = getLineCounter();
-        next.increase(this, 1);
-        Element *element = current()->copy();
-        if (!element) {
-            return {};
-        }
-        //buffer->insert(index + 1, element);
-        return doc->getContext()->m_textBuffer.insertLine(next);
-    }
-    return {};
-}
-
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), type, data});
 }
@@ -200,3 +167,13 @@ Lexer *EventContext::getLexer(int column) {
 
 bool EventContext::isHead() { return element && element->isHead(*this); }
 bool EventContext::isTail() { return element && element->isTail(*this); }
+
+Element *EventContext::replace(Element *rp) {
+    if (element) {
+        Element *before = element->onReplace(*this, rp);
+        element = rp;
+        return before;
+    } else {
+        return nullptr;
+    }
+}

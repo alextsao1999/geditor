@@ -298,7 +298,6 @@ public:
     //int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
     Tag getTag(EventContext &context) override { return {_GT("Line Focus")}; }
-    Element *copy() override { return new LineElement(); }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         SkPaint border;
@@ -394,9 +393,7 @@ public:
         service.commit();
         context.redraw();
     }
-    void onRightButtonUp(EventContext &context, int x, int y) override {
-        context.timer(500, 0, 4);
-    }
+    void onRightButtonUp(EventContext &context, int x, int y) override;
     void onFocus(EventContext &context) override {
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 6), &context);
@@ -468,6 +465,7 @@ public:
             }
         }
     }
+    virtual Element *copy() { return new LineElement(); }
 };
 class SyntaxLineElement : public LineElement {
     Element *copy() override { return new SyntaxLineElement(); }

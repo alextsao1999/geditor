@@ -103,10 +103,10 @@ struct EventContext {
     void redraw();
     void relayout();
     void focus();
-    void combine();
     void push(CommandType type, CommandData data);
     void notify(int type, int param, int other);
     void timer(long long interval, int id = 0, int count = 0);
+    Element *replace(Element *rp);
 
     Tag tag();
     GRect rect();
@@ -141,11 +141,8 @@ struct EventContext {
     inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
     Lexer *getLexer(int column = 0);
     LineViewer getLineViewer(int column = 0);
-    LineViewer copyLine();
     LineViewer insertLine() { return getDocContext()->m_textBuffer.insertLine(getLineCounter()); }
-    void deleteLine() {
-        getDocContext()->m_textBuffer.deleteLine(getLineCounter());
-    }
+    void deleteLine() { getDocContext()->m_textBuffer.deleteLine(getLineCounter()); }
     EventContext() = default;
     explicit EventContext(Document *doc);
     explicit EventContext(EventContext *out, int idx);

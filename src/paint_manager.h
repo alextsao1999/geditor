@@ -259,6 +259,22 @@ public:
 
 class RenderManager {
 public:
+    static HBITMAP CreateBitmap(int nWid, int nHei, void **ppBits) {
+        BITMAPINFO bmi;
+        memset(&bmi, 0, sizeof(bmi));
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = nWid;
+        bmi.bmiHeader.biHeight = -nHei;
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        bmi.bmiHeader.biSizeImage = 0;
+        HDC hdc = GetDC(nullptr);
+        LPVOID pBits = nullptr;
+        HBITMAP hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, ppBits, nullptr, 0);
+        ReleaseDC(nullptr, hdc);
+        return hBmp;
+    }
     HWND m_hWnd = nullptr;
     HDC m_hMemDC = nullptr;
     HDC m_hWndDC = nullptr;
@@ -270,7 +286,6 @@ public:
     GEditorData *m_data = nullptr;
 public:
     RenderManager() = default;
-
     explicit RenderManager(HWND hwnd, GEditorData *data) : m_hWnd(hwnd), m_data(data) {
         m_hWndDC = GetDC(hwnd);
         m_hMemDC = CreateCompatibleDC(m_hWndDC);
@@ -299,22 +314,6 @@ public:
     }
     virtual void redrawRect(GRect *rect);
     virtual void redraw(EventContext *ctx);
-    static HBITMAP CreateBitmap(int nWid, int nHei, void **ppBits) {
-        BITMAPINFO bmi;
-        memset(&bmi, 0, sizeof(bmi));
-        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bmi.bmiHeader.biWidth = nWid;
-        bmi.bmiHeader.biHeight = -nHei;
-        bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 32;
-        bmi.bmiHeader.biCompression = BI_RGB;
-        bmi.bmiHeader.biSizeImage = 0;
-        HDC hdc = GetDC(nullptr);
-        LPVOID pBits = nullptr;
-        HBITMAP hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, ppBits, nullptr, 0);
-        ReleaseDC(nullptr, hdc);
-        return hBmp;
-    }
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
     virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) {
         //return Canvas(ctx, m_canvas.get(), paint);
@@ -354,10 +353,11 @@ public:
         if (realHeight < 0.0) {
             realHeight = 0.0;
         }
+        offset -= m_viewportOffset;
+        updateBegin(m_offset, offset);
         m_offset = offset;
 //        m_offset.x = (int) (realWidth * ((float) offset.x / 100));
 //        m_offset.y = (int) (realHeight * ((float) offset.y / 100));
-        m_offset -= m_viewportOffset;
         refresh();
     }
     virtual Size getViewportSize() {
@@ -369,6 +369,7 @@ public:
         Size size = getViewportSize();
         return (bool) BitBlt(m_hWndDC, 0, 0, size.width, size.height, m_hMemDC, 0, 0, SRCCOPY);
     }
+    void updateBegin(Offset before, Offset now);
 };
 
 

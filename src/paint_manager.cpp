@@ -88,7 +88,9 @@ void RenderManager::redraw(EventContext *ctx) {
 }
 
 void RenderManager::redrawRect(GRect *rect) {
-    m_data->m_begin.init(&m_data->m_document);
+    if (m_data->m_begin.empty()) {
+        m_data->m_begin = m_data->m_document.m_root.enter();
+    }
     EventContext context = m_data->m_begin;
     GRect select = m_data->m_document.getContext()->getSelectRect();
     update();
@@ -116,5 +118,27 @@ void RenderManager::redrawRect(GRect *rect) {
 */
 
 }
+
+void RenderManager::updateBegin(Offset before, Offset now) {
+    if (before.y > now.y) { // 向上
+        while (m_data->m_begin.has()) {
+            if (!m_data->m_begin.visible()) {
+                break;
+            }
+            m_data->m_begin.prev();
+        }
+    } else { // 向下
+        while (m_data->m_begin.has()) {
+            if (m_data->m_begin.visible()) {
+                break;
+            }
+            m_data->m_begin.next();
+        }
+    }
+    if (m_data->m_begin.empty()) {
+        m_data->m_begin = m_data->m_document.m_root.enter();
+    }
+}
+
 
 

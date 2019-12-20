@@ -133,16 +133,15 @@ public:
     DEFINE_EVENT(onEnterReflow, Offset &offset);
     DEFINE_EVENT(onLeaveReflow);
     DEFINE_EVENT(onFinishReflow, int width, int height);
+    virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
     enum NotifyType {
         None,
         Update,
     };
     DEFINE_EVENT(onNotify, int type, int param, int other);
-    virtual Element *copy() { return nullptr; }
     virtual int getLineNumber();
     int getWidth(EventContext &context) override;
 };
-
 class LinkedElement : public Element {
 protected:
     Element *m_prev = nullptr;
@@ -153,8 +152,26 @@ public:
     Element *getPrev() override { return m_prev; }
     void setNext(Element *next) override { m_next = next; }
     void setPrev(Element *prev) override { m_prev = prev; }
+    Element *onReplace(EventContext &context, Element *new_element) override {
+        new_element->setPrev(m_prev);
+        new_element->setNext(m_next);
+        if (m_prev) {
+            m_prev->setNext(new_element);
+        } else {
+            if (context.outer) {
+                context.outer->current()->setHead(new_element);
+            }
+        }
+        if (m_next) {
+            m_next->setPrev(new_element);
+        } else {
+            if (context.outer) {
+                context.outer->current()->setTail(new_element);
+            }
+        }
+        return this;
+    }
 };
-
 class RelativeElement : public LinkedElement {
     friend LayoutManager;
     friend Document;
@@ -168,6 +185,21 @@ public:
         const char *string[] = {"None", "Inline", "Block", "Line", "Table", "Row"};
         printf("{ display: %s,  offset-x: %d, offset-y: %d }\n", string[getDisplay()], m_offset.x, m_offset.y);
     }
+};
+class AbsoluteElement : public LinkedElement {
+    int m_left{};
+    int m_top{};
+    int m_width{};
+    int m_height{};
+public:
+    AbsoluteElement(int left, int top, int width, int height) : m_left(left), m_top(top), m_width(width), m_height(height) {}
+private:
+public:
+    Display getDisplay() override { return DisplaySkip; }
+    Offset getLogicOffset() override { return {m_left, m_top}; }
+    int getLogicWidth(EventContext &context) override { return m_width; }
+    int getLogicHeight(EventContext &context) override { return m_height; }
+
 };
 
 // 根据Children 自动改变宽高
@@ -201,6 +233,16 @@ public:
     int getWidth(EventContext &context) override { return getLogicWidth(context); }
     void onFinishReflow(EventContext &context, int width, int height) override { m_width = width;m_height = height; }
     Display getDisplay() override { return D; }
+    virtual bool contain(Element *element) {
+        Element *header = element->getHead();
+        while (header != nullptr) {
+            if (header == element) {
+                return true;
+            }
+            header = header->getNext();
+        }
+        return false;
+    }
     virtual Element *append(Element *element) {
         if (m_tail == nullptr) {
             m_tail = m_head = element;
@@ -214,8 +256,7 @@ public:
     virtual Element *get(int index) {
         return index >= 0 ? m_head->getNextCount(index) : m_tail->getPrevCount(-index - 1);
     }
-    virtual Element *remove(int index) {
-        Element *ele = get(index);
+    virtual Element *remove(Element *ele) {
         if (ele == nullptr) {
             return nullptr;
         }
@@ -233,8 +274,7 @@ public:
         }
         return ele;
     }
-    virtual Element *replace(int index, Element *element) {
-        Element *before = get(index);
+    virtual Element *replace(Element *before, Element *element) {
         if (before == nullptr) {
             return nullptr;
         }
@@ -252,14 +292,15 @@ public:
         }
         return before;
     }
+    virtual Element *remove(int index) { return remove(get(index)); }
+    virtual Element *replace(int index, Element *element) { return replace(get(index), element); }
 };
-
 class Document : public Container<DisplayBlock> {
 public:
     Context m_context;
-    EventContext m_last;
+    EventContext m_root;
 public:
-    explicit Document(RenderManager *renderManager) : m_context(renderManager), m_last(this) {}
+    explicit Document(RenderManager *renderManager) : m_context(renderManager), m_root(this) {}
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
@@ -273,20 +314,8 @@ public:
     };
     EventContext appendElement(Element *element) {
         append(element);
-        if (m_last.empty()) {
-            m_last.init(this);
-        } else {
-            m_last.next();
-        }
-        return m_last;
+        return m_root.enter(-1);
     }
-    LineViewer appendLine(Element *element) {
-        if (element->getDisplay() != DisplayLine) {
-            return {};
-        }
-        append(element);
-        return m_context.m_textBuffer.getLine(m_context.m_textBuffer.getLineCount() - 1);
-    };
     int getLogicWidth(EventContext &context) override {
         return m_context.m_layoutManager.getWidth();
     }
@@ -294,20 +323,6 @@ public:
         return m_context.m_layoutManager.getHeight();
     }
 
-};
-
-class AbsoluteElement : public Element {
-    int m_left{};
-    int m_top{};
-    int m_width{};
-    int m_height{};
-public:
-    AbsoluteElement(int left, int top, int width, int height) : m_left(left), m_top(top), m_width(width), m_height(height) {}
-private:
-public:
-    Offset getLogicOffset() override { return {m_left, m_top}; }
-    int getLogicWidth(EventContext &context) override { return m_width; }
-    int getLogicHeight(EventContext &context) override { return m_height; }
 };
 
 #endif //TEST_DOCUMENT_H

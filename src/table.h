@@ -82,14 +82,11 @@ public:
     void moveRight() { m_index++; }
     void moveToIndex(int index) { m_index = index; }
     void moveTo(Offset offset) { m_move = offset; }
-    bool commit(GStyle& style, SkRect* bound = nullptr, int column = 0) {
+    bool commit(int column = 0, int style = StyleDeafaultFont) {
         LineViewer viewer = m_context->getLineViewer(column);
-        return commit(viewer.c_str(), viewer.size(), style, bound);
+        return commit(viewer.c_str(), viewer.size(), m_context->getStyle(style), nullptr);
     }
-    bool commit() {
-        return commit(m_context->getStyle(StyleDeafaultFont));
-    }
-    bool commit(GString &string, int style) {
+    bool commit(GString &string, int style = StyleDeafaultFont) {
         return commit(string.c_str(), string.length() * sizeof(GChar), m_context->getStyle(style));
     }
     bool commit(const void* text, size_t bytelength, GStyle& paint, SkRect* bound = nullptr) {
@@ -291,6 +288,145 @@ public:
         canvas.drawRect(context.logicRect(), StyleTableBorder);
     }
 };
+class DataElement : public RelativeElement {
+public:
+    GString m_source;
+    DataElement() = default;
+    int getLogicHeight(EventContext &context) override { return 25; }
+    //int getLogicWidth(EventContext &context) override { return 25; }
+    Display getDisplay() override { return DisplayBlock; }
+    Tag getTag(EventContext &context) override { return {_GT("Data Focus")}; }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
+        canvas.drawText(m_source.c_str(),
+                m_source.length() * sizeof(GChar),
+                4, 2, StyleDeafaultFont);
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        context.pos().setOffset(context.absolute(x, y));
+        context.focus();
+    }
+    void onMouseMove(EventContext &context, int x, int y) override {
+        if (context.selecting()) {
+            context.pos().setOffset(context.absolute(x, y));
+            context.focus();
+        }
+    }
+    void onKeyDown(EventContext &context, int code, int status) override {
+        auto caret = context.getCaretManager();
+        TextCaretService service(Offset(4, 5), &context);
+        if (code == VK_LEFT) {
+            service.moveLeft();
+            if (!service.commit(m_source)) {
+                caret->data().setIndex(-1);
+                caret->findPrev(TAG_FOCUS);
+            }
+        }
+        if (code == VK_RIGHT) {
+            service.moveRight();
+            if (!service.commit(m_source)) {
+                caret->data().setIndex(0);
+                caret->findNext(TAG_FOCUS);
+            }
+        }
+        if (code == VK_UP) {
+            caret->findPrev(TAG_FOCUS);
+        }
+        if (code == VK_DOWN) {
+            caret->findNext(TAG_FOCUS);
+        }
+    };
+    void onInputChar(EventContext &context, int ch) override {
+        auto* caret = context.getCaretManager();
+        TextCaretService service(Offset(4, 6), &context);
+        switch (ch) {
+            case VK_BACK:
+                if (service.index() > 0) {
+                    m_source.erase(service.index() - 1);
+                    service.moveLeft();
+                } else {
+                    EventContext prev = context.nearby(-1);
+                    if (prev.tag().contain(_GT("Data"))) {
+                        auto *prevLine = prev.cast<DataElement>();
+                        context.pos().setIndex(prevLine->m_source.length());
+                        prevLine->m_source.append(m_source);
+                        erase(context);
+                        prev.reflow();
+                        prev.redraw();
+                        prev.focus();
+                        return;
+                    } else {
+                        context.pos().setIndex(-1);
+                        caret->findPrev(TAG_FOCUS);
+                    }
+                    return;
+                }
+                break;
+            case VK_RETURN: {
+                insert(context);
+                int idx = service.index();
+                auto next = context.insertLine();
+                next.append(m_source.c_str() + idx, m_source.length() - idx);
+                m_source.erase(idx, m_source.length() - idx);
+                context.reflow();
+                context.redraw();
+                context.pos().setIndex(0);
+                caret->data().setIndex(0);
+                caret->next();
+                return;
+            }
+            default:
+                m_source.insert(m_source.begin() + service.index(), ch);
+                context.push(CommandType::Add, CommandData(service.index(), ch));
+                service.moveRight();
+                break;
+        }
+        service.commit(m_source);
+        context.redraw();
+    }
+    void onFocus(EventContext &context) override {
+        auto caret = context.getCaretManager();
+        TextCaretService service(Offset(4, 6), &context);
+        service.moveTo(context.relOffset(caret->data().getOffset()));
+        service.commit(m_source);
+        // 选中
+        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode)
+        // 设置文字
+        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcIn_Mode);
+        // 设置背景
+        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kColorDodge_Mode);
+/*
+        style.setColorFilter(SkColorFilter::CreateModeFilter(
+                        SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
+*/
+
+    }
+    virtual void insert(EventContext &context) {
+        Element *element = copy();
+        Element *next = getNext();
+        setNext(element);
+        element->setPrev(this);
+        if (next) {
+            element->setNext(next);
+            next->setPrev(element);
+        } else {
+            if (context.outer) {
+                context.outer->current()->setTail(element);
+            } else {
+                //TODO 设置doc
+            }
+        }
+    }
+    virtual void erase(EventContext &context) {
+        context.replace(nullptr);
+    }
+    virtual Element *copy() { return new DataElement(); }
+};
 class LineElement : public RelativeElement {
 public:
     LineElement() = default;
@@ -461,7 +597,6 @@ public:
                 } else {
                     //TODO 设置doc
                 }
-
             }
         }
     }
@@ -499,8 +634,8 @@ class SyntaxLineElement : public LineElement {
 };
 class TextElement : public RelativeElement {
 private:
-    int m_min = 50;
 public:
+    int m_min = 50;
     GString m_data;
     int m_width = 0;
     int m_height = 25;
@@ -596,9 +731,10 @@ public:
 };
 class RowElement : public Container<DisplayRow> {
 public:
-    explicit RowElement(int column) {
+    GColor m_color;
+    explicit RowElement(int column, GColor color = SK_ColorWHITE) : m_color(color) {
         for (int i = 0; i < column; ++i) {
-            append(new TextElement());
+            Container::append(new TextElement());
         }
     }
     void onNotify(EventContext &context, int type, int param, int other) override {
@@ -606,21 +742,37 @@ public:
             context.outer->notify(type, param, other);
         }
     }
-    TextElement *getCol(int col) { return (TextElement *) get(col); }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        SkPaint paint;
+        paint.setColor(m_color);
+        canvas->drawRect(canvas.bound(0, 0), paint);
+        Root::onRedraw(context);
+    }
+    void setColor(GColor color) {
+        m_color = color;
+    }
 };
 class TableElement : public Container<DisplayTable> {
 public:
     int m_delta = 0;
     TableElement(int line, int column) {
         for (int i = 0; i < line; ++i) {
-            append(new RowElement(column));
+            Container::append(new RowElement(column));
         }
     }
-
-    TableElement *addRow(int column) {
-        append(new RowElement(column));
+    RowElement *addRow(int column) {
+        auto *row = new RowElement(column);
+        append(row);
+        return row;
+    }
+    TableElement *addRows(int column, int count = 1) {
+        for (int i = 0; i < count; ++i) {
+            append(new RowElement(column));
+        }
         return this;
     }
+    RowElement *getRow(int line) { return (RowElement *) get(line); }
     void replace(int line, int column, Element *element) {
         auto *row = (Container *) get(line);
         row->replace(column, element)->free();
@@ -642,12 +794,8 @@ public:
             end.setLogicWidth(end.logicWidth() + m_delta);
         }
     }
-    int getLogicWidth(EventContext &context) override {
-        return m_width + m_delta;
-    }
-    int getMinWidth(EventContext &context) override {
-        return m_width;
-    }
+    int getLogicWidth(EventContext &context) override { return m_width + m_delta; }
+    int getMinWidth(EventContext &context) override { return m_width; }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 4;
         offset.y += 5;
@@ -799,21 +947,34 @@ public:
 class SubElement : public Container<> {
 public:
     SubElement() {
-        auto *table = new TableElement(2, 4);
-        table->getItem(0, 0)->m_data.append(_GT("function"));
-        table->getItem(0, 1)->m_data.append(_GT("function"));
+        auto *table = new TableElement(4, 4);
+        table->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
+        table->getItem(0, 0)->m_data.append(_GT("Function Name"));
+        table->getItem(0, 1)->m_data.append(_GT("Parameter"));
+        table->getRow(2)->setColor(SkColorSetRGB(230, 237, 228));
+        table->getItem(2, 0)->m_data.append(_GT("Name"));
+        table->getItem(2, 1)->m_data.append(_GT("Value"));
         table->replace(1, 3, new TableElement(2, 2));
         //table->replace(0, 3, new ButtonElement());
-        append(table);
-        append(new SyntaxLineElement());
+        Container::append(table);
+
+        auto *vars = new TableElement(2, 2);
+        vars->getRow(0)->setColor(SkColorSetRGB(217, 227, 240));
+        vars->getItem(0, 0)->m_data.append(_GT("Name"));
+        vars->getItem(0, 0)->m_min = 100;
+        vars->getItem(0, 1)->m_data.append(_GT("Value"));
+        vars->getItem(0, 1)->m_min = 150;
+        Container::append(vars);
+
+        Container::append(new SyntaxLineElement());
 
         auto *control = new SwitchElement();
         control->addBlock()->replace(0, new SwitchElement())->free();
-        append(control);
-        append(new SyntaxLineElement());
-        append(new SwitchElement());
-        append(new SyntaxLineElement());
-        append(new SingleBlockElement());
+        Container::append(control);
+        Container::append(new SyntaxLineElement());
+        Container::append(new SwitchElement());
+        Container::append(new SyntaxLineElement());
+        Container::append(new SingleBlockElement());
 
     }
     Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }

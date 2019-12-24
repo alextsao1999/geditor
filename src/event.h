@@ -102,11 +102,11 @@ struct EventContext {
     void reflow(bool relayout = false);
     void redraw();
     void relayout();
-    void focus();
+    void focus(bool isCopy = true);
     void push(CommandType type, CommandData data);
     void notify(int type, int param, int other);
     void timer(long long interval, int id = 0, int count = 0);
-    Element *replace(Element *rp);
+    Element *replace(Element *new_element);
 
     Tag tag();
     GRect rect();
@@ -165,19 +165,25 @@ struct EventContext {
     }
     EventContext enter(int idx = 0);
     EventContext parent() { return outer ? *outer : EventContext(); }
-    EventContext *copy() { return new EventContext(this, outer ? outer->copy() : nullptr); }
+    EventContext *copy() {
+        if (outer == nullptr) {
+            // this is root
+            return this;
+        }
+        return new EventContext(this, outer->copy());
+    }
     bool isDocument() { return outer == nullptr && doc != nullptr; }
     void free() {
         if (outer) {
             outer->free();
+            delete this;
         }
-        delete this;
     }
     void dump() {
         if (outer) {
             outer->dump();
         }
-        printf(" { index = %d, line = %d }", index, counter.line);
+        printf(" { index = %d, line = %d, cur = %p }", index, counter.line, element);
     }
     std::string path() {
         std::string str;
@@ -267,6 +273,28 @@ struct EventContext {
 
     template <typename Type>
     inline Type *cast() { return (Type *) element; }
+    bool compare(const EventContext *rvalue) {
+        if (rvalue == nullptr) {
+            return false;
+        }
+        if (outer && rvalue->outer) {
+            return element == rvalue->element && index == rvalue->index && outer->compare(rvalue->outer);
+        } else {
+            return element == rvalue->element && index == rvalue->index;
+        }
+    }
+    bool include(const EventContext *rvalue) {
+        if (rvalue == nullptr)
+            return false;
+        EventContext *start = this;
+        while (start != nullptr) {
+            if (start->element == rvalue->element) {
+                return start->compare(rvalue);
+            }
+            start = start->outer;
+        }
+        return false;
+    }
 };
 class EventContextBuilder {
 public:

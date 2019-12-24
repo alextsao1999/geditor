@@ -135,12 +135,12 @@ public:
         add(StyleDeafault, paint);
 
         paint.reset();
-        paint.setColor(SK_ColorLTGRAY);
+        paint.setColor(SkColorSetRGB(172, 172, 172));
         add(StyleBorder, paint);
 
         paint.reset();
         paint.setStyle(GStyle::kStroke_Style);
-        paint.setColor(SK_ColorLTGRAY);
+        paint.setColor(SkColorSetRGB(172, 172, 172));
         add(StyleTableBorder, paint);
 
         paint.reset();

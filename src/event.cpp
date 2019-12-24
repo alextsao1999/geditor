@@ -57,7 +57,7 @@ void EventContext::remove(Root *root) {
 }
 void EventContext::relayout() { doc->m_context.m_layoutManager.relayout(*this); }
 void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
-void EventContext::focus() { doc->m_context.m_caretManager.focus(copy()); }
+void EventContext::focus(bool isCopy) { doc->m_context.m_caretManager.focus(isCopy ? copy() : this); }
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), type, data});
 }
@@ -168,10 +168,10 @@ Lexer *EventContext::getLexer(int column) {
 bool EventContext::isHead() { return element && element->isHead(*this); }
 bool EventContext::isTail() { return element && element->isTail(*this); }
 
-Element *EventContext::replace(Element *rp) {
+Element *EventContext::replace(Element *new_element) {
     if (element) {
-        Element *before = element->onReplace(*this, rp);
-        element = rp;
+        Element *before = element;
+        element = element->onReplace(*this, new_element);
         return before;
     } else {
         return nullptr;

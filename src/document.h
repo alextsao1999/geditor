@@ -33,7 +33,7 @@ public:
     ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
     virtual void free() {}
-    virtual Tag getTag(EventContext &context) { return Tag(_GT("Element")); }
+    virtual Tag getTag(EventContext &context) { return {_GT("Element")}; }
 
     // 获取对于父元素的相对偏移
     virtual Offset getLogicOffset() { return {0, 0}; }
@@ -153,6 +153,23 @@ public:
     void setNext(Element *next) override { m_next = next; }
     void setPrev(Element *prev) override { m_prev = prev; }
     Element *onReplace(EventContext &context, Element *new_element) override {
+        if (context.getDocContext()->m_enterElement == this) {
+            context.getDocContext()->m_enterElement->onMouseLeave(0, 0);
+            context.getDocContext()->m_enterElement = nullptr;
+        }
+        int lineNumber = getLineNumber();
+        for (int i = 0; i < lineNumber; ++i) {
+            context.deleteLine();
+        }
+        if (new_element == nullptr) {
+            if (m_prev) m_prev->setNext(m_next); else context.outer->current()->setHead(m_next);
+            if (m_next) m_next->setPrev(m_prev); else context.outer->current()->setTail(m_prev);
+            return m_next;
+        }
+        lineNumber = new_element->getLineNumber();
+        for (int i = 0; i < lineNumber; ++i) {
+            context.insertLine();
+        }
         new_element->setPrev(m_prev);
         new_element->setNext(m_next);
         if (m_prev) {
@@ -169,7 +186,7 @@ public:
                 context.outer->current()->setTail(new_element);
             }
         }
-        return this;
+        return new_element;
     }
 };
 class RelativeElement : public LinkedElement {

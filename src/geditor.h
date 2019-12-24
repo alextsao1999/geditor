@@ -50,8 +50,8 @@ public:
 //        table->replace(0, 0, table_inner);
 
         //m_data->m_document.appendElement(new ExLineElement());
-        m_data->m_document.append(new MoveElement());
-        m_data->m_document.append(new ButtonElement());
+        //m_data->m_document.append(new MoveElement());
+        //m_data->m_document.append(new ButtonElement());
         m_data->m_document.append(new SubElement());
         m_data->m_document.append(new SubElement());
 /*

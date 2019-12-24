@@ -5,8 +5,8 @@
 #include "table.h"
 
 void LineElement::onRightButtonUp(EventContext &context, int x, int y) {
-    context.replace(new SingleBlockElement());
-    //
-    context.reflow();
+    Element *ele = context.replace(nullptr);
+    context.outer->relayout();
     context.redraw();
+    context.remove(ele);
 }

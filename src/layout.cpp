@@ -21,9 +21,12 @@ void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
     // 把自身安排一下
     LayoutContext layoutContext;
     Element *current = context.current();
-    Offset offset = current->getLogicOffset();
+    Offset offset;
     if (outset) {
+        // 从起始开始 offset 为 {0, 0}
         current->onEnterReflow(context, offset);
+    } else {
+        offset = current->getLogicOffset();
     }
     Offset self = offset;
     Display display = current->getDisplay();

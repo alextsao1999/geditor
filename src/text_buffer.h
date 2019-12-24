@@ -135,11 +135,11 @@ public:
         return {line, column, &m_buffer};
     }
 
-    LineViewer insertLine(LineCounter counter) {
+    LineViewer insertLine(LineCounter counter, int offset) {
         if (counter.line >= m_buffer.size()) {
             return getLine(counter.line);
         }
-        m_buffer.insert(m_buffer.begin() + counter.line + 1, TextLine());
+        m_buffer.insert(m_buffer.begin() + counter.line + offset, TextLine());
         return {counter.line + 1, 0, &m_buffer};
     }
     void deleteLine(LineCounter counter) {
@@ -147,14 +147,15 @@ public:
         m_buffer[counter.line].free();
         m_buffer.erase(m_buffer.begin() + counter.line);
     }
-    LineViewer getLine(LineCounter counter, int column = 0) {
-        if (counter.line >= m_buffer.size()) {
-            int rm = counter.line - (int) m_buffer.size() + 1;
+    LineViewer getLine(LineCounter counter, int offset, int column = 0) {
+        int line = counter.line + offset;
+        if (line >= m_buffer.size()) {
+            int rm = line - (int) m_buffer.size() + 1;
             while (rm--) {
                 m_buffer.emplace_back();
             }
         }
-        return {counter.line, column, &m_buffer};
+        return {line, column, &m_buffer};
     }
 };
 

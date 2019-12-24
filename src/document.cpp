@@ -81,8 +81,13 @@ void Root::onRedraw(EventContext &context) {
 }
 
 void Root::onRemove(EventContext &context) {
-    if ((Root *) context.doc->getContext()->m_enterElement == this) {
+    if (context.doc->getContext()->m_enterElement == this) {
         context.doc->getContext()->m_enterElement->onMouseLeave(0, 0);
         context.doc->getContext()->m_enterElement = nullptr;
+    }
+    CaretManager *caret = context.getCaretManager();
+    EventContext *focus = caret->getEventContext();
+    if (focus && focus->include(&context)) {
+        caret->focus(nullptr);
     }
 }

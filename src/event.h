@@ -25,6 +25,7 @@ struct Context {
     CommandQueue m_queue;
     Lexer m_lexer;
     TextBuffer m_textBuffer;
+    // 应该是记录EventContext 这里有些问题
     Element *m_enterElement = nullptr;
     GRect m_enterRect{};
     //////////////////////////
@@ -81,7 +82,7 @@ struct Tag {
         return *this;
     }
     void dump() {
-        printf("Tag -> %ws\n", str);
+        printf("Tag [%ws]\n", str);
     }
 };
 struct EventContext {
@@ -107,6 +108,8 @@ struct EventContext {
     void notify(int type, int param, int other);
     void timer(long long interval, int id = 0, int count = 0);
     Element *replace(Element *new_element);
+    void remove(Root *ele);
+    void init(Element *ele);
 
     Tag tag();
     GRect rect();
@@ -127,8 +130,6 @@ struct EventContext {
     int minHeight();
     void setLogicWidth(int width);
     void setLogicHeight(int height);
-    void remove(Root *ele);
-    void init(Element *ele);
     inline CaretPos &pos() { return getCaretManager()->data(); }
     inline Element *current() { return element; }
     Painter getPainter();
@@ -140,9 +141,13 @@ struct EventContext {
     StyleManager *getStyleManager();
     inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
     Lexer *getLexer(int column = 0);
-    LineViewer getLineViewer(int column = 0);
-    LineViewer insertLine() { return getDocContext()->m_textBuffer.insertLine(getLineCounter()); }
-    void deleteLine() { getDocContext()->m_textBuffer.deleteLine(getLineCounter()); }
+    LineViewer getLineViewer(int offset = 0, int column = 0);
+    LineViewer insertLine(int offset) { return getDocContext()->m_textBuffer.insertLine(getLineCounter(), offset); }
+    void deleteLine(int count = 1) {
+        for (int i = 0; i < count; ++i) {
+            getDocContext()->m_textBuffer.deleteLine(getLineCounter());
+        }
+    }
     EventContext() = default;
     explicit EventContext(Document *doc);
     explicit EventContext(EventContext *out, int idx);
@@ -273,7 +278,7 @@ struct EventContext {
 
     template <typename Type>
     inline Type *cast() { return (Type *) element; }
-    bool compare(const EventContext *rvalue) {
+    bool compare(EventContext *rvalue) {
         if (rvalue == nullptr) {
             return false;
         }
@@ -283,17 +288,17 @@ struct EventContext {
             return element == rvalue->element && index == rvalue->index;
         }
     }
-    bool include(const EventContext *rvalue) {
+    EventContext *include(EventContext *rvalue) {
         if (rvalue == nullptr)
-            return false;
+            return nullptr;
         EventContext *start = this;
         while (start != nullptr) {
-            if (start->element == rvalue->element) {
-                return start->compare(rvalue);
+            if (start->element == rvalue->element && start->compare(rvalue)) {
+                return start;
             }
             start = start->outer;
         }
-        return false;
+        return nullptr;
     }
 };
 class EventContextBuilder {

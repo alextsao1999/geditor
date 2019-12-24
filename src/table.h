@@ -83,7 +83,7 @@ public:
     void moveToIndex(int index) { m_index = index; }
     void moveTo(Offset offset) { m_move = offset; }
     bool commit(int column = 0, int style = StyleDeafaultFont) {
-        LineViewer viewer = m_context->getLineViewer(column);
+        LineViewer viewer = m_context->getLineViewer(0, column);
         return commit(viewer.c_str(), viewer.size(), m_context->getStyle(style), nullptr);
     }
     bool commit(GString &string, int style = StyleDeafaultFont) {
@@ -370,7 +370,7 @@ public:
             case VK_RETURN: {
                 insert(context);
                 int idx = service.index();
-                auto next = context.insertLine();
+                auto next = context.insertLine(1);
                 next.append(m_source.c_str() + idx, m_source.length() - idx);
                 m_source.erase(idx, m_source.length() - idx);
                 context.reflow();
@@ -479,56 +479,7 @@ public:
             caret->findNext(TAG_FOCUS);
         }
     };
-    void onInputChar(EventContext &context, int ch) override {
-        auto* caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 6), &context);
-        auto line = context.getLineViewer();
-        switch (ch) {
-            case VK_BACK:
-                if (service.index() > 0) {
-                    line.remove(service.index() - 1);
-                    service.moveLeft();
-                } else {
-                    EventContext prev = context.nearby(-1);
-                    if (prev.tag().contain(_GT("Line"))) {
-                        auto prevLine = prev.getLineViewer();
-                        context.pos().setIndex(prevLine.length());
-                        prevLine.append(line.c_str());
-                        context.deleteLine();
-                        erase(context);
-                        prev.reflow();
-                        prev.redraw();
-                        prev.focus();
-                        return;
-                    } else {
-                        context.pos().setIndex(-1);
-                        caret->findPrev(TAG_FOCUS);
-                    }
-                    return;
-                }
-                break;
-            case VK_RETURN: {
-                insert(context);
-                int idx = service.index();
-                auto next = context.insertLine();
-                next.append(line.c_str() + idx, line.length() - idx);
-                line.remove(idx, line.length() - idx);
-                context.reflow();
-                context.redraw();
-                context.pos().setIndex(0);
-                caret->data().setIndex(0);
-                caret->next();
-                return;
-            }
-            default:
-                line.insert(service.index(), ch);
-                context.push(CommandType::Add, CommandData(service.index(), ch));
-                service.moveRight();
-                break;
-        }
-        service.commit();
-        context.redraw();
-    }
+    void onInputChar(EventContext &context, int ch) override;
     void onRightButtonUp(EventContext &context, int x, int y) override;
     void onFocus(EventContext &context) override {
         auto caret = context.getCaretManager();
@@ -1008,13 +959,13 @@ private:
         int getLogicHeight(EventContext &context) override { return 25; }
         void insert(EventContext &context) override { count++; }
         void erase(EventContext &context) override { count--; }
+        void free() override {}
     };
     SingleLine m_lines;
 public:
     Element *getHead() override { return &m_lines; }
     Element *getTail() override { return &m_lines; }
     Display getDisplay() override { return DisplayBlock; }
-    int getLineNumber() override { return m_lines.count; }
     int getLogicHeight(EventContext &context) override { return m_lines.count * 25; }
     void onRedraw(EventContext &context) override {
         Root::onRedraw(context);
@@ -1024,6 +975,7 @@ public:
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.bound(0.5, 0.5), border);
     }
+    int getLineNumber() override { return m_lines.count; }
 
 };
 

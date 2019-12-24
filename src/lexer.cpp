@@ -19,7 +19,7 @@ bool IsCodeChar(GChar ch) {
 
 void Lexer::enter(EventContext *ctx, int column) {
     context = ctx;
-    viewer = context->getLineViewer(column);
+    viewer = context->getLineViewer(0, column);
     string = viewer.c_str();
     length = viewer.length();
     position = 0;

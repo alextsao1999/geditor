@@ -8,8 +8,8 @@
 #define OutOfBound() (!element)
 #define CheckBound(ret) if (OutOfBound()) return ret
 
-LineViewer EventContext::getLineViewer(int column) {
-    return doc->getContext()->m_textBuffer.getLine(getLineCounter(), column);
+LineViewer EventContext::getLineViewer(int offset, int column) {
+    return doc->getContext()->m_textBuffer.getLine(getLineCounter(), offset, column);
 }
 void EventContext::init(Element *ele) {
     element = ele->enterHead();
@@ -55,7 +55,7 @@ void EventContext::remove(Root *root) {
     root->onRemove(*this);
     root->free();
 }
-void EventContext::relayout() { doc->m_context.m_layoutManager.relayout(*this); }
+void EventContext::relayout() { doc->m_context.m_layoutManager.relayout(*this);reflow(); }
 void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
 void EventContext::focus(bool isCopy) { doc->m_context.m_caretManager.focus(isCopy ? copy() : this); }
 void EventContext::push(CommandType type, CommandData data) {

@@ -559,6 +559,7 @@ public:
     virtual Element *copy() { return new LineElement(); }
 };
 class SyntaxLineElement : public LineElement {
+public:
     Element *copy() override { return new SyntaxLineElement(); }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
@@ -790,12 +791,14 @@ public:
 
         }
     }
-
     void onFocus(EventContext &context) override {
-        context_on_outer(context, Focus);
+        context_on_outer(context, Focus); // 转交给父元素
     }
-
     void onBlur(EventContext &context) override {
+        if (context.outer && context.outer->tag().contain(_GT("Switch"))) { // 如果父元素是Switch 转交给父元素
+            context_on_outer(context, Blur);
+            return;
+        }
         bool clear = true;
         for_context(ctx, context) {
             if (!ctx.getLineViewer().empty()) {
@@ -803,15 +806,10 @@ public:
             }
         }
         if (clear) {
-            if (context.getCaretManager()->getEventContext()->include(&context)) {
-
-
-            }
             context.replace(new SyntaxLineElement());
             context.outer->relayout();
             context.outer->redraw();
         }
-
     }
 };
 class SwitchElement : public Container<> {
@@ -843,7 +841,7 @@ private:
             if (!ctx.isTail()) {
                 int lineTop = ctx.isHead() ? 15 : 20;
                 if (ctx.isHead() && (
-                        context.parent().tag() == _GT("CodeBlock") ||
+                        (context.parent().tag() == _GT("CodeBlock") && context.isHead()) ||
                         context.nearby(-1).tag().contain(_GT("CodeBlock")))) {
                     lineTop = 20;
                 }
@@ -887,6 +885,25 @@ public:
 
     }
     void onBlur(EventContext &context) override {
+        EventContext *ctx = context.getCaretManager()->getEventContext();
+        if (ctx && ctx->include(&context)) {
+            return;
+        }
+        bool clear = true;
+        for_context(block, context) {
+            for_context(row, block) {
+                if (!row.getLineViewer().empty()) {
+                    clear = false;
+                }
+            }
+        }
+        if (clear) {
+            context.replace(new SyntaxLineElement());
+            if (context.outer) {
+                context.outer->relayout();
+                context.outer->redraw();
+            }
+        }
     }
 };
 class SingleBlockElement : public CodeBlockElement {
@@ -902,7 +919,7 @@ public:
         paint.setAlpha(180);
 
         int lineTop = 15;
-        if (context.parent().tag() == _GT("CodeBlock") ||
+        if ((context.parent().tag() == _GT("CodeBlock") && context.isHead()) ||
             context.nearby(-1).tag().contain(_GT("CodeBlock"))) {
             lineTop = 20;
         }
@@ -961,6 +978,14 @@ private:
         return Element::getWidth(context);
     }
 
+public:
+    void onRedraw(EventContext &context) override {
+        Root::onRedraw(context);
+        Canvas canvas = context.getCanvas();
+        SkPaint paint;
+        paint.setColor(SK_ColorLTGRAY);
+        canvas->drawLine(0, context.height() + 3, context.width(), context.height() + 3, paint);
+    }
 };
 class MultiLine : public RelativeElement {
 private:
@@ -981,11 +1006,18 @@ private:
         }
         Offset getOffset(EventContext &context) override {
             while (context.index < 0) context.index = count + context.index;
-            return context.outer->offset() + Offset{0, context.index * 25 + 20};
+            return context.outer->offset() + Offset{20, context.index * 25 + 20};
         }
         int getLogicHeight(EventContext &context) override { return 25; }
         void insert(EventContext &context) override { count++; }
         void erase(EventContext &context) override { count--; }
+        void onRedraw(EventContext &context) override {
+            SyntaxLineElement::onRedraw(context);
+            Canvas canvas = context.getCanvas();
+            std::string &&line = std::to_string(context.index + 1);
+            SkPaint paint;
+            canvas->drawText(line.c_str(), line.length(), -15, 20, paint);
+        }
         void free() override {}
     };
     SingleLine m_lines;
@@ -1007,6 +1039,11 @@ public:
     }
     int getLineNumber() override { return m_lines.count; }
     int getChildCount() override { return m_lines.count; }
+    int getHeight(EventContext &context) override { return Root::getHeight(context) + 25; }
+
+    void onEnterReflow(EventContext &context, Offset &offset) override {
+        offset.x += 5;
+    }
 };
 
 #endif //GEDITOR_TABLE_H

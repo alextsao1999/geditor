@@ -38,8 +38,7 @@ void LineElement::onInputChar(EventContext &context, int ch) {
                 } else {
                     if (context.outer && context.outer->tag().contain(_GT("CodeBlock"))) {
                         if (context.outer->outer && context.outer->outer->tag().contain(_GT("Switch"))) {
-                            EventContext *switchBlock = context.outer->outer;
-                            //switchBlock->replace();
+
                         } else {
                             if (m_next == nullptr && m_prev == nullptr && context.getLineViewer().empty()) {
                                 context.outer->replace(new SyntaxLineElement());
@@ -66,6 +65,17 @@ void LineElement::onInputChar(EventContext &context, int ch) {
                 newLine.append(_GT("if ()"));
                 context.pos().setIndex(-2);
                 context.enter().focus();
+                return;
+            }
+            if (line.content() == _GT("switch")) {
+                context.replace(new SwitchElement())->free();
+                context.outer->relayout();
+                context.reflow();
+                context.redraw();
+                auto newLine = context.getLineViewer();
+                newLine.append(_GT("switch ()"));
+                context.pos().setIndex(-2);
+                context.enter().enter().focus();
                 return;
             }
             insert(context);

@@ -155,7 +155,7 @@ bool EventContext::isSelected() {
     CheckBound(false);
     GRect a = this->rect();
     GRect b = getDocContext()->getSelectRect();
-    return a.fTop <= b.fBottom && b.fTop <= a.fBottom;
+    return a.fTop <= b.fBottom && b.fTop <= a.fBottom && (b.width() != 0 || b.height() != 0);
 }
 
 bool EventContext::visible() {

@@ -80,7 +80,7 @@ void LayoutManager::relayout(EventContext context) {
 }
 
 Layout(LayoutDisplayNone) {}
-Layout(LayoutDisplaySkip) {}
+Layout(LayoutDisplayAbsolute) {}
 Layout(LayoutDisplayInline) {
     layoutContext.blockMaxWidth = 0;
     next.x += context.width();

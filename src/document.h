@@ -212,16 +212,17 @@ public:
 class AbsoluteElement : public LinkedElement {
     int m_left{};
     int m_top{};
-    int m_width{};
-    int m_height{};
+    int m_right{};
+    int m_bottom{};
 public:
-    AbsoluteElement(int left, int top, int width, int height) : m_left(left), m_top(top), m_width(width), m_height(height) {}
+    AbsoluteElement(int left, int top, int right, int bottom) : m_left(left), m_top(top), m_right(right), m_bottom(bottom) {}
 private:
 public:
-    Display getDisplay() override { return DisplaySkip; }
+    Display getDisplay() override { return DisplayAbsolute; }
     Offset getLogicOffset() override { return {m_left, m_top}; }
-    int getLogicWidth(EventContext &context) override { return m_width; }
-    int getLogicHeight(EventContext &context) override { return m_height; }
+    int getLogicWidth(EventContext &context) override { return m_right - m_left; }
+    int getLogicHeight(EventContext &context) override { return m_bottom - m_top; }
+
 
 };
 

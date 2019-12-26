@@ -10,7 +10,7 @@
 //typedef int Display;
 enum Display {
     DisplayNone,
-    DisplaySkip,
+    DisplayAbsolute,
     DisplayInline,
     DisplayBlock,
     DisplayLine,
@@ -37,7 +37,7 @@ struct LayoutContext {
 typedef void (*LayoutFunc) (LayoutArgs());
 
 Layout(LayoutDisplayNone);
-Layout(LayoutDisplaySkip);
+Layout(LayoutDisplayAbsolute);
 Layout(LayoutDisplayInline);
 Layout(LayoutDisplayBlock);
 Layout(LayoutDisplayLine);
@@ -51,10 +51,10 @@ private:
     uint32_t m_height = 2000;
     RenderManager *m_renderManager;
 public:
-    LayoutManager(RenderManager *renderManager);
+    explicit LayoutManager(RenderManager *renderManager);
     LayoutFunc m_layouts[8] = {
             LayoutDisplayNone,
-            LayoutDisplaySkip,
+            LayoutDisplayAbsolute,
             LayoutDisplayInline,
             LayoutDisplayBlock,
             LayoutDisplayLine,

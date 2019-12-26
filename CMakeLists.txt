@@ -14,8 +14,8 @@ foreach(inc_dir ${inc_dirs})
 endforeach()
 add_subdirectory(third_party/skia)
 
-add_subdirectory(third_party/lalr)
-include_directories(third_party/lalr/lalr)
+#add_subdirectory(third_party/lalr)
+#include_directories(third_party/lalr/lalr)
 
 add_definitions(-DUNICODE -D_UNICODE -D_MT -D_Debug)
 include_directories(src/)

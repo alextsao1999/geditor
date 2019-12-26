@@ -7,9 +7,13 @@
 Offset Element::getOffset(EventContext &context) {
     Offset offset = getLogicOffset();
     if (context.outer) {
-        Offset base = CallEvent(*context.outer, getOffset);
-        offset.x += base.x;
-        offset.y += base.y;
+        if (offset.x < 0) {
+            offset.x += cur_context(*context.outer, getWidth);
+        }
+        if (offset.y < 0) {
+            offset.y += cur_context(*context.outer, getHeight);
+        }
+        offset += cur_context(*context.outer, getOffset);
     }
     return offset;
 }
@@ -30,8 +34,6 @@ int Element::getWidth(EventContext &context) {
     if (getDisplay() == DisplayBlock || getDisplay() == DisplayLine) {
         if (context.outer) {
             return context.outer->width() - getLogicOffset().x;
-        } else {
-            return context.doc->getWidth(context) - getLogicOffset().x;
         }
     }
     return Root::getWidth(context);

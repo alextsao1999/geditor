@@ -6,16 +6,19 @@
 #include "document.h"
 
 void CaretManager::focus(EventContext *context) {
-    if (m_context) {
-        if (m_context == context) {// 元素相同 FIXME 可能有问题
-            m_context->element->onBlur(*m_context);
-            m_context->element->onFocus(*m_context);
-            return;
-        }
-        m_context->element->onBlur(*m_context);
-        m_context->free();
-    }
+    EventContext *before = m_context;
     m_context = context;
+    if (before) {
+        if (before->element) {
+            if (before == context) {// 元素相同 FIXME 可能有问题
+                before->element->onBlur(*before);
+                before->element->onFocus(*before);
+                return;
+            }
+            before->element->onBlur(*before);
+        }
+        before->free();
+    }
     if (m_context) {
         context_on(*context, Focus);
         // 更新光标位置

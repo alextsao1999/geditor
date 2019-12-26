@@ -296,7 +296,7 @@ struct EventContext {
         }
     }
     EventContext *include(EventContext *rvalue) {
-        if (rvalue == nullptr)
+        if (rvalue == nullptr || empty())
             return nullptr;
         EventContext *start = this;
         while (start != nullptr) {

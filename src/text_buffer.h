@@ -65,7 +65,7 @@ public:
     LineViewer() = default;
     LineViewer(int line, int scolumn, LineBuffer *buffer) : m_line(line), column(scolumn), m_buffer(buffer) {}
     inline int getLineNumber() { return m_line; }
-    inline bool empty() { return m_buffer == nullptr; }
+    inline bool empty() { return content().empty(); }
     GString &content() {
         return m_buffer->at((unsigned) (m_line)).getNode(column)->content;
     }

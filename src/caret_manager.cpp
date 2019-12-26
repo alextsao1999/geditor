@@ -6,21 +6,18 @@
 #include "document.h"
 
 void CaretManager::focus(EventContext *context) {
-    Element *focus = getFocus();
-    if (focus) {
+    if (m_context) {
         if (m_context == context) {// 元素相同 FIXME 可能有问题
-            //return;
-            focus->onBlur(*m_context);
-            focus->onFocus(*m_context);
+            m_context->element->onBlur(*m_context);
+            m_context->element->onFocus(*m_context);
             return;
         }
-        focus->onBlur(*m_context);
+        m_context->element->onBlur(*m_context);
         m_context->free();
     }
     m_context = context;
     if (m_context) {
-        focus = context->current();
-        focus->onFocus(*m_context);
+        context_on(*context, Focus);
         // 更新光标位置
         update();
     }
@@ -33,8 +30,9 @@ CaretManager::~CaretManager() {
 }
 
 void CaretManager::update() {
-    if (!getFocus())
+    if (!m_context) {
         return;
+    }
     // 设置光标的位置为实际偏移(光标偏移 减去 可视区偏移)
     Offset offset = current() - m_paintManager->getViewportOffset();
     SetCaretPos(offset.x, offset.y);

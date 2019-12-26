@@ -31,17 +31,21 @@ struct Context {
     //////////////////////////
     bool m_selecting = false;
     Offset m_selectStart;
+    CaretPos m_selectStartPos;
     Offset m_selectEnd;
+    CaretPos m_selectEndPos;
     void startSelect() {
         m_selecting = true;
         m_selectStart = m_caretManager.current();
         m_selectEnd = m_selectStart;
+        m_selectStartPos = m_caretManager.data();
     }
     void endSelect() {
         m_selecting = false;
     }
     void selecting() {
         m_selectEnd = m_caretManager.current();
+        m_selectEndPos = m_caretManager.data();
     }
     inline GRect getSelectRect() {
         Offset start = m_selectStart;
@@ -92,6 +96,7 @@ struct EventContext {
     int index = 0;
     LineCounter counter;
     Context *getDocContext();
+    int count();
     inline bool empty() { return element == nullptr || doc == nullptr; }
     inline bool has() { return element; };
     bool prev();
@@ -217,7 +222,9 @@ struct EventContext {
     }
 
     bool selecting();
-    bool selected();
+    bool isSelected();
+    bool isSelectedStart();
+    bool isSelectedEnd();
     bool visible();
     bool isHead();
     bool isTail();

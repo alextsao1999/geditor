@@ -26,6 +26,12 @@ RenderManager *EventContext::getRenderManager() { return doc->getContext()->m_re
 LayoutManager *EventContext::getLayoutManager() { return &doc->getContext()->m_layoutManager; }
 CaretManager *EventContext::getCaretManager() { return &doc->getContext()->m_caretManager; }
 
+int EventContext::count() {
+    if (element)
+        return element->getChildCount();
+    return 0;
+}
+
 bool EventContext::prev() {
     // prev失败时 并不会改变索引 因此不需要next
     if (element == nullptr) {
@@ -145,11 +151,11 @@ Context *EventContext::getDocContext() { return doc->getContext(); }
 
 StyleManager *EventContext::getStyleManager() { return &getDocContext()->m_styleManager; }
 
-bool EventContext::selected() {
+bool EventContext::isSelected() {
     CheckBound(false);
-    GRect rect = this->rect();
-    GRect selected = getDocContext()->getSelectRect();
-    return GRect::Intersects(rect, selected);
+    GRect a = this->rect();
+    GRect b = getDocContext()->getSelectRect();
+    return a.fTop <= b.fBottom && b.fTop <= a.fBottom;
 }
 
 bool EventContext::visible() {
@@ -177,3 +183,12 @@ Element *EventContext::replace(Element *new_element) {
         return nullptr;
     }
 }
+
+bool EventContext::isSelectedStart() {
+    return rect().round().contains(doc->m_context.m_selectStart.x, doc->m_context.m_selectStart.y);
+}
+
+bool EventContext::isSelectedEnd() {
+    return rect().round().contains(doc->m_context.m_selectEnd.x, doc->m_context.m_selectEnd.y);
+}
+

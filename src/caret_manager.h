@@ -59,7 +59,7 @@ public:
     }
 
     Offset current();
-    void create(int width = 2, int height = 20) {
+    void create(int width = 1, int height = 18) {
         CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
     }
     void destroy() {

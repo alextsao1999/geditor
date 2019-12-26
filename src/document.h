@@ -80,6 +80,15 @@ class Element : public Root {
 public:
     Element() = default;
     Offset getOffset(EventContext &context) override;
+    virtual int getChildCount() {
+        int count = 0;
+        Element *start = getHead();
+        while (start != nullptr) {
+            count++;
+            start = start->getNext();
+        }
+        return count;
+    }
     virtual Element *getHead() { return nullptr; }
     virtual Element *getTail() { return nullptr; }
     virtual void setHead(Element *ele) {}

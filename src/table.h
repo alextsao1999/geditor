@@ -20,6 +20,7 @@
 #include "document.h"
 #include "utils.h"
 #define TAG_FOCUS _GT("Focus")
+#define context_on_outer(ctx, method, ...) if ((ctx).outer) context_on(*((ctx).outer), method, ##__VA_ARGS__);
 class PathUtil {
 public:
     static float rad(float deg) {
@@ -482,6 +483,7 @@ public:
     void onInputChar(EventContext &context, int ch) override;
     void onRightButtonUp(EventContext &context, int x, int y) override;
     void onFocus(EventContext &context) override {
+        context_on_outer(context, Focus);
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 6), &context);
         service.moveTo(context.relOffset(caret->data().getOffset()));
@@ -497,6 +499,9 @@ public:
                         SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
 */
 
+    }
+    void onBlur(EventContext &context) override {
+        context_on_outer(context, Blur);
     }
     bool show = false;
     void drawLight(EventContext &context) {
@@ -558,7 +563,7 @@ class SyntaxLineElement : public LineElement {
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         SkPaint border;
-        if (context.selected()) {
+        if (context.isSelected()) {
             border.setStyle(SkPaint::Style::kStrokeAndFill_Style);
         } else {
             border.setStyle(SkPaint::Style::kStroke_Style);
@@ -608,7 +613,7 @@ public:
     Display getDisplay() override { return DisplayInline; }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        if (context.outer && context.outer->selected()) {
+        if (context.outer && context.outer->isSelected()) {
             canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
         } else {
             canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
@@ -756,16 +761,11 @@ public:
 class CodeBlockElement : public Container<> {
 public:
     CodeBlockElement() {
-        append(new SyntaxLineElement());
-        append(new SyntaxLineElement());
+        Container::append(new SyntaxLineElement());
+        Container::append(new SyntaxLineElement());
     }
-
-    Tag getTag(EventContext &context) override {
-        return _GT("CodeBlock");
-    }
-    int getWidth(EventContext &context) override {
-        return Element::getWidth(context);
-    }
+    Tag getTag(EventContext &context) override { return _GT("CodeBlock"); }
+    int getWidth(EventContext &context) override { return Element::getWidth(context); }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 25;
     }
@@ -791,21 +791,39 @@ public:
         }
     }
 
+    void onFocus(EventContext &context) override {
+        context_on_outer(context, Focus);
+    }
+
+    void onBlur(EventContext &context) override {
+        bool clear = true;
+        for_context(ctx, context) {
+            if (!ctx.getLineViewer().empty()) {
+                clear = false;
+            }
+        }
+        if (clear) {
+            if (context.getCaretManager()->getEventContext()->include(&context)) {
+
+
+            }
+            context.replace(new SyntaxLineElement());
+            context.outer->relayout();
+            context.outer->redraw();
+        }
+
+    }
 };
 class SwitchElement : public Container<> {
 public:
     SwitchElement() {
-        append(new CodeBlockElement());
-        append(new CodeBlockElement());
+        Container::append(new CodeBlockElement());
+        Container::append(new CodeBlockElement());
     }
     Tag getTag(EventContext &context) override { return {_GT("Switch CodeBlock")}; }
-    CodeBlockElement *addBlock() {
-        return (CodeBlockElement *) append(new CodeBlockElement());
-    }
+    CodeBlockElement *addBlock() { return (CodeBlockElement *) append(new CodeBlockElement()); }
 private:
-    int getWidth(EventContext &context) override {
-        return Element::getWidth(context);
-    }
+    int getWidth(EventContext &context) override { return Element::getWidth(context); }
     void onRedraw(EventContext &context) override {
         Container::onRedraw(context);
         SkPaint paint;
@@ -813,12 +831,14 @@ private:
         paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
         paint.setColor(SK_ColorBLACK);
         paint.setAlpha(180);
-        Offset offset = context.offset();
         Offset runStart;
         for_context(ctx, context) {
+            if (!ctx.tag().contain(_GT("CodeBlock"))) {
+                continue;
+            }
             Canvas canvas = ctx.getCanvas();
             if (ctx.isHead()) {
-                runStart = ctx.enter(-1).offset() - offset;
+                runStart = context.relOffset(ctx.enter(-1).offset());
             }
             if (!ctx.isTail()) {
                 int lineTop = ctx.isHead() ? 15 : 20;
@@ -860,6 +880,13 @@ private:
             // 有可能后面还有流程语句 需要连接
             canvas->drawPath(path, paint);
         }
+    }
+
+public:
+    void onFocus(EventContext &context) override {
+
+    }
+    void onBlur(EventContext &context) override {
     }
 };
 class SingleBlockElement : public CodeBlockElement {
@@ -954,7 +981,7 @@ private:
         }
         Offset getOffset(EventContext &context) override {
             while (context.index < 0) context.index = count + context.index;
-            return context.outer->offset() + Offset{0, context.index * 25};
+            return context.outer->offset() + Offset{0, context.index * 25 + 20};
         }
         int getLogicHeight(EventContext &context) override { return 25; }
         void insert(EventContext &context) override { count++; }
@@ -970,13 +997,16 @@ public:
     void onRedraw(EventContext &context) override {
         Root::onRedraw(context);
         Canvas canvas = context.getCanvas();
+        canvas.drawText(_GT("Inline C Language"), 17 * 2, 5, 15, StyleDeafaultFont);
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        canvas->drawLine(0, 20, context.width(), 20, border);
+
     }
     int getLineNumber() override { return m_lines.count; }
-
+    int getChildCount() override { return m_lines.count; }
 };
 
 #endif //GEDITOR_TABLE_H

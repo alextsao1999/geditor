@@ -5,7 +5,7 @@
 #include "document.h"
 #include "geditor.h"
 #include "paint_manager.h"
-
+#include "SkTextBlob.h"
 Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(context) {
     m_offset = context->offset() - context->getRenderManager()->getViewportOffset();
 }
@@ -69,7 +69,40 @@ GRect Canvas::bound(SkScalar dx, SkScalar dy) {
 }
 
 void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y, int style) {
-    m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style).paint());
+    //m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style).paint());
+    SkTextBlobBuilder builder;
+    SkPaint paint = m_context->getStyle(style).paint();
+    paint.setTextEncoding(SkPaint::TextEncoding::kGlyphID_TextEncoding);
+    int count = paint.countText(text, byteLength);
+    if (count <= 0) {
+        return;
+    }
+    auto &run = builder.allocRun(paint, count, 0, 0);
+    m_context->getStyle(style).paint().textToGlyphs(text, byteLength, run.glyphs);
+    m_canvas->drawTextBlob(builder.build(), x, y, paint);
+
+    if (m_context) {
+        return;
+        if (m_context->selecting()) {
+            GStyle &paint = m_context->getStyle(StyleSelectedFont);
+            auto start = m_context->getDocContext()->m_selectStartPos;
+            auto end = m_context->getDocContext()->m_selectEndPos;
+            m_canvas->drawText((GChar *) text + start.index, start.index - end.index, start.offset.x, start.offset.y,
+                               paint.paint());
+
+
+/*
+            printf("[%d %d] start %d, end %d pos: %d %d\n", m_context->isSelectedStart(), m_context->isSelectedEnd(),
+                   start.index,
+                   end.index, start.offset.x, end.offset.x);
+*/
+
+            //m_canvas->drawText(text, byteLength, x, y, paint.paint());
+
+        }
+    }
+
+
 }
 
 void Canvas::drawRect(const GRect &rect, int style) {
@@ -97,7 +130,7 @@ void RenderManager::redrawRect(GRect *rect) {
     while (context.has()) {
         if (context.display() != DisplayNone) {
             context.current()->onRedraw(context);
-            if (context.selected()) {
+            if (context.isSelected()) {
                 Canvas canvas = context.getCanvas();
                 SkPaint color;
                 color.setColor(SK_ColorCYAN);

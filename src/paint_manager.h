@@ -61,6 +61,9 @@ enum {
     StyleTableBorder,
     StyleTableBorderSelected,
 
+    StyleSelectedFont,
+    StyleSelectedBackground,
+
     StyleErrorFont,
     StyleDeafaultFont,
     StyleOperatorFont,
@@ -149,8 +152,8 @@ public:
         add(StyleTableBorderSelected, paint);
 
         paint.reset();
-        paint.setTextSize(20);
-        paint.setFont("DengXian", GStyle::kNormal);
+        paint.setTextSize(15);
+        //paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         //paint.setFakeBoldText(true);
         paint.setAntiAlias(true);
@@ -175,14 +178,22 @@ public:
         paint.setColor(SkColorSetRGB(160, 82, 45));
         add(StyleFunctionFont, paint);
 
+        paint.setColor(SK_ColorWHITE);
+        add(StyleSelectedFont, paint);
+
         paint.reset();
-        paint.setTextSize(18);
-        paint.setFont("DengXian", GStyle::kNormal);
+        paint.setTextSize(15);
+        //paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
         add(StyleTableFont, paint);
 
+
+        paint.reset();
+        paint.setStyle(GStyle::kStrokeAndFill_Style);
+        paint.setColor(SK_ColorLTGRAY);
+        add(StyleSelectedBackground, paint);
     }
     static SkColor ParseColor(const char *str) {
         SkColor color;
@@ -256,7 +267,6 @@ public:
     GRect bound(Offset inset = Offset());
     GRect bound(GScalar dx = 0, GScalar dy = 0);
 };
-
 class RenderManager {
 public:
     static HBITMAP CreateBitmap(int nWid, int nHei, void **ppBits) {

@@ -101,6 +101,7 @@ public:
     virtual Element *getPrevWithContext(EventContext &context){ return getPrev(); }
     virtual void onEnter(EventContext &context, EventContext &enter, int idx) {
         if (idx >= 0) {
+            enter.index = 0;
             enter.element = getHead();
             for (int j = 0; j < idx; ++j) {
                 enter.next();
@@ -109,13 +110,15 @@ public:
             enter.index = -1;
             enter.element = getTail();
             if (enter.element) {
-                enter.counter.increase(&enter, context.current()->getLineNumber() - getLineNumber());
+                enter.counter.increase(&enter, context.current()->getLineNumber() - enter.element->getLineNumber());
             }
             for (int j = 0; j < -idx - 1; ++j) {
                 enter.prev();
             }
         }
     }
+    virtual Element *enterHead() { return getHead(); }
+    virtual Element *enterTail() { return getTail(); }
     Element *getNextCount(int count) {
         Element *next = this;
         while (count-- && next) {

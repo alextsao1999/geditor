@@ -47,8 +47,6 @@ Layout(LayoutDisplayCustom);
 
 class LayoutManager {
 private:
-    uint32_t m_width = 500;
-    uint32_t m_height = 2000;
     RenderManager *m_renderManager;
 public:
     explicit LayoutManager(RenderManager *renderManager);
@@ -65,10 +63,7 @@ public:
     static void ReflowAll(Document *doc);
     void reflow(EventContext context, bool relayout = false, bool outset = false);
     void relayout(EventContext context);
-    uint32_t getHeight() { return m_height; }
-    uint32_t getWidth() { return m_width; }
     LayoutFunc getLayoutFunc(Display display) { return m_layouts[display]; }
 };
-
 
 #endif //GEDITOR_LAYOUT_H

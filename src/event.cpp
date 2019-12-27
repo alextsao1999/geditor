@@ -11,10 +11,6 @@
 LineViewer EventContext::getLineViewer(int offset, int column) {
     return doc->getContext()->m_textBuffer.getLine(getLineCounter(), offset, column);
 }
-void EventContext::init(Element *ele) {
-    element = ele->enterHead();
-    index = 0;
-}
 Painter EventContext::getPainter() { return doc->getContext()->m_renderManager->getPainter(this); }
 Canvas EventContext::getCanvas(SkPaint *paint) {
     return doc->getContext()->m_renderManager->getCanvas(this, paint);
@@ -55,7 +51,7 @@ bool EventContext::next() {
 }
 void EventContext::reflow(bool relayout) {
     doc->m_context.m_layoutManager.reflow(*this, relayout);
-    doc->getContext()->m_caretManager.update();
+    doc->getContext()->m_caretManager.update(); // reflow之后更新光标位置
 }
 void EventContext::remove(Root *root) {
     root->onRemove(*this);
@@ -113,22 +109,7 @@ void EventContext::setLogicWidth(int width) { CheckBound(void(0));current()->set
 
 EventContext::EventContext(Document *doc) : doc(doc), element(doc) {}
 EventContext::EventContext(EventContext *out, int idx) : doc(out->doc), outer(out) {
-    /*更新line*/
-    if (idx >= 0) {
-        element = outer->current()->enterHead();
-        for (int j = 0; j < idx; ++j) {
-            next();
-        }
-    } else {
-        index = -1;
-        element = outer->current()->enterTail();
-        if (element) {
-            counter.increase(this, outer->current()->getLineNumber() - element->getLineNumber());
-        }
-        for (int j = 0; j < -idx - 1; ++j) {
-            prev();
-        }
-    }
+    outer->current()->onEnter(*out, *this, idx);
 }
 EventContext::EventContext(const EventContext *context, EventContext *out) :
         doc(context->doc), element(context->element), index(context->index), counter(context->counter), outer(out) {}
@@ -174,13 +155,11 @@ Lexer *EventContext::getLexer(int column) {
 bool EventContext::isHead() { return element && element->isHead(*this); }
 bool EventContext::isTail() { return element && element->isTail(*this); }
 
-Element *EventContext::replace(Element *new_element) {
+void EventContext::replace(Element *new_element) {
     if (element) {
         Element *before = element;
         element = element->onReplace(*this, new_element);
-        return before;
-    } else {
-        return nullptr;
+        before->free();
     }
 }
 

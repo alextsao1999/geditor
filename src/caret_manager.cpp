@@ -118,3 +118,10 @@ bool CaretManager::findPrev(const GChar *tag) {
     focus(m_context);
     return false;
 }
+
+EventContext *CaretManager::include(Element *element) {
+    if (!m_context) {
+        return nullptr;
+    }
+    return m_context->include(element);
+}

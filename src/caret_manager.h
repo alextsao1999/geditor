@@ -35,7 +35,7 @@ private:
     CaretPos m_data;
 public:
     Offset m_current;
-    CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
+    explicit CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();
     Element *getFocus();
     EventContext *getEventContext() { return m_context; }
@@ -80,7 +80,7 @@ public:
     bool prev();
     bool enter(int index = 0);
     void leave();
-
+    EventContext *include(Element *element);
     bool findNext(const GChar *tag);
     bool findPrev(const GChar *tag);
 

@@ -791,12 +791,14 @@ public:
 
         }
     }
-    void onFocus(EventContext &context) override {
-        context_on_outer(context, Focus); // 转交给父元素
-    }
+    void onFocus(EventContext &context) override {}
     void onBlur(EventContext &context) override {
-        if (context.outer && context.outer->tag().contain(_GT("Switch"))) { // 如果父元素是Switch 转交给父元素
+        if (context.outer && context.outer->tag().contain(_GT("Switch"))) {
+            // 如果父元素是Switch 转交给父元素
             context_on_outer(context, Blur);
+            return;
+        }
+        if (context.getCaretManager()->include(this)) {
             return;
         }
         bool clear = true;
@@ -879,14 +881,10 @@ private:
             canvas->drawPath(path, paint);
         }
     }
-
 public:
-    void onFocus(EventContext &context) override {
-
-    }
+    void onFocus(EventContext &context) override {}
     void onBlur(EventContext &context) override {
-        EventContext *ctx = context.getCaretManager()->getEventContext();
-        if (ctx && ctx->include(&context)) {
+        if (context.getCaretManager()->include(this)) {
             return;
         }
         bool clear = true;
@@ -1026,23 +1024,37 @@ public:
     Element *getTail() override { return &m_lines; }
     Display getDisplay() override { return DisplayBlock; }
     int getLogicHeight(EventContext &context) override { return m_lines.count * 25; }
+    bool expand = true;
     void onRedraw(EventContext &context) override {
-        Root::onRedraw(context);
         Canvas canvas = context.getCanvas();
-        canvas.drawText(_GT("Inline C Language"), 17 * 2, 5, 15, StyleDeafaultFont);
+        canvas.drawText(_GT("Inline C Language"), 17 * 2, 18, 15, StyleDeafaultFont);
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
         canvas->drawRect(canvas.bound(0.5, 0.5), border);
         canvas->drawLine(0, 20, context.width(), 20, border);
 
+        border.setStyle(SkPaint::kFill_Style);
+        if (expand) {
+            canvas->drawPath(PathUtil::triangleDown(8, 9, 8), border);
+            Root::onRedraw(context);
+        } else {
+            canvas->drawPath(PathUtil::triangleRight(8, 7, 10), border);
+        }
+
     }
     int getLineNumber() override { return m_lines.count; }
     int getChildCount() override { return m_lines.count; }
-    int getHeight(EventContext &context) override { return Root::getHeight(context) + 25; }
-
+    int getHeight(EventContext &context) override { return expand ? Root::getHeight(context) + 25 : 20; }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 5;
+    }
+    void onLeftButtonUp(EventContext &context, int x, int y) override {
+        if (context.relative(x, y).y < 20) {
+            expand = !expand;
+            context.reflow();
+            context.redraw();
+        }
     }
 };
 

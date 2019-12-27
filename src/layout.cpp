@@ -8,9 +8,8 @@
 LayoutManager::LayoutManager(RenderManager *renderManager) : m_renderManager(renderManager) {}
 
 void LayoutManager::ReflowAll(Document *doc) {
-    EventContext context = EventContextBuilder::build(doc);
-    context.init(doc);
-    doc->m_context.m_layoutManager.reflow(context, true, true);
+    EventContext context(doc);
+    doc->m_context.m_layoutManager.reflow(context.enter(), true, true);
     //context.reflow(true);
 }
 
@@ -57,11 +56,8 @@ void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
         if (!relayout) { // 再把父级别的元素都安排一下
             reflow(*context.outer, false);
         }
-    } else {
-        //m_width = layoutContext.blockMaxWidth;
-        m_height = offset.y;
-        m_renderManager->setVertScroll(m_height);
     }
+
 }
 
 void LayoutManager::relayout(EventContext context) {

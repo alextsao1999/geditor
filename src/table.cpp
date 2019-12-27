@@ -6,7 +6,7 @@
 
 void LineElement::onRightButtonUp(EventContext &context, int x, int y) {
     context.getCaretManager()->focus(nullptr);
-    context.replace(new SingleBlockElement())->free();
+    context.replace(new MultiLine());
     context.outer->relayout();
     context.reflow();
     context.redraw();
@@ -41,10 +41,7 @@ void LineElement::onInputChar(EventContext &context, int ch) {
 
                         } else {
                             if (m_next == nullptr && m_prev == nullptr && context.getLineViewer().empty()) {
-                                context.outer->replace(new SyntaxLineElement());
-                                context.outer->outer->relayout();
-                                context.outer->redraw();
-                                context.outer->focus();
+
                                 return;
                             }
                         }
@@ -57,7 +54,7 @@ void LineElement::onInputChar(EventContext &context, int ch) {
             break;
         case VK_RETURN: {
             if (line.content() == _GT("if")) {
-                context.replace(new SingleBlockElement())->free();
+                context.replace(new SingleBlockElement());
                 context.outer->relayout();
                 context.reflow();
                 context.redraw();
@@ -68,7 +65,7 @@ void LineElement::onInputChar(EventContext &context, int ch) {
                 return;
             }
             if (line.content() == _GT("switch")) {
-                context.replace(new SwitchElement())->free();
+                context.replace(new SwitchElement());
                 context.outer->relayout();
                 context.reflow();
                 context.redraw();

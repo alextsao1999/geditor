@@ -112,9 +112,8 @@ struct EventContext {
     void push(CommandType type, CommandData data);
     void notify(int type, int param, int other);
     void timer(long long interval, int id = 0, int count = 0);
-    Element *replace(Element *new_element);
+    void replace(Element *new_element);
     void remove(Root *ele);
-    void init(Element *ele);
 
     Tag tag();
     GRect rect();
@@ -147,7 +146,7 @@ struct EventContext {
     inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
     Lexer *getLexer(int column = 0);
     LineViewer getLineViewer(int offset = 0, int column = 0);
-    LineViewer insertLine(int offset) { return getDocContext()->m_textBuffer.insertLine(getLineCounter(), offset); }
+    LineViewer insertLine(int offset = 0) { return getDocContext()->m_textBuffer.insertLine(getLineCounter(), offset); }
     void deleteLine(int count = 1) {
         for (int i = 0; i < count; ++i) {
             getDocContext()->m_textBuffer.deleteLine(getLineCounter());
@@ -296,11 +295,18 @@ struct EventContext {
         }
     }
     EventContext *include(EventContext *rvalue) {
+        if (rvalue) {
+            EventContext *find = include(rvalue->element);
+            return (find && find->compare(rvalue)) ? find : nullptr;
+        }
+        return nullptr;
+    }
+    EventContext *include(Element *rvalue) {
         if (rvalue == nullptr || empty())
             return nullptr;
         EventContext *start = this;
         while (start != nullptr) {
-            if (start->element == rvalue->element && start->compare(rvalue)) {
+            if (start->element == rvalue) {
                 return start;
             }
             start = start->outer;

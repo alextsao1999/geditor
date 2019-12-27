@@ -99,8 +99,23 @@ public:
     virtual bool isTail(EventContext &context) { return getNext() == nullptr; }
     virtual Element *getNextWithContext(EventContext &context) { return getNext(); }
     virtual Element *getPrevWithContext(EventContext &context){ return getPrev(); }
-    virtual Element *enterHead() { return getHead(); }
-    virtual Element *enterTail() { return getTail(); }
+    virtual void onEnter(EventContext &context, EventContext &enter, int idx) {
+        if (idx >= 0) {
+            enter.element = getHead();
+            for (int j = 0; j < idx; ++j) {
+                enter.next();
+            }
+        } else {
+            enter.index = -1;
+            enter.element = getTail();
+            if (enter.element) {
+                enter.counter.increase(&enter, context.current()->getLineNumber() - getLineNumber());
+            }
+            for (int j = 0; j < -idx - 1; ++j) {
+                enter.prev();
+            }
+        }
+    }
     Element *getNextCount(int count) {
         Element *next = this;
         while (count-- && next) {
@@ -240,7 +255,7 @@ public:
         Element *start = m_head;
         while (start != nullptr) {
             Element *next = start->getNext();
-            next->free();
+            start->free();
             start = next;
         }
         delete this;
@@ -341,12 +356,12 @@ public:
         return m_root.enter(-1);
     }
     int getLogicWidth(EventContext &context) override {
-        return m_context.m_layoutManager.getWidth();
+        return m_context.m_renderManager->getViewportSize().width - 50;
     }
-    int getLogicHeight(EventContext &context) override {
-        return m_context.m_layoutManager.getHeight();
+    void onFinishReflow(EventContext &context, int width, int height) override {
+        Container::onFinishReflow(context, width, height + 200);
+        m_context.m_renderManager->setVertScroll(m_height);
     }
-
 };
 
 #endif //TEST_DOCUMENT_H

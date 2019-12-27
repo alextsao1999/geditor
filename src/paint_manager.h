@@ -355,14 +355,6 @@ public:
         // 根据整体画布的宽高来确定显示的偏移
         SCROLLINFO info;
         GetScrollInfo(m_hWnd, SB_VERT, &info);
-        auto realWidth = (float) (layoutManager->getWidth() - size.width + 20) + 10;
-        auto realHeight = (float) (layoutManager->getHeight() - size.height + 20) + 10;
-        if (realWidth < 0.0) {
-            realWidth = 0.0;
-        }
-        if (realHeight < 0.0) {
-            realHeight = 0.0;
-        }
         offset -= m_viewportOffset;
         updateBegin(m_offset, offset);
         m_offset = offset;

@@ -87,9 +87,5 @@ void Root::onRemove(EventContext &context) {
         context.doc->getContext()->m_enterElement->onMouseLeave(0, 0);
         context.doc->getContext()->m_enterElement = nullptr;
     }
-    CaretManager *caret = context.getCaretManager();
-    EventContext *focus = caret->getEventContext();
-    if (focus && focus->include(&context)) {
-        caret->focus(nullptr);
-    }
+
 }

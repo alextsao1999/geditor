@@ -14,6 +14,7 @@
 #include "caret_manager.h"
 #include "lexer.h"
 struct Context;
+struct EventContext;
 class Root;
 class Element;
 class Document;
@@ -89,6 +90,19 @@ struct Tag {
         printf("Tag [%ws]\n", str);
     }
 };
+struct ReverseContext {
+    EventContext *context = nullptr;
+    ReverseContext *inner = nullptr;
+    ReverseContext(EventContext *context, ReverseContext *inner) : context(context), inner(inner) {}
+    void free() {
+        if (inner) {
+            inner->free();
+        } else {
+            //FIXME context->free();
+        }
+        delete inner;
+    }
+};
 struct EventContext {
     Document *doc = nullptr;
     Element *element = nullptr;
@@ -117,10 +131,12 @@ struct EventContext {
 
     Tag tag();
     GRect rect();
+    GRect bound(GScalar dx = 0, GScalar dy = 0);
     GRect logicRect();
     Offset offset();
     GRect viewportRect();
     Offset viewportOffset();
+    Offset viewportLogicOffset();
     Offset relative(int x, int y);
     Offset absolute(int x, int y) { return {x, y}; } // 将 x, y 转为 绝对offset
     Offset relOffset(Offset abs) {return abs - offset(); }
@@ -313,6 +329,17 @@ struct EventContext {
         }
         return nullptr;
     }
+    ReverseContext *reverse() {
+        EventContext *start = copy();
+        ReverseContext *reverse = nullptr;
+        while (start != nullptr) {
+            reverse = new ReverseContext(start, reverse);
+            start = start->outer;
+        }
+        return reverse;
+    }
+
+    Offset caretOffset();
 };
 class EventContextBuilder {
 public:

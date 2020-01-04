@@ -57,7 +57,10 @@ void EventContext::remove(Root *root) {
     root->onRemove(*this);
     root->free();
 }
-void EventContext::relayout() { doc->m_context.m_layoutManager.relayout(*this);reflow(); }
+void EventContext::relayout() {
+    element->onRelayout(*this, getLayoutManager());
+    reflow();
+}
 void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
 void EventContext::focus(bool isCopy) { doc->m_context.m_caretManager.focus(isCopy ? copy() : this); }
 void EventContext::push(CommandType type, CommandData data) {
@@ -73,6 +76,13 @@ Tag EventContext::tag() {
     }
     return current()->getTag(*this);
 }
+
+GRect EventContext::bound(GScalar dx, GScalar dy) {
+    GRect grect = GRect::MakeWH(width(), height());
+    grect.inset(dx, dy);
+    return grect;
+}
+
 GRect EventContext::logicRect() {
     CheckBound({});
     //Offset pos = current()->getLogicOffset();
@@ -90,7 +100,11 @@ GRect EventContext::viewportRect() {
 }
 Offset EventContext::viewportOffset() {
     CheckBound({});
-    return offset() - doc->getContext()->m_renderManager->getViewportOffset();
+    return offset() - caretOffset() - doc->getContext()->m_renderManager->getViewportOffset();
+}
+Offset EventContext::viewportLogicOffset() {
+    CheckBound({});
+    return element->getLogicOffset() - doc->getContext()->m_renderManager->getViewportOffset();
 }
 Offset EventContext::offset() {
     CheckBound({});
@@ -135,6 +149,8 @@ StyleManager *EventContext::getStyleManager() { return &getDocContext()->m_style
 bool EventContext::isSelected() {
     CheckBound(false);
     GRect a = this->rect();
+    Offset caret = caretOffset();
+    a.offset(-caret.x, -caret.y);
     GRect b = getDocContext()->getSelectRect();
     return a.fTop <= b.fBottom && b.fTop <= a.fBottom && (b.width() != 0 || b.height() != 0);
 }
@@ -142,7 +158,7 @@ bool EventContext::isSelected() {
 bool EventContext::visible() {
     CheckBound(false);
     Size size = doc->m_context.m_renderManager->getViewportSize();
-    return GRect::Intersects(GRect::MakeWH(size.width, size.height), viewportRect());
+    return GRect::Intersects(GRect::MakeWH(size.width, size.height), viewportRect()) && display() != DisplayNone;
 }
 
 bool EventContext::selecting() { return getDocContext()->m_selecting; }
@@ -169,5 +185,15 @@ bool EventContext::isSelectedStart() {
 
 bool EventContext::isSelectedEnd() {
     return rect().round().contains(doc->m_context.m_selectEnd.x, doc->m_context.m_selectEnd.y);
+}
+
+Offset EventContext::caretOffset() {
+    EventContext *pOuter = outer;
+    Offset offset;
+    while (pOuter != nullptr) {
+        offset += pOuter->element->getCaretOffset(*pOuter);
+        pOuter = pOuter->outer;
+    }
+    return offset;
 }
 

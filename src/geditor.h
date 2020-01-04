@@ -37,9 +37,15 @@ public:
         ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
+//        m_data->m_document.append(new MultiLine());
+//        m_data->m_document.append(new SingleBlockElement());
         m_data->m_document.append(new SyntaxLineElement());
-        m_data->m_document.append(new MultiLine());
+
         m_data->m_document.append(new SyntaxLineElement());
+        auto *container = new ScrolledContainer<>(300, 300);
+        container->append(new SubElement());
+        m_data->m_document.append(container);
+
 //        m_data->m_document.appendElement(new SyntaxLineElement());
 //        m_data->m_document.appendElement(new SyntaxLineElement());
         //m_data->m_document.appendElement(new SwitchElement());
@@ -48,12 +54,13 @@ public:
 //        auto *table = new TableElement(2, 2);
 //        auto *table_inner = new TableElement(2, 2);
 //        table->replace(0, 0, table_inner);
-
         //m_data->m_document.appendElement(new ExLineElement());
-        //m_data->m_document.append(new MoveElement());
-        //m_data->m_document.append(new ButtonElement());
+//        m_data->m_document.append(new MoveElement());
+//        m_data->m_document.append(new ButtonElement());
         m_data->m_document.append(new SubElement());
         m_data->m_document.append(new SubElement());
+        //m_data->m_document.append(new ScrollElement());
+
 /*
         m_data->m_document.appendElement(table);
         m_data->m_document.appendLine(new LineElement()).append(L"var a = 100;");

@@ -30,6 +30,7 @@
 class Root {
 public:
     virtual ~Root() = default;
+
     ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
     virtual void free() {}
@@ -39,6 +40,7 @@ public:
     virtual Offset getLogicOffset() { return {0, 0}; }
     // 获取实际的偏移
     virtual Offset getOffset(EventContext &context) { return {0, 0}; }
+    virtual Offset getCaretOffset(EventContext &context) { return {0, 0}; }
     virtual int getLogicWidth(EventContext &context) { return 0; };
     virtual int getLogicHeight(EventContext &context) { return 0; };
     virtual int getMinWidth(EventContext &context) { return getLogicWidth(context); };
@@ -68,6 +70,8 @@ public:
      * @return EventContext
      */
     /////////////////////////////////////////
+    typedef SkCanvas *Drawable;
+    virtual void onDraw(EventContext &context, Drawable canvas);
     virtual void onRedraw(EventContext &context);
     virtual void onRemove(EventContext &context);
     virtual bool onTimer(EventContext &context, int id) { return false; }
@@ -143,6 +147,9 @@ public:
     virtual void onMouseLeave(int x, int y) {}
     // Display为Custom的时候才会调用这个方法
     virtual void onReflow(LayoutArgs()) {}
+    virtual void onRelayout(EventContext &context, LayoutManager *sender) {
+        sender->reflow(context.enter(), true);
+    }
     DEFINE_EVENT(onFocus);
     DEFINE_EVENT(onBlur);
     DEFINE_EVENT(onKeyDown, int code, int status);
@@ -158,7 +165,7 @@ public:
     DEFINE_EVENT(onUnselect);
     DEFINE_EVENT(onUndo, Command command);
     DEFINE_EVENT(onEnterReflow, Offset &offset);
-    DEFINE_EVENT(onLeaveReflow);
+    DEFINE_EVENT(onLeaveReflow, Offset &offset);
     DEFINE_EVENT(onFinishReflow, int width, int height);
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
     enum NotifyType {
@@ -238,10 +245,33 @@ private:
 public:
     Display getDisplay() override { return DisplayAbsolute; }
     Offset getLogicOffset() override { return {m_left, m_top}; }
-    int getLogicWidth(EventContext &context) override { return m_right - m_left; }
-    int getLogicHeight(EventContext &context) override { return m_bottom - m_top; }
-
-
+    Offset getOffset(EventContext &context) override {
+        Offset offset = getLogicOffset();
+        if (context.outer) {
+            if (offset.x < 0) {
+                offset.x += context.outer->width();
+            }
+            if (offset.y < 0) {
+                offset.y += context.outer->height();
+            }
+            offset += context.outer->offset();
+        }
+        return offset;
+    }
+    int getLogicWidth(EventContext &context) override {
+        int width = m_right - m_left;
+        if (width < 0 && context.outer) {
+            width += context.outer->width() + 1;
+        }
+        return width;
+    }
+    int getLogicHeight(EventContext &context) override {
+        int height = m_bottom - m_top;
+        if (height < 0) {
+            height += context.outer->height() + 1;
+        }
+        return height;
+    }
 };
 
 // 根据Children 自动改变宽高
@@ -336,6 +366,78 @@ public:
     }
     virtual Element *remove(int index) { return remove(get(index)); }
     virtual Element *replace(int index, Element *element) { return replace(get(index), element); }
+};
+template <Display D = DisplayBlock>
+class ScrolledContainer : public Container<D> {
+public:
+    Offset m_contentOffset;
+    bool m_click = false;
+    Offset m_clickOffset;
+    int m_contentWidth = 0;
+    int m_contentHeight = 0;
+    ScrolledContainer(int width, int height) {
+        m_width = width;
+        m_height = height;
+    }
+    void onFinishReflow(EventContext &context, int width, int height) override {
+        m_contentWidth = width;
+        m_contentHeight = height;
+    }
+    void onPreMouseMove(EventContext &context, int x, int y) override {
+        if (m_click) {
+            m_contentOffset = context.relative(x, y) - m_clickOffset;
+            m_contentOffset.x = 0;
+            context.getCaretManager()->update();
+            context.redraw();
+            return;
+        }
+        Element::onPreMouseMove(context, x + m_contentOffset.x, y + m_contentOffset.y);
+    }
+    void onLeftButtonUp(EventContext &context, int x, int y) override {
+        m_click = false;
+        Element::onLeftButtonUp(context, x + m_contentOffset.x, y + m_contentOffset.y);
+    }
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        m_clickOffset = context.relative(x, y);
+        if (m_clickOffset.x > m_width - 10) {
+            m_contentOffset.y = m_clickOffset.y;
+            m_click = true;
+            printf("click %d", m_clickOffset.y);
+            return;
+        }
+        Element::onLeftButtonDown(context, x + m_contentOffset.x, y + m_contentOffset.y);
+    }
+    void onRightButtonUp(EventContext &context, int x, int y) override {
+        Element::onRightButtonUp(context, x + m_contentOffset.x, y + m_contentOffset.y);
+    }
+    void onRightButtonDown(EventContext &context, int x, int y) override {
+        Element::onRightButtonDown(context, x + m_contentOffset.x, y + m_contentOffset.y);
+    }
+    void onLeftDoubleClick(EventContext &context, int x, int y) override {
+        Element::onLeftDoubleClick(context, x + m_contentOffset.x, y + m_contentOffset.y);
+    }
+    void onRightDoubleClick(EventContext &context, int x, int y) override {
+        Element::onRightDoubleClick(context, x + m_contentOffset.x, y + m_contentOffset.y);
+    }
+    void onDraw(EventContext &context, SkCanvas *canvas) override {
+        canvas->translate(0, -m_contentOffset.y);
+        Root::onDraw(context, canvas);
+        canvas->translate(0, m_contentOffset.y);
+
+        SkPaint border;
+
+        border.setAlpha(150);
+        border.setStyle(SkPaint::kFill_Style);
+        GRect rect = GRect::MakeXYWH(m_width - 10, m_contentOffset.y + 5, 8, 25);
+        canvas->drawRoundRect(rect, 3, 3, border);
+
+        border.setStyle(SkPaint::kStroke_Style);
+        canvas->drawRect(context.bound(0.5, 0.5), border);
+
+    }
+    Offset getCaretOffset(EventContext &context) override {
+        return {0, m_contentOffset.y};
+    }
 };
 class Document : public Container<DisplayBlock> {
 public:

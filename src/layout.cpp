@@ -9,11 +9,11 @@ LayoutManager::LayoutManager(RenderManager *renderManager) : m_renderManager(ren
 
 void LayoutManager::ReflowAll(Document *doc) {
     EventContext context(doc);
-    doc->m_context.m_layoutManager.reflow(context.enter(), true, true);
+    doc->m_context.m_layoutManager.reflow(context.enter(), true);
     //context.reflow(true);
 }
 
-void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
+void LayoutManager::reflow(EventContext context, bool relayout) {
     if (!context.has()) {
         return;
     }
@@ -21,6 +21,7 @@ void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
     LayoutContext layoutContext;
     Element *current = context.current();
     Offset offset;
+    bool outset = context.isHead();
     if (outset) {
         // 从起始开始 offset 为 {0, 0}
         current->onEnterReflow(context, offset);
@@ -29,11 +30,10 @@ void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
     }
     Offset self = offset;
     Display display = current->getDisplay();
-    m_layouts[display](context, this, display, layoutContext, self, offset, relayout);
-    if (outset) {
-        current->setLogicOffset(self);
-        current->onLeaveReflow(context);
-    }
+    if (relayout) current->onRelayout(context, this);
+    m_layouts[display](context, this, display, layoutContext, self, offset);
+    if (outset) current->setLogicOffset(self);
+    current->onLeaveReflow(context, offset);
     context.next();
     // 再把同级别的元素都安排一下
     while (context.has()) {
@@ -41,9 +41,10 @@ void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
         current->onEnterReflow(context, offset);
         self = offset;
         display = current->getDisplay();
-        m_layouts[display](context, this, display, layoutContext, self, offset, relayout);
+        if (relayout) current->onRelayout(context, this);
+        m_layouts[display](context, this, display, layoutContext, self, offset);
         current->setLogicOffset(self);
-        current->onLeaveReflow(context);
+        current->onLeaveReflow(context, offset);
         context.next();
     }
     if (context.outer) {
@@ -57,87 +58,33 @@ void LayoutManager::reflow(EventContext context, bool relayout, bool outset) {
             reflow(*context.outer, false);
         }
     }
-
-}
-
-void LayoutManager::relayout(EventContext context) {
-    if (!context.has()) {
-        return;
-    }
-    LayoutContext layoutContext;
-    Element *current = context.current();
-    Offset offset = current->getLogicOffset();
-    //current->onEnterReflow(context, offset);
-    Display display = context.display();
-    Offset self = offset;
-    m_layouts[display](context, this, display, layoutContext, self, offset, true);
-    current->setLogicOffset(self);
-    //current->onLeaveReflow(context);
 }
 
 Layout(LayoutDisplayNone) {}
 Layout(LayoutDisplayAbsolute) {}
 Layout(LayoutDisplayInline) {
     layoutContext.blockMaxWidth = 0;
+    int before = next.x;
     next.x += context.width();
     uint32_t value = context.height();
     if (value > layoutContext.lineMaxHeight) {
         layoutContext.lineMaxHeight = value;
     }
+    next.x = before;
 }
 Layout(LayoutDisplayBlock) {
-    if (relayout) {
-        sender->reflow(context.enter(), true, true);
-    }
     layoutContext.lineMaxHeight = 0;
     uint32_t value = context.width();
     if (value > layoutContext.blockMaxWidth) {
         layoutContext.blockMaxWidth = value;
     }
-    next.x = 0;
+    //next.x = 0;
     next.y += context.height();
 }
 Layout(LayoutDisplayLine) {
-    if (relayout) {
-        sender->reflow(context.enter(), true, true);
-    }
     UseDisplayFunc(LayoutDisplayBlock);
 }
 Layout(LayoutDisplayTable) {
-    if (relayout) {
-        Buffer<uint32_t> MaxWidthBuffer;
-        Buffer<uint32_t> MaxHeightBuffer;
-        for_context(row, context) {
-            for_context(col, row) {
-                col.relayout();
-                uint32_t width = col.minWidth();
-                uint32_t height = col.minHeight();
-                if (width > MaxWidthBuffer[col.index]) MaxWidthBuffer[col.index] = width;
-                if (height > MaxHeightBuffer[row.index]) MaxHeightBuffer[row.index] = height;
-            }
-        }
-        Offset pos_row(0, 0);
-        for_context(row, context) {
-            row.current()->setLogicOffset(pos_row);
-            Offset pos_col(0, 0);
-            for_context(col, row) {
-                col.current()->setLogicOffset(pos_col);
-                col.setLogicWidth(MaxWidthBuffer[col.index]);
-                col.setLogicHeight(MaxHeightBuffer[row.index]);
-                //context_on(col, FinishReflow, MaxWidthBuffer[col.index], MaxHeightBuffer[row.index]);
-                pos_col.x += MaxWidthBuffer[col.index];
-            }
-            //row.setLogicWidth(pos_col.x);
-            //row.setLogicHeight(MaxHeightBuffer[row.index]);
-            context_on(row, FinishReflow, pos_col.x, MaxHeightBuffer[row.index]);
-            pos_row.y += MaxHeightBuffer[row.index];
-        }
-        uint32_t table_width = 0;
-        for (auto iter = MaxWidthBuffer.iter(); iter.has(); iter.next()) {
-            table_width += iter.current();
-        }
-        context_on(context, FinishReflow, table_width, pos_row.y);
-    }
     if (context.parent().display() == DisplayRow) {
         UseDisplayFunc(LayoutDisplayInline);
     } else {
@@ -145,9 +92,6 @@ Layout(LayoutDisplayTable) {
     }
 }
 Layout(LayoutDisplayRow) {
-    if (relayout) {
-
-    }
     UseDisplayFunc(LayoutDisplayBlock);
 }
 Layout(LayoutDisplayCustom) {

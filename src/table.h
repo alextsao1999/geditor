@@ -557,6 +557,16 @@ public:
         }
     }
     virtual Element *copy() { return new LineElement(); }
+
+    void onDraw(EventContext &context, Drawable canvas) override {
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(context.bound(0.5), border);
+        LineViewer viewer = context.getLineViewer();
+        canvas->translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
+        canvas->drawText(viewer.c_str(), viewer.size(), 4, 4, context.getStyle(StyleDeafaultFont).paint());
+    }
 };
 class SyntaxLineElement : public LineElement {
 public:
@@ -587,6 +597,30 @@ public:
 
         drawLight(context);
 
+    }
+    void onDraw(EventContext &context, Drawable canvas) override {
+        SkPaint border;
+        if (context.isSelected()) {
+            border.setStyle(SkPaint::Style::kStrokeAndFill_Style);
+        } else {
+            border.setStyle(SkPaint::Style::kStroke_Style);
+        }
+        border.setColor(SK_ColorLTGRAY);
+        //canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        auto *lexer = context.getLexer();
+        Offset offset(4, context.height() - 4);
+        while (lexer->has()) {
+            Token token = lexer->next();
+            if (token == TokenIdentifier && token.style != StyleKeywordFont) {
+                if (lexer->peek() == _GT("(") || (lexer->peek() == TokenSpace && lexer->peek(2) == _GT("("))) {
+                    token.style = StyleFunctionFont;
+                }
+            }
+            GStyle &token_style = context.getStyle(token.style);
+            canvas->drawText(token.c_str(), token.size(), offset.x, offset.y, token_style.paint());
+            offset.x += token_style.measureText(token.c_str(), token.size());
+        }
+        drawLight(context);
     }
 };
 class TextElement : public RelativeElement {
@@ -684,6 +718,16 @@ public:
         service.moveTo(context.relOffset(context.pos().getOffset()));
         service.commit(m_data, StyleTableFont);
     }
+    void onDraw(EventContext &context, SkCanvas *canvas) override {
+        if (context.outer && context.outer->isSelected()) {
+            canvas->drawRect(context.bound(0.5, 0.5), context.getStyle(StyleTableBorderSelected).paint());
+        } else {
+            canvas->drawRect(context.bound(0.5, 0.5), context.getStyle(StyleTableBorder).paint());
+        }
+        canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
+        canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2,
+                         context.getStyle(StyleTableFont).paint());
+    }
 
 };
 class RowElement : public Container<DisplayRow> {
@@ -757,6 +801,43 @@ public:
         offset.x += 4;
         offset.y += 5;
     }
+    void onLeaveReflow(EventContext &context, Offset &offset) override {
+        offset.x -= 4;
+    }
+    void onRelayout(EventContext &context, LayoutManager *sender) override {
+        Buffer<uint32_t> MaxWidthBuffer;
+        Buffer<uint32_t> MaxHeightBuffer;
+        for_context(row, context) {
+            for_context(col, row) {
+                col.relayout();
+                uint32_t width = col.minWidth();
+                uint32_t height = col.minHeight();
+                if (width > MaxWidthBuffer[col.index]) MaxWidthBuffer[col.index] = width;
+                if (height > MaxHeightBuffer[row.index]) MaxHeightBuffer[row.index] = height;
+            }
+        }
+        Offset pos_row(0, 0);
+        for_context(row, context) {
+            row.current()->setLogicOffset(pos_row);
+            Offset pos_col(0, 0);
+            for_context(col, row) {
+                col.current()->setLogicOffset(pos_col);
+                col.setLogicWidth(MaxWidthBuffer[col.index]);
+                col.setLogicHeight(MaxHeightBuffer[row.index]);
+                //context_on(col, FinishReflow, MaxWidthBuffer[col.index], MaxHeightBuffer[row.index]);
+                pos_col.x += MaxWidthBuffer[col.index];
+            }
+            //row.setLogicWidth(pos_col.x);
+            //row.setLogicHeight(MaxHeightBuffer[row.index]);
+            context_on(row, FinishReflow, pos_col.x, MaxHeightBuffer[row.index]);
+            pos_row.y += MaxHeightBuffer[row.index];
+        }
+        uint32_t table_width = 0;
+        for (auto iter = MaxWidthBuffer.iter(); iter.has(); iter.next()) {
+            table_width += iter.current();
+        }
+        context_on(context, FinishReflow, table_width, pos_row.y);
+    }
 
 };
 class CodeBlockElement : public Container<> {
@@ -770,6 +851,9 @@ public:
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 25;
     }
+    void onLeaveReflow(EventContext &context, Offset &offset) override {
+        offset.x -= 25;
+    }
     void onRedraw(EventContext &context) override {
         Container::onRedraw(context);
         return;
@@ -778,8 +862,8 @@ public:
         SkPoint points[2] = {{0.0f, 0.0f}, {3.0f, 3.0f}};
         SkColor colors[2] = {SkColorSetRGB(66,133,244), SkColorSetRGB(15,157,88)};
         paint.setShader(
-                SkGradientShader::CreateLinear(
-                        points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL))
+                        SkGradientShader::CreateLinear(
+                                points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL))
                 ->unref();
         //paint.setColor(SK_ColorBLACK);
         for_context(ctx, context) {
@@ -903,12 +987,100 @@ public:
             }
         }
     }
+    void onDraw(EventContext &context, Drawable drawable) override {
+        Root::onDraw(context, drawable);
+        SkPaint paint;
+        GScalar inter[2] = {3, 2};
+        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
+        paint.setColor(SK_ColorBLACK);
+        paint.setAlpha(180);
+        Offset runStart;
+        for_context(ctx, context) {
+            if (!ctx.tag().contain(_GT("CodeBlock"))) {
+                continue;
+            }
+            Canvas canvas = ctx.getCanvas();
+            if (ctx.isHead()) {
+                runStart = context.relOffset(ctx.enter(-1).offset());
+            }
+            if (!ctx.isTail()) {
+                int lineTop = ctx.isHead() ? 15 : 20;
+                if (ctx.isHead() && (
+                        (context.parent().tag() == _GT("CodeBlock") && context.isHead()) ||
+                        context.nearby(-1).tag().contain(_GT("CodeBlock")))) {
+                    lineTop = 20;
+                }
+                canvas->drawLine(-15, lineTop, 0, lineTop, paint);
+
+                int lineBottom = ctx.height() + 15;
+                canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
+                int underlineRight;
+                if (ctx.nearby(1).enter().tag().contain(_GT("CodeBlock"))) {
+                    underlineRight = 25;
+                } else {
+                    underlineRight = 0;
+                }
+                canvas->drawLine(-15, lineBottom, underlineRight, lineBottom, paint); // 下边线
+                GPath path = PathUtil::triangleRight(6, underlineRight - 2, lineBottom);
+                canvas->drawPath(path, paint);// 下边线三角形
+                canvas->drawLine(-6, ctx.height() - 10, 0, ctx.height() - 10, paint); // 逃逸线横线
+            }
+        }
+        Canvas canvas = context.getCanvas();
+        if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
+            int runawayBottom = context.height() + 15;
+            // 逃逸线竖线
+            canvas->drawLine(18, runStart.y + 15, 18, runawayBottom, paint);
+            // 逃逸线 下边右横线
+            canvas->drawLine(18, runawayBottom, 24, runawayBottom, paint);
+            GPath path = PathUtil::triangleRight(6, 23, runawayBottom); // 右三角
+            canvas->drawPath(path, paint);
+        } else {
+            // 逃逸线竖线
+            canvas->drawLine(18, runStart.y + 15, 18, context.height(), paint);
+            // 逃逸线向下
+            GPath path = PathUtil::triangleDown(6, 18, context.height() - 2);
+            // 有可能后面还有流程语句 需要连接
+            canvas->drawPath(path, paint);
+        }
+
+    }
 };
 class SingleBlockElement : public CodeBlockElement {
 public:
     Tag getTag(EventContext &context) override { return _GT("Single CodeBlock"); }
     void onRedraw(EventContext &context) override {
         CodeBlockElement::onRedraw(context);
+        Canvas canvas = context.getCanvas();
+        SkPaint paint;
+        GScalar inter[2] = {3, 2};
+        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
+        paint.setColor(SK_ColorBLACK);
+        paint.setAlpha(180);
+
+        int lineTop = 15;
+        if ((context.parent().tag() == _GT("CodeBlock") && context.isHead()) ||
+            context.nearby(-1).tag().contain(_GT("CodeBlock"))) {
+            lineTop = 20;
+        }
+        canvas->drawLine(-15, lineTop, 0, lineTop, paint);
+        if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
+            int lineBottom = context.height() + 15;
+            canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
+
+            canvas->drawLine(-15, lineBottom, 0, lineBottom, paint); // 下边线
+            GPath path = PathUtil::triangleRight(6, 0, lineBottom);
+            canvas->drawPath(path, paint);
+        } else {
+            int lineBottom = context.height() - 5;
+            canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
+            GPath path = PathUtil::triangleDown(6, -15, lineBottom);
+            canvas->drawPath(path, paint);
+        }
+    }
+
+    void onDraw(EventContext &context, Drawable drawable) override {
+        CodeBlockElement::onDraw(context, drawable);
         Canvas canvas = context.getCanvas();
         SkPaint paint;
         GScalar inter[2] = {3, 2};
@@ -1049,6 +1221,9 @@ public:
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 5;
     }
+    void onLeaveReflow(EventContext &context, Offset &offset) override {
+        offset.x -= 5;
+    }
     void onLeftButtonUp(EventContext &context, int x, int y) override {
         if (context.relative(x, y).y < 20) {
             expand = !expand;
@@ -1057,5 +1232,4 @@ public:
         }
     }
 };
-
 #endif //GEDITOR_TABLE_H

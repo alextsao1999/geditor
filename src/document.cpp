@@ -6,14 +6,10 @@
 
 Offset Element::getOffset(EventContext &context) {
     Offset offset = getLogicOffset();
-    if (context.outer) {
-        if (offset.x < 0) {
-            offset.x += cur_context(*context.outer, getWidth);
-        }
-        if (offset.y < 0) {
-            offset.y += cur_context(*context.outer, getHeight);
-        }
-        offset += cur_context(*context.outer, getOffset);
+    EventContext *outer = context.outer;
+    while (outer != nullptr) {
+        offset += outer->element->getLogicOffset();
+        outer = outer->outer;
     }
     return offset;
 }
@@ -70,6 +66,22 @@ Root *Root::getContain(EventContext &context, int x, int y) {
         event.next();
     }
     return nullptr;
+}
+
+void Root::onDraw(EventContext &context, SkCanvas *canvas) {
+    for_context(ctx, context) {
+        if (ctx.visible()) {
+            Offset offset = ctx.current()->getLogicOffset();
+            if (context.isDocument()) {
+                offset -= context.doc->getContext()->m_renderManager->getViewportOffset();
+            }
+            auto bound = GRect::MakeXYWH(offset.x, offset.y, ctx.width(), ctx.height());
+            int count = canvas->saveLayer(&bound, nullptr);
+            canvas->translate(offset.x, offset.y);
+            ctx.current()->onDraw(ctx, canvas);
+            canvas->restoreToCount(count);
+        }
+    }
 }
 
 void Root::onRedraw(EventContext &context) {

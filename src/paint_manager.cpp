@@ -6,6 +6,7 @@
 #include "geditor.h"
 #include "paint_manager.h"
 #include "SkTextBlob.h"
+#include "SkSurface.h"
 Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(context) {
     m_offset = context->offset() - context->getRenderManager()->getViewportOffset();
 }
@@ -69,7 +70,8 @@ GRect Canvas::bound(SkScalar dx, SkScalar dy) {
 }
 
 void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y, int style) {
-    //m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style).paint());
+    m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style).paint());
+/*
     SkTextBlobBuilder builder;
     SkPaint paint = m_context->getStyle(style).paint();
     paint.setTextEncoding(SkPaint::TextEncoding::kGlyphID_TextEncoding);
@@ -80,6 +82,7 @@ void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y,
     auto &run = builder.allocRun(paint, count, 0, 0);
     m_context->getStyle(style).paint().textToGlyphs(text, byteLength, run.glyphs);
     m_canvas->drawTextBlob(builder.build(), x, y, paint);
+*/
 
     if (m_context) {
         return;
@@ -110,7 +113,7 @@ void Canvas::drawRect(const GRect &rect, int style) {
 }
 
 void RenderManager::redraw(EventContext *ctx) {
-    Offset offset = ctx->offset() - getViewportOffset();
+    Offset offset = ctx->viewportOffset();
     RECT rect;
     rect.left = offset.x;
     rect.top = offset.y;
@@ -121,15 +124,25 @@ void RenderManager::redraw(EventContext *ctx) {
 }
 
 void RenderManager::redrawRect(GRect *rect) {
+    update();
+    m_data->m_document.onDraw(m_data->m_document.m_root, m_canvas.get());
+    return;
     if (m_data->m_begin.empty()) {
         m_data->m_begin = m_data->m_document.m_root.enter();
     }
     EventContext context = m_data->m_begin;
     GRect select = m_data->m_document.getContext()->getSelectRect();
     update();
+    SkCanvas *canvas = m_canvas.get();
     while (context.has()) {
-        if (context.display() != DisplayNone) {
-            context.current()->onRedraw(context);
+        if (context.visible()) {
+            Offset offset = context.viewportLogicOffset();
+            auto bound = GRect::MakeXYWH(offset.x, offset.y, context.width(), context.height());
+            int count = canvas->saveLayer(&bound, nullptr);
+            canvas->translate(offset.x, offset.y);
+            context.current()->onDraw(context, canvas);
+            canvas->restoreToCount(count);
+/*
             if (context.isSelected()) {
                 Canvas canvas = context.getCanvas();
                 SkPaint color;
@@ -138,6 +151,7 @@ void RenderManager::redrawRect(GRect *rect) {
                 auto bound = context.relative(select.x(), select.y());
                 canvas->drawRect(GRect::MakeXYWH(bound.x, bound.y, select.width(), select.height()), color);
             }
+*/
         }
         context.next();
     }

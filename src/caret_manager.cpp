@@ -92,7 +92,7 @@ bool CaretManager::prev() {
 
 Offset CaretManager::current() {
     if (m_context) {
-        return m_context->offset() + m_current;
+        return m_context->offset() - m_context->caretOffset() + m_current;
     }
     return m_current;
 }

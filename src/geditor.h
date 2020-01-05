@@ -167,6 +167,10 @@ public:
                 break;
             case WM_IME_CHAR:
             case WM_CHAR:
+                if (wParam == 26 && lParam == 2883585) {
+                    data->m_document.undo();
+                    return 0;
+                }
                 MsgCallFocus(onInputChar, wParam);
                 break;
             case WM_KEYDOWN:

@@ -151,6 +151,10 @@ struct EventContext {
     void setLogicWidth(int width);
     void setLogicHeight(int height);
     inline CaretPos &pos() { return getCaretManager()->data(); }
+    void setPos(CaretPos pos) {
+        getCaretManager()->data() = pos;
+        getCaretManager()->update();
+    }
     inline Element *current() { return element; }
     Painter getPainter();
     Canvas getCanvas(SkPaint *paint);

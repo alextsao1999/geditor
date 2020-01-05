@@ -547,6 +547,29 @@ public:
     }
     virtual Element *copy() { return new LineElement(); }
 
+    void onUndo(EventContext &context, Command command) override {
+        auto line = context.getLineViewer();
+        switch (command.type) {
+            case CommandType::Change:
+                break;
+            case CommandType::Add:
+                line.remove(command.data.input.pos);
+                break;
+            case CommandType::Delete:
+                break;
+            case CommandType::AddLine:
+                break;
+            case CommandType::DeleteLine:
+                break;
+            case CommandType::None:
+                break;
+        }
+        context.pos() = command.pos;
+        context.focus();
+        context.redraw();
+        //printf("undo input %c \n", command.data.input.ch);
+    }
+
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         SkPaint border;

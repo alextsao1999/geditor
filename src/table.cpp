@@ -88,8 +88,8 @@ void LineElement::onInputChar(EventContext &context, int ch) {
             return;
         }
         default:
-            line.insert(service.index(), ch);
             context.push(CommandType::Add, CommandData(service.index(), ch));
+            line.insert(service.index(), ch);
             service.moveRight();
             break;
     }

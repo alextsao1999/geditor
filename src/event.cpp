@@ -64,7 +64,7 @@ void EventContext::relayout() {
 void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
 void EventContext::focus(bool isCopy) { doc->m_context.m_caretManager.focus(isCopy ? copy() : this); }
 void EventContext::push(CommandType type, CommandData data) {
-    doc->getContext()->m_queue.push({copy(), type, data});
+    doc->getContext()->m_queue.push({copy(), pos(), type, data});
 }
 void EventContext::notify(int type, int param, int other) {
     CheckBound(void(0));

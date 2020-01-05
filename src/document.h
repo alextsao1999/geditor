@@ -496,6 +496,13 @@ public:
         }
         m_viewportOffset = offset;
     }
+    void undo() {
+        if (m_context.m_queue.has()) {
+            auto command = m_context.m_queue.pop();
+            command.context->current()->onUndo(*command.context, command);
+        }
+
+    }
 };
 
 #endif //TEST_DOCUMENT_H

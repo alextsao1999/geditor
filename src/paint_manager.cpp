@@ -125,66 +125,31 @@ void RenderManager::redraw(EventContext *ctx) {
 
 void RenderManager::redrawRect(GRect *rect) {
     update();
-    m_data->m_document.onDraw(m_data->m_document.m_root, m_canvas.get());
-    return;
-    if (m_data->m_begin.empty()) {
-        m_data->m_begin = m_data->m_document.m_root.enter();
-    }
-    EventContext context = m_data->m_begin;
-    GRect select = m_data->m_document.getContext()->getSelectRect();
-    update();
-    SkCanvas *canvas = m_canvas.get();
-    while (context.has()) {
-        if (context.visible()) {
-            Offset offset = context.viewportLogicOffset();
-            auto bound = GRect::MakeXYWH(offset.x, offset.y, context.width(), context.height());
-            int count = canvas->saveLayer(&bound, nullptr);
-            canvas->translate(offset.x, offset.y);
-            context.current()->onDraw(context, canvas);
-            canvas->restoreToCount(count);
-/*
-            if (context.isSelected()) {
-                Canvas canvas = context.getCanvas();
-                SkPaint color;
-                color.setColor(SK_ColorCYAN);
-                color.setAlpha(150);
-                auto bound = context.relative(select.x(), select.y());
-                canvas->drawRect(GRect::MakeXYWH(bound.x, bound.y, select.width(), select.height()), color);
-            }
-*/
-        }
-        context.next();
-    }
-/*
-    SkPaint paint;
-    paint.setColor(SK_ColorBLACK);
-    paint.setStyle(SkPaint::Style::kStroke_Style);
-    paint.setStrokeWidth(1);
-    rect->inset(0.5, 0.5);
-    m_canvas->drawRect(*rect, paint);
-*/
+//    m_data->m_document.onDraw(m_data->m_document.m_root, m_canvas.get());
+    m_data->m_document.onRedraw(m_data->m_document.m_root);
 
+/*
+    if (context.isSelected()) {
+        Canvas canvas = context.getCanvas();
+        SkPaint color;
+        color.setColor(SK_ColorCYAN);
+        color.setAlpha(150);
+        auto bound = context.relative(select.x(), select.y());
+        canvas->drawRect(GRect::MakeXYWH(bound.x, bound.y, select.width(), select.height()), color);
+    }
+*/
 }
 
-void RenderManager::updateBegin(Offset before, Offset now) {
-    if (before.y > now.y) { // 向上
-        while (m_data->m_begin.has()) {
-            if (!m_data->m_begin.visible()) {
-                break;
-            }
-            m_data->m_begin.prev();
-        }
-    } else { // 向下
-        while (m_data->m_begin.has()) {
-            if (m_data->m_begin.visible()) {
-                break;
-            }
-            m_data->m_begin.next();
-        }
-    }
-    if (m_data->m_begin.empty()) {
-        m_data->m_begin = m_data->m_document.m_root.enter();
-    }
+void RenderManager::updateViewport(LayoutManager *layoutManager) {
+    Offset offset;
+    offset.x = GetScrollPos(m_hWnd, SB_HORZ);
+    offset.y = GetScrollPos(m_hWnd, SB_VERT);
+    m_data->m_document.setViewportOffset(offset);
+    refresh();
+}
+
+Offset RenderManager::getViewportOffset() {
+    return m_data->m_document.m_viewportOffset;
 }
 
 

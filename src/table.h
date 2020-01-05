@@ -435,17 +435,6 @@ public:
     //int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
     Tag getTag(EventContext &context) override { return {_GT("Line Focus")}; }
-    void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas();
-        SkPaint border;
-        border.setStyle(SkPaint::Style::kStroke_Style);
-        border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.bound(0.5, 0.5), border);
-        LineViewer viewer = context.getLineViewer();
-        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
-        canvas.drawText(viewer.c_str(), viewer.size(), 4, 2, StyleDeafaultFont);
-        drawLight(context);
-    }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.pos().setOffset(context.absolute(x, y));
         context.focus();
@@ -558,6 +547,17 @@ public:
     }
     virtual Element *copy() { return new LineElement(); }
 
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        LineViewer viewer = context.getLineViewer();
+        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
+        canvas.drawText(viewer.c_str(), viewer.size(), 4, 2, StyleDeafaultFont);
+        drawLight(context);
+    }
     void onDraw(EventContext &context, Drawable canvas) override {
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
@@ -646,16 +646,6 @@ public:
     void setLogicWidth(EventContext &context, int width) override { m_width = width; }
     void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     Display getDisplay() override { return DisplayInline; }
-    void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas();
-        if (context.outer && context.outer->isSelected()) {
-            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
-        } else {
-            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
-        }
-        canvas.translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas.drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, StyleTableFont);
-    }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.pos().setOffset(context.absolute(x, y));
         context.focus();
@@ -718,17 +708,25 @@ public:
         service.moveTo(context.relOffset(context.pos().getOffset()));
         service.commit(m_data, StyleTableFont);
     }
-    void onDraw(EventContext &context, SkCanvas *canvas) override {
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        if (context.outer && context.outer->isSelected()) {
+            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
+        } else {
+            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
+        }
+        canvas.translate(0, context.getStyle(StyleTableFont).getTextSize());
+        canvas.drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, StyleTableFont);
+    }
+    void onDraw(EventContext &context, Drawable canvas) override {
         if (context.outer && context.outer->isSelected()) {
             canvas->drawRect(context.bound(0.5, 0.5), context.getStyle(StyleTableBorderSelected).paint());
         } else {
             canvas->drawRect(context.bound(0.5, 0.5), context.getStyle(StyleTableBorder).paint());
         }
         canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2,
-                         context.getStyle(StyleTableFont).paint());
+        canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, context.getStyle(StyleTableFont).paint());
     }
-
 };
 class RowElement : public Container<DisplayRow> {
 public:
@@ -737,6 +735,9 @@ public:
         for (int i = 0; i < column; ++i) {
             Container::append(new TextElement());
         }
+    }
+    void setColor(GColor color) {
+        m_color = color;
     }
     void onNotify(EventContext &context, int type, int param, int other) override {
         if (context.outer) {
@@ -750,8 +751,8 @@ public:
         canvas->drawRect(canvas.bound(0, 0), paint);
         Root::onRedraw(context);
     }
-    void setColor(GColor color) {
-        m_color = color;
+    void onDraw(EventContext &context, Drawable drawable) override {
+        Root::onDraw(context, drawable);
     }
 };
 class TableElement : public Container<DisplayTable> {
@@ -793,6 +794,7 @@ public:
         for_context(row, context) {
             EventContext end = row.enter(-1);
             end.setLogicWidth(end.logicWidth() + m_delta);
+            row.setLogicWidth(width);
         }
     }
     int getLogicWidth(EventContext &context) override { return m_width + m_delta; }
@@ -908,6 +910,28 @@ public:
     CodeBlockElement *addBlock() { return (CodeBlockElement *) append(new CodeBlockElement()); }
 private:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
+public:
+    void onFocus(EventContext &context) override {}
+    void onBlur(EventContext &context) override {
+        if (context.getCaretManager()->include(this)) {
+            return;
+        }
+        bool clear = true;
+        for_context(block, context) {
+            for_context(row, block) {
+                if (!row.getLineViewer().empty()) {
+                    clear = false;
+                }
+            }
+        }
+        if (clear) {
+            context.replace(new SyntaxLineElement());
+            if (context.outer) {
+                context.outer->relayout();
+                context.outer->redraw();
+            }
+        }
+    }
     void onRedraw(EventContext &context) override {
         Container::onRedraw(context);
         SkPaint paint;
@@ -963,28 +987,6 @@ private:
             GPath path = PathUtil::triangleDown(6, 18, context.height() - 2);
             // 有可能后面还有流程语句 需要连接
             canvas->drawPath(path, paint);
-        }
-    }
-public:
-    void onFocus(EventContext &context) override {}
-    void onBlur(EventContext &context) override {
-        if (context.getCaretManager()->include(this)) {
-            return;
-        }
-        bool clear = true;
-        for_context(block, context) {
-            for_context(row, block) {
-                if (!row.getLineViewer().empty()) {
-                    clear = false;
-                }
-            }
-        }
-        if (clear) {
-            context.replace(new SyntaxLineElement());
-            if (context.outer) {
-                context.outer->relayout();
-                context.outer->redraw();
-            }
         }
     }
     void onDraw(EventContext &context, Drawable drawable) override {
@@ -1049,6 +1051,7 @@ public:
 class SingleBlockElement : public CodeBlockElement {
 public:
     Tag getTag(EventContext &context) override { return _GT("Single CodeBlock"); }
+
     void onRedraw(EventContext &context) override {
         CodeBlockElement::onRedraw(context);
         Canvas canvas = context.getCanvas();
@@ -1078,7 +1081,6 @@ public:
             canvas->drawPath(path, paint);
         }
     }
-
     void onDraw(EventContext &context, Drawable drawable) override {
         CodeBlockElement::onDraw(context, drawable);
         Canvas canvas = context.getCanvas();
@@ -1147,7 +1149,6 @@ private:
     int getWidth(EventContext &context) override {
         return Element::getWidth(context);
     }
-
 public:
     void onRedraw(EventContext &context) override {
         Root::onRedraw(context);
@@ -1156,6 +1157,7 @@ public:
         paint.setColor(SK_ColorLTGRAY);
         canvas->drawLine(0, context.height() + 3, context.width(), context.height() + 3, paint);
     }
+
 };
 class MultiLine : public RelativeElement {
 private:
@@ -1213,7 +1215,6 @@ public:
         } else {
             canvas->drawPath(PathUtil::triangleRight(8, 7, 10), border);
         }
-
     }
     int getLineNumber() override { return m_lines.count; }
     int getChildCount() override { return m_lines.count; }

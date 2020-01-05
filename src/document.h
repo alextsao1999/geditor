@@ -442,20 +442,27 @@ public:
 class Document : public Container<DisplayBlock> {
 public:
     Context m_context;
+    Offset m_viewportOffset;
     EventContext m_root;
+    EventContext m_begin;
 public:
     explicit Document(RenderManager *renderManager) : m_context(renderManager), m_root(this) {}
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
     void flow() { LayoutManager::ReflowAll(this); }
+    Offset getLogicOffset() override { return {10, 10}; }
     Element *append(Element *element) override {
         int count = element->getLineNumber();
         for (int i = 0; i < count; ++i) {
             m_context.m_textBuffer.appendLine();
         }
-        return Container<>::append(element);
-    };
+        Container<>::append(element);
+        if (m_begin.empty()) {
+            m_begin = m_root.enter();
+        }
+        return element;
+    }
     EventContext appendElement(Element *element) {
         append(element);
         return m_root.enter(-1);
@@ -466,6 +473,28 @@ public:
     void onFinishReflow(EventContext &context, int width, int height) override {
         Container::onFinishReflow(context, width, height + 200);
         m_context.m_renderManager->setVertScroll(m_height);
+    }
+    void setViewportOffset(Offset offset) {
+        if (m_viewportOffset.y > offset.y) { // 向上
+            while (m_begin.has()) {
+                if (!m_begin.visible()) {
+                    m_begin.next();
+                    break;
+                }
+                m_begin.prev();
+            }
+        } else { // 向下
+            while (m_begin.has()) {
+                if (m_begin.visible()) {
+                    break;
+                }
+                m_begin.next();
+            }
+        }
+        if (m_begin.empty()) {
+            m_begin = m_root.enter();
+        }
+        m_viewportOffset = offset;
     }
 };
 

@@ -17,7 +17,6 @@ struct GEditorData {
     HWND m_hwnd;
     Document m_document;
     RenderManager m_renderManager;
-    EventContext m_begin;
     explicit GEditorData(HWND hwnd) :
     m_hwnd(hwnd),
     m_document(&m_renderManager),
@@ -42,9 +41,11 @@ public:
         m_data->m_document.append(new SyntaxLineElement());
 
         m_data->m_document.append(new SyntaxLineElement());
+/*
         auto *container = new ScrolledContainer<>(300, 300);
         container->append(new SubElement());
         m_data->m_document.append(container);
+*/
 
 //        m_data->m_document.appendElement(new SyntaxLineElement());
 //        m_data->m_document.appendElement(new SyntaxLineElement());
@@ -121,7 +122,7 @@ public:
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
-        EventContext context = data->m_begin;
+        EventContext context = data->m_document.m_begin;
         switch (message) {
             case WM_MOUSEMOVE:
                 MsgCallEvent(onPreMouseMove);

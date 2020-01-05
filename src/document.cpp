@@ -85,12 +85,10 @@ void Root::onDraw(EventContext &context, SkCanvas *canvas) {
 }
 
 void Root::onRedraw(EventContext &context) {
-    EventContext ctx = context.enter();
-    while (ctx.has()) {
-        if (ctx.current()->getDisplay() != DisplayNone) {
+    for_context(ctx, context) {
+        if (ctx.visible()) {
             ctx.current()->onRedraw(ctx);
         }
-        ctx.next();
     }
 }
 

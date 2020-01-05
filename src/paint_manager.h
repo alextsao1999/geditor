@@ -289,8 +289,6 @@ public:
     HDC m_hMemDC = nullptr;
     HDC m_hWndDC = nullptr;
     HBITMAP m_hBitmap = nullptr;
-    Offset m_viewportOffset{10, 10};
-    Offset m_offset{-10, -10};
     SkBitmap m_bitmap;
     std::shared_ptr<SkCanvas> m_canvas;
     GEditorData *m_data = nullptr;
@@ -333,7 +331,7 @@ public:
 //        return Canvas(ctx, m_canvas.get());
         return Canvas(ctx, new SkCanvas(m_bitmap));
     }
-    inline Offset getViewportOffset() { return m_offset; }
+    virtual Offset getViewportOffset();
     virtual void setVertScroll(uint32_t height) {
         SCROLLINFO info;
         info.cbSize = sizeof(SCROLLINFO);
@@ -347,21 +345,7 @@ public:
         info.fMask = SIF_ALL;
         SetScrollInfo(m_hWnd, SB_VERT, &info, true);
     }
-    virtual void updateViewport(LayoutManager *layoutManager) {
-        Offset offset;
-        offset.x = GetScrollPos(m_hWnd, SB_HORZ);
-        offset.y = GetScrollPos(m_hWnd, SB_VERT);
-        Size size = getViewportSize();
-        // 根据整体画布的宽高来确定显示的偏移
-        SCROLLINFO info;
-        GetScrollInfo(m_hWnd, SB_VERT, &info);
-        offset -= m_viewportOffset;
-        updateBegin(m_offset, offset);
-        m_offset = offset;
-//        m_offset.x = (int) (realWidth * ((float) offset.x / 100));
-//        m_offset.y = (int) (realHeight * ((float) offset.y / 100));
-        refresh();
-    }
+    virtual void updateViewport(LayoutManager *layoutManager);
     virtual Size getViewportSize() {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);
@@ -371,8 +355,6 @@ public:
         Size size = getViewportSize();
         return (bool) BitBlt(m_hWndDC, 0, 0, size.width, size.height, m_hMemDC, 0, 0, SRCCOPY);
     }
-    void updateBegin(Offset before, Offset now);
 };
-
 
 #endif //TEST_PAINT_MANAGER_H

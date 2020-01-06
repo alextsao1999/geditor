@@ -171,11 +171,14 @@ Lexer *EventContext::getLexer(int column) {
 bool EventContext::isHead() { return element && element->isHead(*this); }
 bool EventContext::isTail() { return element && element->isTail(*this); }
 
-void EventContext::replace(Element *new_element) {
+void EventContext::replace(Element *new_element, bool pushCommand) {
     if (element) {
         Element *before = element;
         element = element->onReplace(*this, new_element);
-        before->free();
+        if (pushCommand) {
+            push(CommandType::ReplaceElement, CommandData(before));
+        }
+        //before->free();
     }
 }
 

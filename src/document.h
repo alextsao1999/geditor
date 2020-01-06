@@ -163,10 +163,20 @@ public:
     DEFINE_EVENT(onInputChar, int ch);
     DEFINE_EVENT(onSelect);
     DEFINE_EVENT(onUnselect);
-    DEFINE_EVENT(onUndo, Command command);
+    //DEFINE_EVENT(onUndo, Command command);
     DEFINE_EVENT(onEnterReflow, Offset &offset);
     DEFINE_EVENT(onLeaveReflow, Offset &offset);
     DEFINE_EVENT(onFinishReflow, int width, int height);
+    virtual void onUndo(Command command) {
+        if (command.type == CommandType::ReplaceElement) {
+            Element *element = command.context->element;
+            command.context->replace(command.data.element, false);
+            element->free();
+            command.context->reflow();
+        }
+        command.context->redraw();
+    }
+    virtual void onUndoDiscard(Command command) {}
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
     enum NotifyType {
         None,
@@ -191,7 +201,7 @@ public:
             context.getDocContext()->m_enterElement->onMouseLeave(0, 0);
             context.getDocContext()->m_enterElement = nullptr;
         }
-        context.deleteLine(getLineNumber());
+        context.deleteLine(0, getLineNumber());
         if (new_element == nullptr) {
             if (m_prev) m_prev->setNext(m_next); else context.outer->current()->setHead(m_next);
             if (m_next) m_next->setPrev(m_prev); else context.outer->current()->setTail(m_prev);
@@ -499,7 +509,7 @@ public:
     void undo() {
         if (m_context.m_queue.has()) {
             auto command = m_context.m_queue.pop();
-            command.context->current()->onUndo(*command.context, command);
+            command.context->current()->onUndo(command);
         }
 
     }

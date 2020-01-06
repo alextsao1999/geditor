@@ -126,7 +126,7 @@ struct EventContext {
     void push(CommandType type, CommandData data);
     void notify(int type, int param, int other);
     void timer(long long interval, int id = 0, int count = 0);
-    void replace(Element *new_element);
+    void replace(Element *new_element, bool pushCommand = true);
     void remove(Root *ele);
 
     Tag tag();
@@ -167,9 +167,9 @@ struct EventContext {
     Lexer *getLexer(int column = 0);
     LineViewer getLineViewer(int offset = 0, int column = 0);
     LineViewer insertLine(int offset = 0) { return getDocContext()->m_textBuffer.insertLine(getLineCounter(), offset); }
-    void deleteLine(int count = 1) {
+    void deleteLine(int offset = 0, int count = 1) {
         for (int i = 0; i < count; ++i) {
-            getDocContext()->m_textBuffer.deleteLine(getLineCounter());
+            getDocContext()->m_textBuffer.deleteLine(getLineCounter(), offset);
         }
     }
     EventContext() = default;

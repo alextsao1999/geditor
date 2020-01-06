@@ -101,6 +101,10 @@ public:
         }
         str.append(text, length);
     }
+    GChar charAt(int pos) {
+        auto &str = content();
+        return str[pos];
+    }
 };
 
 class TextBuffer {
@@ -142,10 +146,11 @@ public:
         m_buffer.insert(m_buffer.begin() + counter.line + offset, TextLine());
         return {counter.line + 1, 0, &m_buffer};
     }
-    void deleteLine(LineCounter counter) {
-        if (m_buffer.size() == 1 || counter.line == 0) { return; }
-        m_buffer[counter.line].free();
-        m_buffer.erase(m_buffer.begin() + counter.line);
+    void deleteLine(LineCounter counter, int offset) {
+        int line = offset + counter.line;
+        if (m_buffer.size() == 1 || line == 0) { return; }
+        m_buffer[line].free();
+        m_buffer.erase(m_buffer.begin() + line);
     }
     LineViewer getLine(LineCounter counter, int offset, int column = 0) {
         int line = counter.line + offset;

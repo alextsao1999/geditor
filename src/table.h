@@ -382,8 +382,8 @@ public:
                 return;
             }
             default:
+                context.push(CommandType::AddChar, CommandData(service.index(), ch));
                 m_source.insert(m_source.begin() + service.index(), ch);
-                context.push(CommandType::Add, CommandData(service.index(), ch));
                 service.moveRight();
                 break;
         }
@@ -469,8 +469,69 @@ public:
             caret->findNext(TAG_FOCUS);
         }
     };
-    void onInputChar(EventContext &context, int ch) override;
-    void onRightButtonUp(EventContext &context, int x, int y) override;
+    void onInputChar(EventContext &context, int ch) override {
+        auto* caret = context.getCaretManager();
+        TextCaretService service(Offset(4, 6), &context);
+        auto line = context.getLineViewer();
+        switch (ch) {
+            case VK_BACK:
+                if (service.index() > 0) {
+                    context.push(CommandType::DeleteChar,
+                                 CommandData(
+                                         service.index() - 1,
+                                         line.charAt(service.index() - 1)));
+                    line.remove(service.index() - 1);
+                    service.moveLeft();
+                } else {
+                    EventContext prev = context.nearby(-1);
+                    if (prev.tag().contain(_GT("Line"))) {
+                        auto prevLine = prev.getLineViewer();
+                        context.pos().setIndex(prevLine.length());
+                        prevLine.append(line.c_str());
+                        erase(context);
+                        prev.reflow();
+                        prev.redraw();
+                        prev.focus();
+                        return;
+                    } else {
+                        if (context.outer && context.outer->tag().contain(_GT("CodeBlock"))) {
+                            if (context.outer->outer && context.outer->outer->tag().contain(_GT("Switch"))) {
+
+                            } else {
+                                if (m_next == nullptr && m_prev == nullptr && context.getLineViewer().empty()) {
+
+                                    return;
+                                }
+                            }
+                        }
+                        context.pos().setIndex(-1);
+                        caret->findPrev(TAG_FOCUS);
+                    }
+                    return;
+                }
+                break;
+            case VK_RETURN: {
+                insert(context);
+                int idx = service.index();
+                auto next = context.getLineViewer(1);
+                next.append(line.c_str() + idx, line.length() - idx);
+                line.remove(idx, line.length() - idx);
+                context.reflow();
+                context.redraw();
+                context.pos().setIndex(0);
+                caret->data().setIndex(0);
+                caret->next();
+                return;
+            }
+            default:
+                context.push(CommandType::AddChar, CommandData(service.index(), ch));
+                line.insert(service.index(), ch);
+                service.moveRight();
+                break;
+        }
+        service.commit();
+        context.redraw();
+    }
     void onFocus(EventContext &context) override {
         context_on_outer(context, Focus);
         auto caret = context.getCaretManager();
@@ -515,59 +576,78 @@ public:
     }
     virtual void insert(EventContext &context) {
         Element *element = copy();
-        Element *next = getNext();
-        setNext(element);
+        context.push(CommandType::AddElement, CommandData(element));
+        context.insertLine(1);
         element->setPrev(this);
-        if (next) {
-            element->setNext(next);
-            next->setPrev(element);
+        element->setNext(m_next);
+        if (m_next) {
+            m_next->setPrev(element);
         } else {
-            if (context.outer) {
+            if (context.outer)
                 context.outer->current()->setTail(element);
-            } else {
-                //TODO 设置doc
-            }
         }
+        m_next = element;
     }
     virtual void erase(EventContext &context) {
-        Element *prev = getPrev();
-        if (prev) {
-            Element *next = getNext();
-            prev->setNext(next);
-            if (next) {
-                next->setPrev(prev);
-            } else {
-                if (context.outer) {
-                    context.outer->current()->setTail(prev);
-                } else {
-                    //TODO 设置doc
-                }
-            }
+        context.deleteLine();
+        context.push(CommandType::DeleteElement, CommandData(this));
+        if (m_prev) {
+            m_prev->setNext(m_next);
+        } else {
+            if (context.outer)
+                context.outer->current()->setHead(m_next);
+        }
+        if (m_next) {
+            m_next->setPrev(m_prev);
+        } else {
+            if (context.outer)
+                context.outer->current()->setTail(m_prev);
         }
     }
     virtual Element *copy() { return new LineElement(); }
-
-    void onUndo(EventContext &context, Command command) override {
-        auto line = context.getLineViewer();
-        switch (command.type) {
-            case CommandType::Change:
-                break;
-            case CommandType::Add:
-                line.remove(command.data.input.pos);
-                break;
-            case CommandType::Delete:
-                break;
-            case CommandType::AddLine:
-                break;
-            case CommandType::DeleteLine:
-                break;
-            case CommandType::None:
-                break;
+    void onUndo(Command command) override {
+        command.context->setPos(command.pos);
+        command.context->focus(false);
+        auto line = command.context->getLineViewer();
+        if (command.type == CommandType::AddChar) {
+            line.remove(command.data.input.pos);
         }
-        context.pos() = command.pos;
-        context.focus();
-        context.redraw();
-        //printf("undo input %c \n", command.data.input.ch);
+        if (command.type == CommandType::DeleteChar) {
+            line.insert(command.data.input.pos, command.data.input.ch);
+        }
+        if (command.type == CommandType::AddElement) {
+            command.context->deleteLine(1);
+            Element *next = command.data.element->getNext();
+            command.context->element->setNext(next);
+            if (next) {
+                next->setPrev(command.context->element);
+            } else {
+                if (command.context->outer) {
+                    command.context->outer->element->setTail(command.context->element);
+                }
+            }
+            command.data.element->free();
+            command.context->reflow();
+        }
+        if (command.type == CommandType::DeleteElement) {
+            command.context->insertLine();
+            Element *prev = command.data.element->getPrev();
+            Element *next = command.data.element->getNext();
+            if (prev) {
+                prev->setNext(command.data.element);
+            } else {
+                // 第一行不能被删除
+            }
+            if (next) {
+                next->setPrev(command.data.element);
+            } else {
+                if (command.context->outer) {
+                    command.context->element->setTail(command.data.element);
+                }
+            }
+            command.context->reflow();
+        }
+        Element::onUndo(command);
     }
 
     void onRedraw(EventContext &context) override {
@@ -645,6 +725,11 @@ public:
         }
         drawLight(context);
     }
+};
+class AutoLineElement : public SyntaxLineElement {
+public:
+    Element *copy() override { return new AutoLineElement(); }
+    void onInputChar(EventContext &context, int ch) override;
 };
 class TextElement : public RelativeElement {
 private:
@@ -868,8 +953,8 @@ public:
 class CodeBlockElement : public Container<> {
 public:
     CodeBlockElement() {
-        Container::append(new SyntaxLineElement());
-        Container::append(new SyntaxLineElement());
+        Container::append(new AutoLineElement());
+        Container::append(new AutoLineElement());
     }
     Tag getTag(EventContext &context) override { return _GT("CodeBlock"); }
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
@@ -1156,14 +1241,14 @@ public:
         vars->getItem(0, 1)->m_min = 150;
         Container::append(vars);
 
-        Container::append(new SyntaxLineElement());
+        Container::append(new AutoLineElement());
 
         auto *control = new SwitchElement();
         control->addBlock()->replace(0, new SwitchElement())->free();
         Container::append(control);
-        Container::append(new SyntaxLineElement());
+        Container::append(new AutoLineElement());
         Container::append(new SwitchElement());
-        Container::append(new SyntaxLineElement());
+        Container::append(new AutoLineElement());
         Container::append(new SingleBlockElement());
 
     }
@@ -1204,8 +1289,14 @@ private:
             return context.outer->offset() + Offset{20, context.index * 25 + 20};
         }
         int getLogicHeight(EventContext &context) override { return 25; }
-        void insert(EventContext &context) override { count++; }
-        void erase(EventContext &context) override { count--; }
+        void insert(EventContext &context) override {
+            context.insertLine(1);
+            count++;
+        }
+        void erase(EventContext &context) override {
+            context.deleteLine();
+            count--;
+        }
         void onRedraw(EventContext &context) override {
             SyntaxLineElement::onRedraw(context);
             Canvas canvas = context.getCanvas();

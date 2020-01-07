@@ -62,7 +62,7 @@ void EventContext::relayout() {
     reflow();
 }
 void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
-void EventContext::focus(bool isCopy) { doc->m_context.m_caretManager.focus(isCopy ? copy() : this); }
+void EventContext::focus(bool isCopy, bool force) { doc->m_context.m_caretManager.focus(isCopy ? copy() : this, force); }
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), pos(), type, data});
 }
@@ -173,11 +173,11 @@ bool EventContext::isTail() { return element && element->isTail(*this); }
 
 void EventContext::replace(Element *new_element, bool pushCommand) {
     if (element) {
-        Element *before = element;
-        element = element->onReplace(*this, new_element);
         if (pushCommand) {
-            push(CommandType::ReplaceElement, CommandData(before));
+            EventContext *caret = getCaretManager()->getEventContext();
+            push(CommandType::ReplaceElement, CommandData(caret->copy(), new_element));
         }
+        element = element->onReplace(*this, new_element);
         //before->free();
     }
 }

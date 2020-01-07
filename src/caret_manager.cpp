@@ -5,21 +5,23 @@
 #include "caret_manager.h"
 #include "document.h"
 
-void CaretManager::focus(EventContext *context) {
+void CaretManager::focus(EventContext *context, bool force) {
     EventContext *before = m_context;
-    m_context = context;
     if (before) {
         if (before->element) {
             if (before == context) {// 元素相同 FIXME 可能有问题
-                before->element->onBlur(*before);
+                before->element->onBlur(*before, before);
                 before->element->onFocus(*before);
                 return;
             }
-            before->element->onBlur(*before);
+            if (!force) {
+                before->element->onBlur(*before, context);
+            }
         }
         before->free();
     }
-    if (m_context) {
+    m_context = context;
+    if (context) {
         context_on(*context, Focus);
         // 更新光标位置
         update();
@@ -67,7 +69,7 @@ bool CaretManager::next() {
             *m_context = cur;
             return false;
         }
-        cur.current()->onBlur(cur);
+        cur.current()->onBlur(cur, m_context);
         m_context->current()->onFocus(*m_context);
         return true;
     }
@@ -82,7 +84,7 @@ bool CaretManager::prev() {
             *m_context = last;
             return false;
         }
-        last.current()->onBlur(last);
+        last.current()->onBlur(last, m_context);
         m_context->current()->onFocus(*m_context);
         return true;
 

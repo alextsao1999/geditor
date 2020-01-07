@@ -151,7 +151,7 @@ public:
         sender->reflow(context.enter(), true);
     }
     DEFINE_EVENT(onFocus);
-    DEFINE_EVENT(onBlur);
+    DEFINE_EVENT(onBlur, EventContext *focus);
     DEFINE_EVENT(onKeyDown, int code, int status);
     DEFINE_EVENT(onKeyUp, int code, int status);
     DEFINE_EVENT2(onLeftButtonUp);
@@ -167,15 +167,7 @@ public:
     DEFINE_EVENT(onEnterReflow, Offset &offset);
     DEFINE_EVENT(onLeaveReflow, Offset &offset);
     DEFINE_EVENT(onFinishReflow, int width, int height);
-    virtual void onUndo(Command command) {
-        if (command.type == CommandType::ReplaceElement) {
-            Element *element = command.context->element;
-            command.context->replace(command.data.element, false);
-            element->free();
-            command.context->reflow();
-        }
-        command.context->redraw();
-    }
+    virtual void onUndo(Command command) {}
     virtual void onUndoDiscard(Command command) {}
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
     enum NotifyType {

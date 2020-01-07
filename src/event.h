@@ -86,6 +86,10 @@ struct Tag {
         gstrcat(str, value);
         return *this;
     }
+    Tag &append(const int value) {
+        gsprintf(str + gstrlen(str), _GT("%d"), value);
+        return *this;
+    }
     void dump() {
         printf("Tag [%ws]\n", str);
     }
@@ -122,7 +126,7 @@ struct EventContext {
     void reflow(bool relayout = false);
     void redraw();
     void relayout();
-    void focus(bool isCopy = true);
+    void focus(bool isCopy = true, bool force = false);
     void push(CommandType type, CommandData data);
     void notify(int type, int param, int other);
     void timer(long long interval, int id = 0, int count = 0);

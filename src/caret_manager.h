@@ -67,7 +67,7 @@ public:
     }
     void show() { ShowCaret(m_paintManager->m_hWnd); }
     void hide() { SetCaretPos(-1, -1); }
-    void focus(EventContext *context);
+    void focus(EventContext *context, bool force = false);
     void set(Offset pos) {
         m_current = pos;
         update();

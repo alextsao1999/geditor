@@ -434,7 +434,11 @@ public:
     int getLogicHeight(EventContext &context) override { return 25; }
     //int getLogicWidth(EventContext &context) override { return 25; }
     Display getDisplay() override { return DisplayLine; }
-    Tag getTag(EventContext &context) override { return {_GT("Line Focus")}; }
+    Tag getTag(EventContext &context) override {
+        Tag tag = {_GT("Line Focus")};
+        tag.append(_GT("(")).append(context.getLineCounter().line).append(_GT(")"));
+        return tag;
+    }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.pos().setOffset(context.absolute(x, y));
         context.focus();
@@ -550,8 +554,8 @@ public:
 */
 
     }
-    void onBlur(EventContext &context) override {
-        context_on_outer(context, Blur);
+    void onBlur(EventContext &context, EventContext *focus) override {
+        context_on_outer(context, Blur, focus);
     }
     bool show = false;
     void drawLight(EventContext &context) {
@@ -607,7 +611,7 @@ public:
     virtual Element *copy() { return new LineElement(); }
     void onUndo(Command command) override {
         command.context->setPos(command.pos);
-        command.context->focus(false);
+        command.context->focus(false, true);
         auto line = command.context->getLineViewer();
         if (command.type == CommandType::AddChar) {
             line.remove(command.data.input.pos);
@@ -647,9 +651,12 @@ public:
             }
             command.context->reflow();
         }
-        Element::onUndo(command);
-    }
+        if (command.type == CommandType::ReplaceElement) {
+            printf("if undo\n");
 
+        }
+        command.context->redraw();
+    }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         SkPaint border;
@@ -958,6 +965,9 @@ public:
     }
     Tag getTag(EventContext &context) override { return _GT("CodeBlock"); }
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
+    void onBlur(EventContext &context, EventContext *focus) override {
+        context_on_outer(context, Blur, focus);
+    }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 25;
     }
@@ -985,28 +995,6 @@ public:
 
         }
     }
-    void onFocus(EventContext &context) override {}
-    void onBlur(EventContext &context) override {
-        if (context.outer && context.outer->tag().contain(_GT("Switch"))) {
-            // 如果父元素是Switch 转交给父元素
-            context_on_outer(context, Blur);
-            return;
-        }
-        if (context.getCaretManager()->include(this)) {
-            return;
-        }
-        bool clear = true;
-        for_context(ctx, context) {
-            if (!ctx.getLineViewer().empty()) {
-                clear = false;
-            }
-        }
-        if (clear) {
-            context.replace(new SyntaxLineElement());
-            context.outer->relayout();
-            context.outer->redraw();
-        }
-    }
 };
 class SwitchElement : public Container<> {
 public:
@@ -1020,8 +1008,8 @@ private:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
 public:
     void onFocus(EventContext &context) override {}
-    void onBlur(EventContext &context) override {
-        if (context.getCaretManager()->include(this)) {
+    void onBlur(EventContext &context, EventContext *focus) override {
+        if (focus && focus->include(&context)) {
             return;
         }
         bool clear = true;
@@ -1155,11 +1143,50 @@ public:
         }
 
     }
+    void onUndo(Command command) override {
+        if (command.type == CommandType::ReplaceElement) {
+            Element *old = command.context->element;
+            command.context->element = command.data.replace.element;
+            command.context->replace(old, false);
+            command.context->reflow();
+
+            command.context->setPos(command.pos);
+            command.data.replace.caret->focus(false, true);
+        }
+        command.context->redraw();
+    }
 };
 class SingleBlockElement : public CodeBlockElement {
 public:
     Tag getTag(EventContext &context) override { return _GT("Single CodeBlock"); }
+    void onBlur(EventContext &context, EventContext *focus) override {
+        if (focus && focus->include(&context)) {
+            return;
+        }
+        bool clear = true;
+        for_context(ctx, context) {
+            if (!ctx.getLineViewer().empty()) {
+                clear = false;
+            }
+        }
+        if (clear) {
+            context.replace(new SyntaxLineElement());
+            context.outer->relayout();
+            context.outer->redraw();
+        }
+    }
+    void onUndo(Command command) override {
+        if (command.type == CommandType::ReplaceElement) {
+            Element *old = command.context->element;
+            command.context->element = command.data.replace.element;
+            command.context->replace(old, false);
+            command.context->reflow();
 
+            command.context->setPos(command.pos);
+            command.data.replace.caret->focus(false, true);
+        }
+        command.context->redraw();
+    }
     void onRedraw(EventContext &context) override {
         CodeBlockElement::onRedraw(context);
         Canvas canvas = context.getCanvas();

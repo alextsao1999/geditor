@@ -24,12 +24,18 @@ enum class CommandType {
 union CommandData {
     CommandData() : value(0) {}
     CommandData(int pos, int ch) : input(InputData(pos, ch)) {}
+    CommandData(EventContext *context, Element *element) : replace(ReplaceData(context, element)) {}
     explicit CommandData(Element *element) : element(element) {}
     struct InputData {
         int pos;
         int ch;
         InputData(int pos, int ch) : pos(pos), ch(ch) {}
     } input;
+    struct ReplaceData {
+        EventContext *caret; // caret context
+        Element *element;
+        ReplaceData(EventContext *context, Element *element) : caret(context), element(element) {}
+    } replace;
     Element *element; // new element
     int value;
 };

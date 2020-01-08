@@ -13,9 +13,13 @@ void AutoLineElement::onInputChar(EventContext &context, int ch) {
             context.reflow();
             context.redraw();
             auto newLine = context.getLineViewer();
-            newLine.append(_GT("if ()"));
+            newLine.append(_GT(" ()"));
+            EventContext &&ctx = context.enter();
             context.pos().setIndex(-2);
-            context.enter().focus();
+            ctx.push(CommandType::AddChar, CommandData(2, ' '));
+            ctx.push(CommandType::AddChar, CommandData(3, '('));
+            ctx.push(CommandType::AddChar, CommandData(4, ')'));
+            ctx.focus();
             return;
         }
         if (line.content() == _GT("switch")) {
@@ -24,9 +28,13 @@ void AutoLineElement::onInputChar(EventContext &context, int ch) {
             context.reflow();
             context.redraw();
             auto newLine = context.getLineViewer();
-            newLine.append(_GT("switch ()"));
+            newLine.append(_GT(" ()"));
+            EventContext &&ctx = context.enter().enter();
             context.pos().setIndex(-2);
-            context.enter().enter().focus();
+            ctx.push(CommandType::AddChar, CommandData(6, ' '));
+            ctx.push(CommandType::AddChar, CommandData(7, '('));
+            ctx.push(CommandType::AddChar, CommandData(8, ')'));
+            ctx.focus();
             return;
         }
     }

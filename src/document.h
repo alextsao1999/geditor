@@ -121,8 +121,6 @@ public:
             }
         }
     }
-    virtual Element *enterHead() { return getHead(); }
-    virtual Element *enterTail() { return getTail(); }
     Element *getNextCount(int count) {
         Element *next = this;
         while (count-- && next) {
@@ -189,19 +187,24 @@ public:
     void setNext(Element *next) override { m_next = next; }
     void setPrev(Element *prev) override { m_prev = prev; }
     Element *onReplace(EventContext &context, Element *new_element) override {
-        if (context.getDocContext()->m_enterElement == this) {
-            context.getDocContext()->m_enterElement->onMouseLeave(0, 0);
-            context.getDocContext()->m_enterElement = nullptr;
-        }
-        context.deleteLine(0, getLineNumber());
         if (new_element == nullptr) {
-            if (m_prev) m_prev->setNext(m_next); else context.outer->current()->setHead(m_next);
-            if (m_next) m_next->setPrev(m_prev); else context.outer->current()->setTail(m_prev);
-            return m_next;
+            return this;
         }
-        int lineNumber = new_element->getLineNumber();
-        for (int i = 0; i < lineNumber; ++i) {
-            context.insertLine(0);
+        /* //删除元素(暂时不需要)
+                if (new_element == nullptr) {
+                    if (m_prev) m_prev->setNext(m_next); else context.outer->current()->setHead(m_next);
+                    if (m_next) m_next->setPrev(m_prev); else context.outer->current()->setTail(m_prev);
+                    return m_next;
+                }
+        */
+        onRemove(context);
+        int old_line = getLineNumber();
+        int new_line = new_element->getLineNumber();
+        int delta = new_line - old_line;
+        if (delta > 0) {
+            context.insertLine(old_line, delta);
+        } else {
+            context.deleteLine(new_line, -delta);
         }
         new_element->setPrev(m_prev);
         new_element->setNext(m_next);

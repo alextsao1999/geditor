@@ -13,7 +13,6 @@ class Element;
 struct EventContext;
 
 enum class CommandType {
-    ChangeChar,
     AddChar,
     DeleteChar,
     AddElement,
@@ -41,10 +40,10 @@ union CommandData {
 };
 
 struct Command {
-    EventContext *context;
-    CaretPos pos;
-    CommandType type;
-    CommandData data;
+    EventContext *context; // push context
+    CaretPos pos; // save caret pos
+    CommandType type; // command type
+    CommandData data; // push data
 };
 
 class CommandQueue {
@@ -56,13 +55,12 @@ public:
         if (count > maxStack) {
             handle(queue.front());
             queue.pop_front();
+        } else {
+            count++;
         }
-        count++;
         queue.push_back(cmd);
     };
-    bool has() {
-        return !queue.empty();
-    }
+    bool has() { return !queue.empty(); }
     Command pop() {
         count--;
         Command cmd = queue.back();

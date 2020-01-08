@@ -170,7 +170,11 @@ struct EventContext {
     inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
     Lexer *getLexer(int column = 0);
     LineViewer getLineViewer(int offset = 0, int column = 0);
-    LineViewer insertLine(int offset = 0) { return getDocContext()->m_textBuffer.insertLine(getLineCounter(), offset); }
+    void insertLine(int offset = 0, int count = 1) {
+        for (int i = 0; i < count; ++i) {
+            getDocContext()->m_textBuffer.insertLine(getLineCounter(), offset);
+        }
+    }
     void deleteLine(int offset = 0, int count = 1) {
         for (int i = 0; i < count; ++i) {
             getDocContext()->m_textBuffer.deleteLine(getLineCounter(), offset);

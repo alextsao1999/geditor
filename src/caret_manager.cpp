@@ -8,17 +8,12 @@
 void CaretManager::focus(EventContext *context, bool force) {
     EventContext *before = m_context;
     if (before) {
-        if (before->element) {
-            if (before == context) {// 元素相同 FIXME 可能有问题
-                before->element->onBlur(*before, before);
-                before->element->onFocus(*before);
-                return;
-            }
-            if (!force) {
-                before->element->onBlur(*before, context);
-            }
+        if (!force && before->element) {
+            before->element->onBlur(*before, context);
         }
-        before->free();
+        if (before != context) {
+            before->free();
+        }
     }
     m_context = context;
     if (context) {

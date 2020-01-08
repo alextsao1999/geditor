@@ -289,145 +289,6 @@ public:
         canvas.drawRect(context.logicRect(), StyleTableBorder);
     }
 };
-class DataElement : public RelativeElement {
-public:
-    GString m_source;
-    DataElement() = default;
-    int getLogicHeight(EventContext &context) override { return 25; }
-    //int getLogicWidth(EventContext &context) override { return 25; }
-    Display getDisplay() override { return DisplayBlock; }
-    Tag getTag(EventContext &context) override { return {_GT("Data Focus")}; }
-    void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas();
-        SkPaint border;
-        border.setStyle(SkPaint::Style::kStroke_Style);
-        border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.bound(0.5, 0.5), border);
-        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
-        canvas.drawText(m_source.c_str(),
-                m_source.length() * sizeof(GChar),
-                4, 2, StyleDeafaultFont);
-    }
-    void onLeftButtonDown(EventContext &context, int x, int y) override {
-        context.pos().setOffset(context.absolute(x, y));
-        context.focus();
-    }
-    void onMouseMove(EventContext &context, int x, int y) override {
-        if (context.selecting()) {
-            context.pos().setOffset(context.absolute(x, y));
-            context.focus();
-        }
-    }
-    void onKeyDown(EventContext &context, int code, int status) override {
-        auto caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 5), &context);
-        if (code == VK_LEFT) {
-            service.moveLeft();
-            if (!service.commit(m_source)) {
-                caret->data().setIndex(-1);
-                caret->findPrev(TAG_FOCUS);
-            }
-        }
-        if (code == VK_RIGHT) {
-            service.moveRight();
-            if (!service.commit(m_source)) {
-                caret->data().setIndex(0);
-                caret->findNext(TAG_FOCUS);
-            }
-        }
-        if (code == VK_UP) {
-            caret->findPrev(TAG_FOCUS);
-        }
-        if (code == VK_DOWN) {
-            caret->findNext(TAG_FOCUS);
-        }
-    };
-    void onInputChar(EventContext &context, int ch) override {
-        auto* caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 6), &context);
-        switch (ch) {
-            case VK_BACK:
-                if (service.index() > 0) {
-                    m_source.erase(service.index() - 1);
-                    service.moveLeft();
-                } else {
-                    EventContext prev = context.nearby(-1);
-                    if (prev.tag().contain(_GT("Data"))) {
-                        auto *prevLine = prev.cast<DataElement>();
-                        context.pos().setIndex(prevLine->m_source.length());
-                        prevLine->m_source.append(m_source);
-                        erase(context);
-                        prev.reflow();
-                        prev.redraw();
-                        prev.focus();
-                        return;
-                    } else {
-                        context.pos().setIndex(-1);
-                        caret->findPrev(TAG_FOCUS);
-                    }
-                    return;
-                }
-                break;
-            case VK_RETURN: {
-                insert(context);
-                int idx = service.index();
-                auto next = context.insertLine(1);
-                next.append(m_source.c_str() + idx, m_source.length() - idx);
-                m_source.erase(idx, m_source.length() - idx);
-                context.reflow();
-                context.redraw();
-                context.pos().setIndex(0);
-                caret->data().setIndex(0);
-                caret->next();
-                return;
-            }
-            default:
-                context.push(CommandType::AddChar, CommandData(service.index(), ch));
-                m_source.insert(m_source.begin() + service.index(), ch);
-                service.moveRight();
-                break;
-        }
-        service.commit(m_source);
-        context.redraw();
-    }
-    void onFocus(EventContext &context) override {
-        auto caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 6), &context);
-        service.moveTo(context.relOffset(caret->data().getOffset()));
-        service.commit(m_source);
-        // 选中
-        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode)
-        // 设置文字
-        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcIn_Mode);
-        // 设置背景
-        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kColorDodge_Mode);
-/*
-        style.setColorFilter(SkColorFilter::CreateModeFilter(
-                        SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
-*/
-
-    }
-    virtual void insert(EventContext &context) {
-        Element *element = copy();
-        Element *next = getNext();
-        setNext(element);
-        element->setPrev(this);
-        if (next) {
-            element->setNext(next);
-            next->setPrev(element);
-        } else {
-            if (context.outer) {
-                context.outer->current()->setTail(element);
-            } else {
-                //TODO 设置doc
-            }
-        }
-    }
-    virtual void erase(EventContext &context) {
-        context.replace(nullptr);
-    }
-    virtual Element *copy() { return new DataElement(); }
-};
 class LineElement : public RelativeElement {
 public:
     LineElement() = default;
@@ -610,7 +471,7 @@ public:
     }
     virtual Element *copy() { return new LineElement(); }
     void onUndo(Command command) override {
-        command.context->setPos(command.pos);
+        command.context->setPos(command.pos); // 因为替换之前都是LineElement 所以直接focus就行
         command.context->focus(false, true);
         auto line = command.context->getLineViewer();
         if (command.type == CommandType::AddChar) {
@@ -618,6 +479,8 @@ public:
         }
         if (command.type == CommandType::DeleteChar) {
             line.insert(command.data.input.pos, command.data.input.ch);
+            command.context->pos().setIndex(command.pos.index + 1);
+            command.context->focus(false, true);
         }
         if (command.type == CommandType::AddElement) {
             command.context->deleteLine(1);
@@ -652,8 +515,13 @@ public:
             command.context->reflow();
         }
         if (command.type == CommandType::ReplaceElement) {
-            printf("if undo\n");
+            Element *old = command.context->element;
+            command.context->element = command.data.replace.element;
+            command.context->replace(old, false);
+            command.context->reflow();
 
+            command.data.replace.caret->free(); // 释放caret
+            command.data.replace.element->free(); // 释放替换的新元素
         }
         command.context->redraw();
     }

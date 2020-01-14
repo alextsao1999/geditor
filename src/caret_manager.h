@@ -8,8 +8,8 @@
 #include "paint_manager.h"
 class Element;
 struct CaretPos {
-    int index = 0;
-    Offset offset;
+    int index = 0; // 相对索引
+    Offset offset; // 绝对坐标
     void *data = nullptr;
     CaretPos() = default;
     void setIndex(int idx) {

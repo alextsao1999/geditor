@@ -350,7 +350,13 @@ struct EventContext {
         }
         return reverse;
     }
-
+    EventContext *getOuter(int count) {
+        EventContext *current = outer;
+        while (current && --count) {
+            current = current->outer;
+        }
+        return current;
+    }
     Offset caretOffset();
 };
 class EventContextBuilder {

@@ -38,9 +38,9 @@ public:
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
 //        m_data->m_document.append(new MultiLine());
 //        m_data->m_document.append(new SingleBlockElement());
-        m_data->m_document.append(new SyntaxLineElement());
+        m_data->m_document.append(new AutoLineElement());
 
-        m_data->m_document.append(new SyntaxLineElement());
+        m_data->m_document.append(new AutoLineElement());
 /*
         auto *container = new ScrolledContainer<>(300, 300);
         container->append(new SubElement());

@@ -614,7 +614,17 @@ public:
     int m_width = 0;
     int m_height = 25;
     explicit TextElement() = default;
-    Tag getTag(EventContext &context) override { return {_GT("Text Focus")}; }
+    Tag getTag(EventContext &context) override {
+        Tag tag = {_GT("Text Focus")};
+        tag.append(_GT("("));
+        tag.append(context.index);
+        if (context.outer) {
+            tag.append(_GT(","));
+            tag.append(context.outer->index);
+        }
+        tag.append(_GT(")"));
+        return tag;
+    }
     int getMinWidth(EventContext &context) override {
         int width = (int) context.getStyle(StyleTableFont)
                 .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 15;
@@ -657,9 +667,33 @@ public:
             }
         }
         if (code == VK_DOWN) {
+            if (context.outer->isTail()) { // 寻找表格外的下一个元素 (判断是否在尾行)
+                EventContext *next = context.outer->findNext(TAG_FOCUS);
+                if (next) {
+                    next->focus(false);
+                }
+            } else {
+                context.outer->nearby(1).focus();
+            }
             //service.commit(m_data, StyleTableFont);
         }
         if (code == VK_UP) {
+            if (context.outer->isHead()) { // 判断是否为行首
+                EventContext *real = context.getOuter(3);
+                if (real && real->tag().contain(_GT("Row"))) {
+                    real->nearby(-1).focus();
+                    return;
+                }
+                EventContext *prev = context.outer->findPrev(TAG_FOCUS);
+                if (prev) {
+                    prev->focus(false);
+                }
+            } else {
+                EventContext ctx = context.outer->nearby(-1);
+                ctx.focus();
+
+            }
+
             //service.commit(m_data, StyleTableFont);
         }
 
@@ -719,6 +753,7 @@ public:
             Container::append(new TextElement());
         }
     }
+    Tag getTag(EventContext &context) override { return {_GT("Row Focus")}; }
     void setColor(GColor color) {
         m_color = color;
     }
@@ -737,6 +772,18 @@ public:
     void onDraw(EventContext &context, Drawable drawable) override {
         Root::onDraw(context, drawable);
     }
+    void onFocus(EventContext &context) override {
+        CaretManager *caret = context.getCaretManager();
+        Offset offset = caret->data().getOffset();
+        for_context(ctx, context) {
+            GRect rect = ctx.rect();
+            if ((float) offset.x > rect.left() && (float) offset.x < rect.right()) {
+                ctx.focus();
+                return;
+            }
+        }
+        context.enter().focus();
+    }
 };
 class TableElement : public Container<DisplayTable> {
 public:
@@ -746,6 +793,7 @@ public:
             Container::append(new RowElement(column));
         }
     }
+    Tag getTag(EventContext &context) override { return {_GT("Table Focus")}; }
     RowElement *addRow(int column) {
         auto *row = new RowElement(column);
         append(row);
@@ -823,6 +871,16 @@ public:
         }
         context_on(context, FinishReflow, table_width, pos_row.y);
     }
+    void onFocus(EventContext &context) override {
+        CaretManager *caret = context.getCaretManager();
+        Offset offset = caret->data().getOffset();
+        GRect rect = context.rect();
+        if (offset.y < rect.fTop) {
+            context.enter().focus();
+        } else {
+            context.enter(-1).focus();
+        }
+    }
 
 };
 class CodeBlockElement : public Container<> {
@@ -889,7 +947,7 @@ public:
             }
         }
         if (clear) {
-            context.replace(new SyntaxLineElement());
+            context.replace(new AutoLineElement());
             if (context.outer) {
                 context.outer->relayout();
                 context.outer->redraw();
@@ -1038,7 +1096,7 @@ public:
             }
         }
         if (clear) {
-            context.replace(new SyntaxLineElement());
+            context.replace(new AutoLineElement());
             context.outer->relayout();
             context.outer->redraw();
         }

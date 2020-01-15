@@ -83,29 +83,6 @@ void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y,
     m_context->getStyle(style).paint().textToGlyphs(text, byteLength, run.glyphs);
     m_canvas->drawTextBlob(builder.build(), x, y, paint);
 */
-
-    if (m_context) {
-        return;
-        if (m_context->selecting()) {
-            GStyle &paint = m_context->getStyle(StyleSelectedFont);
-            auto start = m_context->getDocContext()->m_selectStartPos;
-            auto end = m_context->getDocContext()->m_selectEndPos;
-            m_canvas->drawText((GChar *) text + start.index, start.index - end.index, start.offset.x, start.offset.y,
-                               paint.paint());
-
-
-/*
-            printf("[%d %d] start %d, end %d pos: %d %d\n", m_context->isSelectedStart(), m_context->isSelectedEnd(),
-                   start.index,
-                   end.index, start.offset.x, end.offset.x);
-*/
-
-            //m_canvas->drawText(text, byteLength, x, y, paint.paint());
-
-        }
-    }
-
-
 }
 
 void Canvas::drawRect(const GRect &rect, int style) {

@@ -34,7 +34,7 @@ private:
     EventContext *m_context = nullptr;
     CaretPos m_data;
 public:
-    Offset m_current;
+    Offset m_relative;
     explicit CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();
     Element *getFocus();
@@ -58,6 +58,7 @@ public:
 
     }
 
+    // 实际的光标位置
     Offset current();
     void create(int width = 1, int height = 18) {
         CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
@@ -69,7 +70,7 @@ public:
     void hide() { SetCaretPos(-1, -1); }
     void focus(EventContext *context, bool force = false);
     void set(Offset pos) {
-        m_current = pos;
+        m_relative = pos;
         update();
     }
     // 设置相对的光标位置
@@ -81,6 +82,7 @@ public:
     bool enter(int index = 0);
     void leave();
     EventContext *include(Element *element);
+    EventContext *include(EventContext *context);
     bool findNext(const GChar *tag);
     bool findPrev(const GChar *tag);
 

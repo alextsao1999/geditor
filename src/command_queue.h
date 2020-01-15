@@ -17,11 +17,13 @@ enum class CommandType {
     DeleteChar,
     AddElement,
     DeleteElement,
-    ReplaceElement
+    ReplaceElement,
+    Break,
+    Combine,
 };
 
 union CommandData {
-    CommandData() : value(0) {}
+    explicit CommandData(int value = 0) : value(value) {}
     CommandData(int pos, int ch) : input(InputData(pos, ch)) {}
     CommandData(EventContext *context, Element *element) : replace(ReplaceData(context, element)) {}
     explicit CommandData(Element *element) : element(element) {}

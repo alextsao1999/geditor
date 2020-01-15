@@ -8,7 +8,7 @@ void AutoLineElement::onInputChar(EventContext &context, int ch) {
     if (ch == VK_RETURN) {
         auto line = context.getLineViewer();
         if (line.content() == _GT("if")) {
-            context.replace(new SingleBlockElement());
+            context.replace(new SingleBlockElement(2));
             context.outer->relayout();
             context.reflow();
             context.redraw();
@@ -23,7 +23,7 @@ void AutoLineElement::onInputChar(EventContext &context, int ch) {
             return;
         }
         if (line.content() == _GT("switch")) {
-            context.replace(new SwitchElement());
+            context.replace(new SwitchElement(3));
             context.outer->relayout();
             context.reflow();
             context.redraw();

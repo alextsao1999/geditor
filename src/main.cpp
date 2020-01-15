@@ -43,7 +43,7 @@ auto CreateMyWindow() {
 int main() {
     ASSERT(MyRegisterClass(nullptr), "Register Class Name Error!");
     HWND hwnd = CreateMyWindow();
-    auto g = GEditorBuilder::build(hwnd);
+    auto g = GEditorBuilder::build(hwnd, 10, 40);
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
         if (!TranslateAccelerator(msg.hwnd, nullptr, &msg)) {

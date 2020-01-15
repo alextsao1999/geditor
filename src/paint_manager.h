@@ -143,7 +143,7 @@ public:
 
         paint.reset();
         paint.setStyle(GStyle::kStroke_Style);
-        paint.setColor(SkColorSetRGB(172, 172, 172));
+        paint.setColor(SkColorSetRGB(148, 148, 148));
         add(StyleTableBorder, paint);
 
         paint.reset();
@@ -152,7 +152,7 @@ public:
         add(StyleTableBorderSelected, paint);
 
         paint.reset();
-        paint.setTextSize(15);
+        paint.setTextSize(14);
         //paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         //paint.setFakeBoldText(true);
@@ -182,7 +182,7 @@ public:
         add(StyleSelectedFont, paint);
 
         paint.reset();
-        paint.setTextSize(15);
+        paint.setTextSize(13);
         //paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);

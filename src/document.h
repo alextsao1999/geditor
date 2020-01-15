@@ -506,8 +506,8 @@ public:
             auto command = m_context.m_queue.pop();
             command.context->current()->onUndo(command);
         }
-
     }
+
 };
 
 #endif //TEST_DOCUMENT_H

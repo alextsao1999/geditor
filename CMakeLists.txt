@@ -17,12 +17,17 @@ add_subdirectory(third_party/skia)
 #add_subdirectory(third_party/lalr)
 #include_directories(third_party/lalr/lalr)
 
+
+include_directories(third_party/ecode/)
+aux_source_directory(third_party/ecode/ sources)
+
 add_definitions(-DUNICODE -D_UNICODE -D_MT -D_Debug)
 include_directories(src/)
 file(GLOB_RECURSE headers RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.h)
 aux_source_directory(src/ sources)
 source_group("Header Files" FILES ${headers})
 source_group("Source Files" FILES ${sources})
+
 add_executable(geditor ${sources} ${headers})
 
 set(LINK_STATIC_LIB opengl32.lib usp10.lib skia)

@@ -13,14 +13,14 @@
 #define ge_realloc realloc
 #define ONCE_ALLOC 4
 int CeilToPowerOf2(int v);
-template <typename T, T Default = T()>
+template <typename T>
 struct Buffer {
     // this is just a buffer
     T *data = nullptr;
     int count = 0;
     int capacity = 0;
     Buffer() = default;
-    explicit Buffer(int init_capicity) { ensureCapacity(init_capicity); }
+    explicit Buffer(int init_count) { count = init_count;ensureCapacity(init_count); }
     ~Buffer() { clear(); }
     class BufferIter {
         Buffer *m_data;
@@ -43,6 +43,7 @@ struct Buffer {
         fill(data, 1);
         return count - 1;
     };
+    inline T &front() { return data[0]; }
     inline const T &back() { return data[count - 1]; }
     inline T &pop() { return data[--count]; }
     inline void erase(int index) { memcpy(&data[index], &data[index  + 1], (--count - index) * sizeof(T)); };
@@ -52,7 +53,7 @@ struct Buffer {
             erase(pos);
         }
     }
-    inline bool insert(int index, const T &value = Default) {
+    inline bool insert(int index, const T &value = T()) {
         if (index >= count)
             fill(value, index - count + 1);
         else {
@@ -62,7 +63,7 @@ struct Buffer {
         data[index] = value;
         return true;
     };
-    inline void set(int index, const T &value = Default) {
+    inline void set(int index, const T &value = T()) {
         ensureIndex(index);
         data[index] = value;
     };
@@ -77,7 +78,7 @@ struct Buffer {
         ge_free(data);
         data = nullptr;
     }
-    inline void reset() { count = 0; }
+    inline void reset(int new_count = 0) { count = new_count;ensureCapacity(new_count); }
     // 确保容量
     inline void ensureCapacity(int newCapacity) {
         if (newCapacity > capacity) {
@@ -87,13 +88,13 @@ struct Buffer {
         }
     }
     inline void ensureIndex(int index) {
-        if (index >= count)
-            fill(Default, index - count + 1);
+        if (index >= count) fill(T(), index - count + 1);
     }
     inline T &operator[](const int &index) {
         ensureIndex(index);
         return data[index];
     }
+
 };
 
 template <typename Type>

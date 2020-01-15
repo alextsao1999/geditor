@@ -94,9 +94,9 @@ public:
         bool res; // 是否未越界
         int index = m_index;
         int length = paint.countText(text, bytelength);
-        auto *widths = new SkScalar[length];
-        auto *rects = new SkRect[length];
-        paint.getTextWidths(text, bytelength, widths, rects);
+        Buffer<SkScalar> widths(length);
+        Buffer<SkRect> rects(length);
+        paint.getTextWidths(text, bytelength, widths.data, rects.data);
         SkScalar size = paint.getTextSize();
         int width = 0;
         for (int i = 0; i < length; ++i) {
@@ -137,12 +137,26 @@ public:
         }
         caret.y = m_offset.y;
         show(caret, index);
-        delete[] widths;
-        delete[] rects;
         if (res) {
             m_move = Offset(0, 0);
         }
         return res;
+    }
+    void breakText(const void *text, size_t bytelength, GStyle &paint, Buffer<SkRect> &rects) {
+        int length = paint.countText(text, bytelength);
+        Buffer<SkScalar> widths(length);
+        rects.reset(length);
+        paint.getTextWidths(text, bytelength, widths.data, rects.data);
+        SkScalar size = paint.getTextSize();
+        int width = 0;
+        for (int i = 0; i < length; ++i) {
+            rects[i].offset(m_offset.x + width, size + (SkScalar) m_offset.y);
+            width += widths[i];
+        }
+    }
+    void breakText(Buffer<SkRect> &rects, int style = StyleDeafaultFont) {
+        LineViewer viewer = m_context->getLineViewer(0);
+        breakText(viewer.c_str(), viewer.size(), m_context->getStyle(style), rects);
     }
     void show(Offset offset, int index) {
         CaretManager* m_caret = m_context->getCaretManager();
@@ -303,6 +317,7 @@ public:
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.pos().setOffset(context.absolute(x, y));
         context.focus();
+        context.redraw();
     }
     void onMouseMove(EventContext &context, int x, int y) override {
         if (context.selecting()) {
@@ -352,6 +367,7 @@ public:
                     if (prev.tag().contain(_GT("Line"))) {
                         auto prevLine = prev.getLineViewer();
                         context.pos().setIndex(prevLine.length());
+                        context.push(CommandType::Combine, CommandData(prevLine.length()));
                         prevLine.append(line.c_str());
                         erase(context);
                         prev.reflow();
@@ -378,6 +394,7 @@ public:
             case VK_RETURN: {
                 insert(context);
                 int idx = service.index();
+                context.push(CommandType::Break, CommandData(idx));
                 auto next = context.getLineViewer(1);
                 next.append(line.c_str() + idx, line.length() - idx);
                 line.remove(idx, line.length() - idx);
@@ -431,7 +448,6 @@ public:
             char str[255];
             sprintf(str, "%s : %d ", context.path().c_str(), context.getLineCounter().line);
             canvas->drawText(str, strlen(str), context.width(), 15, font);
-
         }
     }
     bool onTimer(EventContext &context, int id) override {
@@ -471,9 +487,19 @@ public:
     }
     virtual Element *copy() { return new LineElement(); }
     void onUndo(Command command) override {
+        bool undo = false;
         command.context->setPos(command.pos); // 因为替换之前都是LineElement 所以直接focus就行
         command.context->focus(false, true);
         auto line = command.context->getLineViewer();
+        if (command.type == CommandType::Break) {
+            auto next = command.context->getLineViewer(1);
+            line.append(next.c_str());
+            next.clear();
+            undo = true;
+        }
+        if (command.type == CommandType::Combine) {
+            command.context->breakLine(-1, command.data.value);
+        }
         if (command.type == CommandType::AddChar) {
             line.remove(command.data.input.pos);
         }
@@ -513,6 +539,7 @@ public:
                 }
             }
             command.context->reflow();
+            undo = true;
         }
         if (command.type == CommandType::ReplaceElement) {
             Element *old = command.context->element;
@@ -524,6 +551,10 @@ public:
             command.data.replace.element->free(); // 释放替换的新元素
         }
         command.context->redraw();
+
+        if (undo) {
+            command.context->doc->undo();
+        }
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
@@ -534,7 +565,6 @@ public:
         LineViewer viewer = context.getLineViewer();
         canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
         canvas.drawText(viewer.c_str(), viewer.size(), 4, 2, StyleDeafaultFont);
-        drawLight(context);
     }
     void onDraw(EventContext &context, Drawable canvas) override {
         SkPaint border;
@@ -605,6 +635,58 @@ class AutoLineElement : public SyntaxLineElement {
 public:
     Element *copy() override { return new AutoLineElement(); }
     void onInputChar(EventContext &context, int ch) override;
+
+    void onRedraw(EventContext &context) override {
+        bool isStart = context.isSelectedStart();
+        bool isEnd = context.isSelectedEnd();
+        auto *doctx = context.getDocContext();
+        if (isStart && isEnd) {
+            Offset start = context.relOffset(doctx->m_selectStart);
+            Offset end = context.relOffset(doctx->m_selectEnd);
+            DrawSlection(context, start, end);
+        }
+        if (isStart && !isEnd) {
+            TextCaretService text(Offset(4, 6), &context);
+            Buffer<SkRect> rects;
+            text.breakText(rects);
+            Offset start = context.relOffset(doctx->m_selectStart);
+            if (rects.count) {
+                DrawSlection(context, start, Offset(rects.back().right(), rects.back().top()));
+            }
+        }
+        if (!isStart && isEnd) {
+            Offset end = context.relOffset(doctx->m_selectEnd);
+            DrawSlection(context, Offset(4, 6), end);
+        }
+        if (!isStart && !isEnd && context.isSelected()) {
+            TextCaretService text(Offset(4, 6), &context);
+            Buffer<SkRect> rects;
+            text.breakText(rects);
+            if (rects.count) {
+                DrawSlection(context, Offset(4, 6), Offset(rects.back().right(), rects.back().top()));
+            } else {
+                DrawSlection(context, Offset(4, 6), Offset(10, 6));
+            }
+        }
+        SyntaxLineElement::onRedraw(context);
+    }
+
+    static void DrawSlection(EventContext &context, Offset start, Offset end) {
+        Canvas canvas = context.getCanvas();
+        GRect rect;
+        rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
+        rect.fTop -= 2;
+        rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont)->getTextSize() + 8;
+        SkPaint paint;
+        paint.setColor(SkColorSetRGB(204, 226, 254));
+        paint.setAlpha(255);
+        paint.setAntiAlias(true);
+        canvas->drawRoundRect(rect, 4, 4, paint);
+        paint.setColor(SkColorSetRGB(150, 200, 255));
+        paint.setStyle(SkPaint::kStroke_Style);
+        rect.inset(0.5f, 0.5f);
+        canvas->drawRoundRect(rect, 4, 4, paint);
+    }
 };
 class TextElement : public RelativeElement {
 private:
@@ -612,7 +694,7 @@ public:
     int m_min = 50;
     GString m_data;
     int m_width = 0;
-    int m_height = 25;
+    int m_height = 22;
     explicit TextElement() = default;
     Tag getTag(EventContext &context) override {
         Tag tag = {_GT("Text Focus")};
@@ -651,7 +733,7 @@ public:
     }
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
-        TextCaretService service(Offset(4, 4), &context);
+        TextCaretService service(Offset(6, 2), &context);
         if (code == VK_LEFT) {
             service.moveLeft();
             if (!service.commit(m_data, StyleTableFont)) {
@@ -699,7 +781,7 @@ public:
 
     };
     void onInputChar(EventContext &context, int ch) override {
-        TextCaretService service(Offset(4, 4), &context);
+        TextCaretService service(Offset(6, 2), &context);
         switch (ch) {
             case VK_BACK:
                 if (service.index() > 0) {
@@ -721,11 +803,20 @@ public:
         context.redraw();
     }
     void onFocus(EventContext &context) override {
-        TextCaretService service(Offset(4, 4), &context);
+        TextCaretService service(Offset(6, 2), &context);
         service.moveTo(context.relOffset(context.pos().getOffset()));
         service.commit(m_data, StyleTableFont);
     }
     void onRedraw(EventContext &context) override {
+        bool isStart = context.isSelectedStart();
+        bool isEnd = context.isSelectedEnd();
+        auto *doctx = context.getDocContext();
+        if (isStart && isEnd) {
+            Offset start = context.relOffset(doctx->m_selectStart);
+            Offset end = context.relOffset(doctx->m_selectEnd);
+            DrawSlection(context, start, end);
+        }
+
         Canvas canvas = context.getCanvas();
         if (context.outer && context.outer->isSelected()) {
             canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
@@ -733,7 +824,7 @@ public:
             canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
         }
         canvas.translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas.drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, StyleTableFont);
+        canvas.drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 6, 3, StyleTableFont);
     }
     void onDraw(EventContext &context, Drawable canvas) override {
         if (context.outer && context.outer->isSelected()) {
@@ -744,6 +835,24 @@ public:
         canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
         canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, context.getStyle(StyleTableFont).paint());
     }
+
+    static void DrawSlection(EventContext &context, Offset start, Offset end) {
+        Canvas canvas = context.getCanvas();
+        GRect rect;
+        rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
+        rect.fTop -= 2;
+        rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont)->getTextSize() + 8;
+        SkPaint paint;
+        paint.setColor(SkColorSetRGB(204, 226, 254));
+        paint.setAlpha(255);
+        paint.setAntiAlias(true);
+        canvas->drawRoundRect(rect, 4, 4, paint);
+        paint.setColor(SkColorSetRGB(150, 200, 255));
+        paint.setStyle(SkPaint::kStroke_Style);
+        rect.inset(0.5f, 0.5f);
+        canvas->drawRoundRect(rect, 4, 4, paint);
+    }
+
 };
 class RowElement : public Container<DisplayRow> {
 public:
@@ -754,6 +863,7 @@ public:
         }
     }
     Tag getTag(EventContext &context) override { return {_GT("Row Focus")}; }
+    TextElement *getColumn(int index) { return (TextElement *) get(index); }
     void setColor(GColor color) {
         m_color = color;
     }
@@ -885,9 +995,10 @@ public:
 };
 class CodeBlockElement : public Container<> {
 public:
-    CodeBlockElement() {
-        Container::append(new AutoLineElement());
-        Container::append(new AutoLineElement());
+    CodeBlockElement(int num) {
+        for (int i = 0; i < num; ++i) {
+            Container::append(new AutoLineElement());
+        }
     }
     Tag getTag(EventContext &context) override { return _GT("CodeBlock"); }
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
@@ -924,12 +1035,13 @@ public:
 };
 class SwitchElement : public Container<> {
 public:
-    SwitchElement() {
-        Container::append(new CodeBlockElement());
-        Container::append(new CodeBlockElement());
+    SwitchElement(int num) {
+        for (int i = 0; i < num; ++i) {
+            Container::append(new CodeBlockElement(2));
+        }
     }
     Tag getTag(EventContext &context) override { return {_GT("Switch CodeBlock")}; }
-    CodeBlockElement *addBlock() { return (CodeBlockElement *) append(new CodeBlockElement()); }
+    CodeBlockElement *addBlock(int num) { return (CodeBlockElement *) append(new CodeBlockElement(num)); }
 private:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
 public:
@@ -961,55 +1073,66 @@ public:
         paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
         paint.setColor(SK_ColorBLACK);
         paint.setAlpha(180);
-        Offset runStart;
+        int runawayTop = 15;
+        int runawayLeft = 18;
         for_context(ctx, context) {
-            if (!ctx.tag().contain(_GT("CodeBlock"))) {
-                continue;
-            }
             Canvas canvas = ctx.getCanvas();
+            int lineTop = 0;
             if (ctx.isHead()) {
-                runStart = context.relOffset(ctx.enter(-1).offset());
-            }
-            if (!ctx.isTail()) {
-                int lineTop = ctx.isHead() ? 15 : 20;
-                if (ctx.isHead() && (
-                        (context.parent().tag() == _GT("CodeBlock") && context.isHead()) ||
-                        context.nearby(-1).tag().contain(_GT("CodeBlock")))) {
+                lineTop = 15;
+                if (context.nearby(-1).tag().contain(_GT("CodeBlock"))
+                    || context.parent().tag() == _GT("CodeBlock")) {
                     lineTop = 20;
+                    runawayTop = 20;
                 }
-                canvas->drawLine(-15, lineTop, 0, lineTop, paint);
-
-                int lineBottom = ctx.height() + 15;
-                canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
-                int underlineRight;
-                if (ctx.nearby(1).enter().tag().contain(_GT("CodeBlock"))) {
-                    underlineRight = 25;
+                if (ctx.isTail()) {
+                    runawayLeft = 10;
+                    canvas->drawLine(-15, runawayTop, 0, runawayTop, paint);
                 } else {
-                    underlineRight = 0;
+                    Offset offset = ctx.current()->getLogicOffset();
+                    runawayTop = offset.y + ctx.height() - 10;
                 }
-                canvas->drawLine(-15, lineBottom, underlineRight, lineBottom, paint); // 下边线
-                GPath path = PathUtil::triangleRight(6, underlineRight - 2, lineBottom);
-                canvas->drawPath(path, paint);// 下边线三角形
-                canvas->drawLine(-6, ctx.height() - 10, 0, ctx.height() - 10, paint); // 逃逸线横线
+            } else {
+                lineTop = 20;
             }
+            if (ctx.isTail()) {
+                break;
+            }
+            canvas->drawLine(-15, lineTop, 0, lineTop, paint);
+            int lineBottom = ctx.height() + 15;
+            canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
+            int underlineRight;
+            if (ctx.nearby(1).enter().tag().contain(_GT("CodeBlock"))) {
+                underlineRight = 25;
+            } else {
+                underlineRight = 0;
+            }
+            canvas->drawLine(-15, lineBottom, underlineRight, lineBottom, paint); // 下边线
+            GPath path = PathUtil::triangleRight(6, underlineRight - 2, lineBottom);
+            canvas->drawPath(path, paint);// 下边线三角形
+            canvas->drawLine(-6, ctx.height() - 10, 0, ctx.height() - 10, paint); // 逃逸线横线
         }
+        // 需要绘制逃逸线
         Canvas canvas = context.getCanvas();
         if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
             int runawayBottom = context.height() + 15;
+            constexpr int runawayRight = 23;
             // 逃逸线竖线
-            canvas->drawLine(18, runStart.y + 15, 18, runawayBottom, paint);
+            canvas->drawLine(runawayLeft, runawayTop, runawayLeft, runawayBottom, paint);
             // 逃逸线 下边右横线
-            canvas->drawLine(18, runawayBottom, 24, runawayBottom, paint);
-            GPath path = PathUtil::triangleRight(6, 23, runawayBottom); // 右三角
+            canvas->drawLine(runawayLeft, runawayBottom, runawayRight, runawayBottom, paint);
+            GPath path = PathUtil::triangleRight(6, runawayRight, runawayBottom); // 右三角
             canvas->drawPath(path, paint);
         } else {
             // 逃逸线竖线
-            canvas->drawLine(18, runStart.y + 15, 18, context.height(), paint);
+            int runawayBottom = context.height() - 2;
+            canvas->drawLine(runawayLeft, runawayTop, runawayLeft, context.height(), paint);
             // 逃逸线向下
-            GPath path = PathUtil::triangleDown(6, 18, context.height() - 2);
+            GPath path = PathUtil::triangleDown(6, runawayLeft, runawayBottom);
             // 有可能后面还有流程语句 需要连接
             canvas->drawPath(path, paint);
         }
+
     }
     void onDraw(EventContext &context, Drawable drawable) override {
         Root::onDraw(context, drawable);
@@ -1084,6 +1207,7 @@ public:
 };
 class SingleBlockElement : public CodeBlockElement {
 public:
+    using CodeBlockElement::CodeBlockElement;
     Tag getTag(EventContext &context) override { return _GT("Single CodeBlock"); }
     void onBlur(EventContext &context, EventContext *focus) override {
         if (focus && focus->include(&context)) {
@@ -1130,13 +1254,14 @@ public:
         canvas->drawLine(-15, lineTop, 0, lineTop, paint);
         if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
             int lineBottom = context.height() + 15;
+            constexpr int lineRight = -2;
             canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
 
-            canvas->drawLine(-15, lineBottom, 0, lineBottom, paint); // 下边线
-            GPath path = PathUtil::triangleRight(6, 0, lineBottom);
+            canvas->drawLine(-15, lineBottom, lineRight, lineBottom, paint); // 下边线
+            GPath path = PathUtil::triangleRight(6, lineRight, lineBottom);
             canvas->drawPath(path, paint);
         } else {
-            int lineBottom = context.height() - 5;
+            int lineBottom = context.height() - 2;
             canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
             GPath path = PathUtil::triangleDown(6, -15, lineBottom);
             canvas->drawPath(path, paint);
@@ -1175,34 +1300,19 @@ public:
 class SubElement : public Container<> {
 public:
     SubElement() {
-        auto *table = new TableElement(4, 4);
-        table->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
-        table->getItem(0, 0)->m_data.append(_GT("Function Name"));
-        table->getItem(0, 1)->m_data.append(_GT("Parameter"));
-        table->getRow(2)->setColor(SkColorSetRGB(230, 237, 228));
-        table->getItem(2, 0)->m_data.append(_GT("Name"));
-        table->getItem(2, 1)->m_data.append(_GT("Value"));
-        table->replace(1, 3, new TableElement(2, 2));
-        //table->replace(0, 3, new ButtonElement());
-        Container::append(table);
 
-        auto *vars = new TableElement(2, 2);
-        vars->getRow(0)->setColor(SkColorSetRGB(217, 227, 240));
-        vars->getItem(0, 0)->m_data.append(_GT("Name"));
-        vars->getItem(0, 0)->m_min = 100;
-        vars->getItem(0, 1)->m_data.append(_GT("Value"));
-        vars->getItem(0, 1)->m_min = 150;
-        Container::append(vars);
-
+/*
         Container::append(new AutoLineElement());
 
         auto *control = new SwitchElement();
         control->addBlock()->replace(0, new SwitchElement())->free();
         Container::append(control);
         Container::append(new AutoLineElement());
+        Container::append(new AutoLineElement());
         Container::append(new SwitchElement());
         Container::append(new AutoLineElement());
         Container::append(new SingleBlockElement());
+*/
 
     }
     Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }
@@ -1213,12 +1323,12 @@ private:
 public:
     void onRedraw(EventContext &context) override {
         Root::onRedraw(context);
+        return;
         Canvas canvas = context.getCanvas();
         SkPaint paint;
         paint.setColor(SK_ColorLTGRAY);
         canvas->drawLine(0, context.height() + 3, context.width(), context.height() + 3, paint);
     }
-
 };
 class MultiLine : public RelativeElement {
 private:
@@ -1261,8 +1371,8 @@ private:
     };
     SingleLine m_lines;
 public:
-    Element *getHead() override { return &m_lines; }
-    Element *getTail() override { return &m_lines; }
+    Element *getHead() override {if (!expand) return nullptr; return &m_lines; }
+    Element *getTail() override {if (!expand) return nullptr; return &m_lines; }
     Display getDisplay() override { return DisplayBlock; }
     int getLogicHeight(EventContext &context) override { return m_lines.count * 25; }
     bool expand = true;
@@ -1296,8 +1406,21 @@ public:
         if (context.relative(x, y).y < 20) {
             expand = !expand;
             context.reflow();
+            if (context.getCaretManager()->include(&context)) {
+                if (expand) {
+                    context.enter().focus();
+                } else {
+                    context.focus();
+                }
+            }
             context.redraw();
         }
+    }
+    void onFocus(EventContext &context) override {
+        context.getCaretManager()->set(155, 3);
+    }
+    void onBlur(EventContext &context, EventContext *focus) override {
+
     }
 };
 #endif //GEDITOR_TABLE_H

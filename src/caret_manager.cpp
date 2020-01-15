@@ -89,9 +89,9 @@ bool CaretManager::prev() {
 
 Offset CaretManager::current() {
     if (m_context) {
-        return m_context->offset() - m_context->caretOffset() + m_current;
+        return m_context->offset() - m_context->caretOffset() + m_relative;
     }
-    return m_current;
+    return m_relative;
 }
 
 bool CaretManager::findNext(const GChar *tag) {
@@ -121,4 +121,11 @@ EventContext *CaretManager::include(Element *element) {
         return nullptr;
     }
     return m_context->include(element);
+}
+
+EventContext *CaretManager::include(EventContext *context) {
+    if (!m_context) {
+        return nullptr;
+    }
+    return m_context->include(context);
 }

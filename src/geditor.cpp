@@ -3,3 +3,5 @@
 //
 
 #include "geditor.h"
+#include "ast.h"
+

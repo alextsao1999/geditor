@@ -101,9 +101,19 @@ public:
         }
         str.append(text, length);
     }
+    template <typename ...Args>
+    void format(GChar *text, Args...arg) {
+        GChar buf[255];
+        gsprintf(buf, text, std::forward<Args>(arg)...);
+        append(buf);
+    }
+
     GChar charAt(int pos) {
         auto &str = content();
         return str[pos];
+    }
+    void clear() {
+        content().clear();
     }
 };
 

@@ -13,6 +13,9 @@
 #include "text_buffer.h"
 #include "caret_manager.h"
 #include "lexer.h"
+#define max(a, b) (a > b ? a : b)
+#define min(a, b) (a > b ? b : a)
+
 struct Context;
 struct EventContext;
 class Root;
@@ -31,22 +34,34 @@ struct Context {
     GRect m_enterRect{};
     //////////////////////////
     bool m_selecting = false;
+    Offset m_selectBase;
     Offset m_selectStart;
-    CaretPos m_selectStartPos;
     Offset m_selectEnd;
-    CaretPos m_selectEndPos;
+    //CaretPos m_selectStartPos;
+    //CaretPos m_selectEndPos;
     void startSelect() {
         m_selecting = true;
-        m_selectStart = m_caretManager.current();
-        m_selectEnd = m_selectStart;
-        m_selectStartPos = m_caretManager.data();
+        //m_selectStartPos = m_caretManager.data();
+
+        m_selectBase = m_caretManager.current();
+        m_selectStart = m_selectBase;
+        m_selectEnd = m_selectBase;
+        //m_selectStart = m_caretManager.current();
+        //m_selectEnd = m_selectStart;
+
     }
     void endSelect() {
         m_selecting = false;
     }
+
     void selecting() {
-        m_selectEnd = m_caretManager.current();
-        m_selectEndPos = m_caretManager.data();
+        Offset current = m_caretManager.current();
+        m_selectStart.x = min(current.x, m_selectBase.x);
+        m_selectStart.y = min(current.y, m_selectBase.y);
+        m_selectEnd.x = max(current.x, m_selectBase.x);
+        m_selectEnd.y = max(current.y, m_selectBase.y);
+        //m_selectEnd = m_caretManager.current();
+        //m_selectEndPos = m_caretManager.data();
     }
     inline GRect getSelectRect() {
         Offset start = m_selectStart;
@@ -56,8 +71,10 @@ struct Context {
         rect.set({(SkScalar) start.x, (SkScalar) start.y}, {(SkScalar) end.x, (SkScalar) end.y});
         return rect;
     }
-    explicit Context(RenderManager *renderManager) : m_renderManager(renderManager),
-                                                     m_caretManager(renderManager), m_layoutManager(renderManager){}
+    explicit Context(RenderManager *renderManager) :
+    m_renderManager(renderManager),
+    m_caretManager(renderManager),
+    m_layoutManager(renderManager){}
 };
 struct Tag {
     GChar str[255]{_GT('\0')};
@@ -179,6 +196,18 @@ struct EventContext {
         for (int i = 0; i < count; ++i) {
             getDocContext()->m_textBuffer.deleteLine(getLineCounter(), offset);
         }
+    }
+    void breakLine(int offset, int idx) {
+        auto line = getLineViewer(offset);
+        auto next = getLineViewer(offset + 1);
+        next.append(line.c_str() + idx, line.length() - idx);
+        line.remove(idx, line.length() - idx);
+    }
+    void combineLine() {
+        auto line = getLineViewer();
+        auto next = getLineViewer(1);
+        line.append(next.c_str());
+        next.clear();
     }
     EventContext() = default;
     explicit EventContext(Document *doc);

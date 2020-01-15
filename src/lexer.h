@@ -71,6 +71,9 @@ static std::map<GString, int> keywords = {
         {_GT("class"), StyleKeywordFont},
         {_GT("int"), StyleKeywordFont},
         {_GT("switch"), StyleKeywordFont},
+        {_GT("true"), StyleKeywordFont},
+        {_GT("false"), StyleKeywordFont},
+        {_GT("null"), StyleKeywordFont},
 };
 
 class Lexer {

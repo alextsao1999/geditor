@@ -126,7 +126,7 @@ void ECodeParser::ParseLibrary() {
     code.libraries.resize(_buffer.ReadInt() >> 2);
     _buffer.Skip(10 + code.libraries.size() * 8);
     int length = strlen(_eLibPath);
-    char buf[255] = {'\0'};
+    char buf[512] = {'\0'};
     strcpy(buf, _eLibPath);
     for (auto & librarie : code.libraries) {
         librarie.path = _buffer.ReadFixedData();
@@ -139,7 +139,9 @@ void ECodeParser::ParseLibrary() {
         strcat(buf, ".fne");
         librarie.hModule = LoadLibraryA(buf);
         auto fn = (PFN_GET_LIB_INFO) GetProcAddress(librarie.hModule, "GetNewInf");
-        librarie.info = fn();
+        if (fn) {
+            librarie.info = fn();
+        }
     }
 
 }

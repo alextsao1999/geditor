@@ -12,7 +12,7 @@
 
 #define _HM_C _GT
 
-//褰撳墠浣嶇疆
+//当前位置
 #define HAS_CHAR (CURRENT_POS < length)
 #define CURRENT_POS position
 #define CURRENT_CHAR string[position]
@@ -74,6 +74,11 @@ static std::map<GString, int> keywords = {
         {_GT("true"), StyleKeywordFont},
         {_GT("false"), StyleKeywordFont},
         {_GT("null"), StyleKeywordFont},
+        {_GT("返回"), StyleKeywordFont},
+        {_GT("计次循环首"), StyleKeywordFont},
+        {_GT("计次循环尾"), StyleKeywordFont},
+        {_GT("变量循环首"), StyleKeywordFont},
+        {_GT("变量循环尾"), StyleKeywordFont},
 };
 
 class Lexer {

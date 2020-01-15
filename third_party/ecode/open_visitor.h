@@ -11,6 +11,7 @@
 #include "visitor.h"
 #include "ast.h"
 
+
 std::wstring AnsiToUnicode(const char *str);
 #define A2W(ansi) (AnsiToUnicode((const char *)(ansi)).c_str())
 struct SubVisitor : Visitor {
@@ -67,6 +68,12 @@ struct SubVisitor : Visitor {
         processing->current->append(new AutoLineElement());
         lineIndex++;
     }
+    void process(ASTVariable *node) override {
+        context.insertLine(lineIndex);
+        lineViewer = context.getLineViewer(lineIndex);
+        processing->current->append(new AutoLineElement());
+        lineIndex++;
+    }
     void process(ASTBlock *node) override {}
 
     void visit(ASTProgram *node) override {
@@ -82,7 +89,23 @@ struct SubVisitor : Visitor {
         }
     }
     void visit(ASTFunCall *node) override {
+        static std::map<std::string, std::wstring> binarys = {
+                {"相加", _GT(" + ")},
+                {"相等", _GT(" == ")},
+                {"相乘", _GT(" * ")},
+                {"赋值", _GT(" = ")},
+                {"等于", _GT(" = ")},
+                {"不等于", _GT(" != ")},
+        };
+
         if (node->lib >= 0) {
+            const char *str = (char *) code->libraries[node->lib].info->m_pBeginCmdInfo[node->key.value].m_szName;
+            if (binarys.count(str)) {
+                node->args->args[0]->accept(this);
+                lineViewer.append(binarys[str].c_str());
+                node->args->args[1]->accept(this);
+                return;
+            }
             lineViewer.append(A2W(code->libraries[node->lib].info->m_pBeginCmdInfo[node->key.value].m_szName));
             node->args->accept(this);
             return;

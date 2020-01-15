@@ -56,12 +56,13 @@ struct Context {
 
     void selecting() {
         Offset current = m_caretManager.current();
-        m_selectStart.x = min(current.x, m_selectBase.x);
-        m_selectStart.y = min(current.y, m_selectBase.y);
-        m_selectEnd.x = max(current.x, m_selectBase.x);
-        m_selectEnd.y = max(current.y, m_selectBase.y);
-        //m_selectEnd = m_caretManager.current();
-        //m_selectEndPos = m_caretManager.data();
+        if (m_selectBase.y > current.y) {
+            m_selectStart = current;
+            m_selectEnd = m_selectBase;
+        } else {
+            m_selectStart = m_selectBase;
+            m_selectEnd = current;
+        }
     }
     inline GRect getSelectRect() {
         Offset start = m_selectStart;

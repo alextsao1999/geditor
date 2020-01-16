@@ -277,6 +277,7 @@ void ECodeParser::ParseConstant() {
     _buffer.Skip(4);
     for (auto & constant : code.constants) {
         constant.key = ParseKey();
+        code.maps.emplace(constant.key.value, &constant);
     }
     _buffer.Skip(code.constants.size() * 4);
     for (auto & constant : code.constants) {
@@ -299,6 +300,7 @@ void ECodeParser::ParseVariable(std::vector<EVar> &vars) {
     size_t offset = _buffer.ReadInt() + _buffer.pos;
     for (auto & var : vars) {
         var.key = ParseKey();
+        code.maps.emplace(var.key.value, &var);
     }
     _buffer.Skip(vars.size() * 4);
     for (auto & var : vars) {
@@ -320,12 +322,7 @@ void ECodeParser::ParseSub() {
     code.subs.resize(_buffer.ReadInt() >> 3);
     for (auto & sub : code.subs) {
         sub.key = ParseKey();
-        for (auto & module : code.modules) {
-            if (module.has(sub.key)) {
-                sub.module = &module;
-                break;
-            }
-        }
+        code.maps.emplace(sub.key.value, &sub);
     }
     _buffer.Skip(code.subs.size() * 4);
     for (auto & sub : code.subs) {
@@ -340,12 +337,24 @@ void ECodeParser::ParseSub() {
             i = _buffer.ReadFixedData();
         }
     }
+/*
+    for (auto & module : code.modules) {
+        for (auto &key : module.include) {
+            auto *sub = code.find<ESub>(key);
+            if (sub) {
+                sub->module = &module;
+            }
+        }
+    }
+*/
+
 }
 
 void ECodeParser::ParseDataStruct() {
     code.structs.resize(_buffer.ReadInt() >> 3);
     for (auto & i : code.structs) {
         i.key = ParseKey();
+        code.maps.emplace(i.key.value, &i);
     }
     _buffer.Skip(code.structs.size() * 4);
     for (auto & j : code.structs) {
@@ -361,6 +370,7 @@ void ECodeParser::ParseDll() {
     code.dlls.resize(_buffer.ReadInt() >> 3);
     for (auto &dll : code.dlls) {
         dll.key = ParseKey();
+        code.maps.emplace(dll.key.value, &dll);
     }
     _buffer.Skip(code.dlls.size() * 4);
     for (auto & dll : code.dlls) {

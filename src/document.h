@@ -149,7 +149,7 @@ public:
         sender->reflow(context.enter(), true);
     }
     DEFINE_EVENT(onFocus);
-    DEFINE_EVENT(onBlur, EventContext *focus);
+    DEFINE_EVENT(onBlur, EventContext *focus, bool force);
     DEFINE_EVENT(onKeyDown, int code, int status);
     DEFINE_EVENT(onKeyUp, int code, int status);
     DEFINE_EVENT2(onLeftButtonUp);
@@ -457,6 +457,7 @@ public:
     inline Context *getContext() { return &m_context; };
     void flow() { LayoutManager::ReflowAll(this); }
     Offset getLogicOffset() override { return {10, 10}; }
+/*
     Element *append(Element *element) override {
         int count = element->getLineNumber();
         for (int i = 0; i < count; ++i) {
@@ -472,6 +473,7 @@ public:
         append(element);
         return m_root.enter(-1);
     }
+*/
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
     }

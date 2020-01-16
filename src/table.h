@@ -83,8 +83,8 @@ public:
     void moveRight() { m_index++; }
     void moveToIndex(int index) { m_index = index; }
     void moveTo(Offset offset) { m_move = offset; }
-    bool commit(int column = 0, int style = StyleDeafaultFont) {
-        LineViewer viewer = m_context->getLineViewer(0, column);
+    bool commit(int style = StyleDeafaultFont) {
+        LineViewer viewer = m_context->getLineViewer();
         return commit(viewer.c_str(), viewer.size(), m_context->getStyle(style), nullptr);
     }
     bool commit(GString &string, int style = StyleDeafaultFont) {
@@ -432,8 +432,8 @@ public:
 */
 
     }
-    void onBlur(EventContext &context, EventContext *focus) override {
-        context_on_outer(context, Blur, focus);
+    void onBlur(EventContext &context, EventContext *focus, bool force) override {
+        context_on_outer(context, Blur, focus, force);
     }
     bool show = false;
     void drawLight(EventContext &context) {
@@ -1002,8 +1002,8 @@ public:
     }
     Tag getTag(EventContext &context) override { return _GT("CodeBlock"); }
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
-    void onBlur(EventContext &context, EventContext *focus) override {
-        context_on_outer(context, Blur, focus);
+    void onBlur(EventContext &context, EventContext *focus, bool force) override {
+        context_on_outer(context, Blur, focus, force);
     }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 25;
@@ -1046,7 +1046,8 @@ private:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
 public:
     void onFocus(EventContext &context) override {}
-    void onBlur(EventContext &context, EventContext *focus) override {
+    void onBlur(EventContext &context, EventContext *focus, bool force) override {
+        if (force) { return; }
         if (focus && focus->include(&context)) {
             return;
         }
@@ -1209,7 +1210,8 @@ class SingleBlockElement : public CodeBlockElement {
 public:
     using CodeBlockElement::CodeBlockElement;
     Tag getTag(EventContext &context) override { return _GT("Single CodeBlock"); }
-    void onBlur(EventContext &context, EventContext *focus) override {
+    void onBlur(EventContext &context, EventContext *focus, bool force) override {
+        if (force) { return; }
         if (focus && focus->include(&context)) {
             return;
         }
@@ -1419,7 +1421,7 @@ public:
     void onFocus(EventContext &context) override {
         context.getCaretManager()->set(155, 3);
     }
-    void onBlur(EventContext &context, EventContext *focus) override {
+    void onBlur(EventContext &context, EventContext *focus, bool force) override {
 
     }
 };

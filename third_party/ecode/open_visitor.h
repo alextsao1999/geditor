@@ -17,69 +17,58 @@ std::wstring AnsiToUnicode(const char *str);
 struct SubVisitor : Visitor {
     ECode *code;
     Document *document;
-    ESub &current;
     EventContext context;
     LineViewer lineViewer;
-    SubElement *element = nullptr;
+    ESub *current = nullptr;
+    SubVisitor(ECode *code, Document *document) : code(code), document(document) {}
+    void createSub(ESub *sub) {
+        current = sub;
 
-    int lineIndex = 0;
-    SubVisitor(ECode *code, Document *document, ESub &sub) : code(code), document(document), current(sub) {
-        element = new SubElement();
-        context = document->appendElement(element);
-
-        auto *table = new TableElement(current.params.size() + 3, 4);
+        auto *table = new TableElement(current->params.size() + 3, 4);
         table->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
         table->getItem(0, 0)->m_data.append(_GT("Function Name"));
         table->getItem(0, 1)->m_data.append(_GT("Type"));
-        table->getItem(1, 0)->m_data.append(current.name.toUnicode().c_str());
-        table->getItem(1, 1)->m_data.append(std::to_wstring(current.type));
+        table->getItem(1, 0)->m_data.append(current->name.toUnicode().c_str());
+        table->getItem(1, 1)->m_data.append(std::to_wstring(current->type));
         table->getRow(2)->setColor(SkColorSetRGB(230, 237, 228));
         table->getItem(2, 0)->m_data.append(_GT("Name"));
         table->getItem(2, 1)->m_data.append(_GT("Type"));
         table->replace(1, 3, new TableElement(2, 2));
         //table->replace(0, 3, new ButtonElement());
-        for (int i = 0; i < current.params.size(); ++i) {
+        for (int i = 0; i < current->params.size(); ++i) {
             auto *row = table->getRow(i + 3);
-            row->getColumn(0)->m_data.append(current.params[i].name.toUnicode().c_str());
-            row->getColumn(1)->m_data.append(std::to_wstring(current.params[i].type));
+            row->getColumn(0)->m_data.append(current->params[i].name.toUnicode().c_str());
+            row->getColumn(1)->m_data.append(std::to_wstring(current->params[i].type));
         }
+        document->append(table);
 
-        element->append(table);
-
-
-        auto *vars = new TableElement(current.locals.size() + 1, 2);
+        auto *vars = new TableElement(current->locals.size() + 1, 2);
         vars->getRow(0)->setColor(SkColorSetRGB(217, 227, 240));
         vars->getItem(0, 0)->m_data.append(_GT("Name"));
         vars->getItem(0, 0)->m_min = 100;
         vars->getItem(0, 1)->m_data.append(_GT("Value"));
         vars->getItem(0, 1)->m_min = 150;
-        for (int i = 0; i < current.locals.size(); ++i) {
+        for (int i = 0; i < current->locals.size(); ++i) {
             auto *row = vars->getRow(i + 1);
-            row->getColumn(0)->m_data.append(current.locals[i].name.toUnicode().c_str());
-            row->getColumn(1)->m_data.append(std::to_wstring(current.locals[i].type));
+            row->getColumn(0)->m_data.append(current->locals[i].name.toUnicode().c_str());
+            row->getColumn(1)->m_data.append(std::to_wstring(current->locals[i].type));
         }
-        element->append(vars);
+        document->append(vars);
 
     }
 
     void process(ASTFunCall *node) override {
-        context.insertLine(lineIndex);
-        lineViewer = context.getLineViewer(lineIndex);
-        processing->current->append(new AutoLineElement());
-        lineIndex++;
+        lineViewer = document->m_context.m_textBuffer.appendLine();
+        processing->current->append(ge_new(AutoLineElement));
     }
     void process(ASTVariable *node) override {
-        context.insertLine(lineIndex);
-        lineViewer = context.getLineViewer(lineIndex);
-        processing->current->append(new AutoLineElement());
-        lineIndex++;
+        lineViewer = document->m_context.m_textBuffer.appendLine();
+        processing->current->append(ge_new(AutoLineElement));
     }
-    void process(ASTBlock *node) override {}
-
     void visit(ASTProgram *node) override {
         InnerElement container{};
         processing = &container;
-        container.current = element;
+        container.current = document;
         container.outer = nullptr;
         for (auto &stmt : node->stmts) {
             if (stmt != nullptr) {
@@ -111,18 +100,16 @@ struct SubVisitor : Visitor {
             return;
         }
         if (node->key.type == KeyType_Sub) {
-            for (auto & sub : code->subs) {
-                if (sub.key.value == node->key.value) {
-                    lineViewer.append(sub.name.toUnicode().c_str());
-                    node->args->accept(this);
-                }
+            auto *sub = code->find<ESub>(node->key);
+            if (sub) {
+                lineViewer.append(sub->name.toUnicode().c_str());
+                node->args->accept(this);
             }
         } else if (node->key.type == KeyType_DllFunc) {
-            for (auto & dll : code->dlls) {
-                if (dll.key.index == node->key.index) {
-                    lineViewer.append(dll.name.toUnicode().c_str());
-                    node->args->accept(this);
-                }
+            auto *dll = code->find<EDllSub>(node->key);
+            if (dll) {
+                lineViewer.append(dll->name.toUnicode().c_str());
+                node->args->accept(this);
             }
         }
         if (node->comment.length) {
@@ -165,11 +152,11 @@ struct SubVisitor : Visitor {
 
     void visit(ASTIfStmt *node) override {
         InnerElement container;
-        processing = container.enter(new SwitchElement(0), processing);
+        processing = container.enter(ge_new(SwitchElement, 0), processing);
         //////////////////////////////////
         if (node->then_block) {
             InnerElement block;
-            processing = block.enter(new CodeBlockElement(0), processing);
+            processing = block.enter(ge_new(CodeBlockElement, 0), processing);
             node->condition->preprocess(this);
             lineViewer.append(_GT("if ("));
             node->condition->accept(this);
@@ -179,7 +166,7 @@ struct SubVisitor : Visitor {
         }
         if (node->else_block) {
             InnerElement block;
-            processing = block.enter(new CodeBlockElement(0), processing);
+            processing = block.enter(ge_new(CodeBlockElement, 0), processing);
             node->else_block->accept(this);
             processing = processing->outer;
         }
@@ -192,7 +179,7 @@ struct SubVisitor : Visitor {
                 lineViewer.append(_GT("null"));
                 break;
             case 1:
-                lineViewer.append(_GT("%d"), node->value.val_int);
+                lineViewer.format(_GT("%d"), node->value.val_int);
                 break;
             case 2:
                 lineViewer.append(node->value.val_bool ? _GT("true") : _GT("false"));
@@ -216,11 +203,10 @@ struct SubVisitor : Visitor {
 
     }
     void visit(ASTConstant *node) override {
-        for (auto & constant : code->constants) {
-            if (constant.key.value == node->key.value) {
-                lineViewer.append(_GT("#"));
-                lineViewer.append(constant.name.toUnicode().c_str());
-            }
+        auto *constant = code->find<EConst>(node->key);
+        if (constant) {
+            lineViewer.append(_GT("#"));
+            lineViewer.append(constant->name.toUnicode().c_str());
         }
     }
     void visit(ASTLibConstant *node) override {
@@ -228,11 +214,10 @@ struct SubVisitor : Visitor {
         lineViewer.append(A2W(code->libraries[node->index].info->m_pLibConst[node->member].m_szName));
     }
     void visit(ASTAddress *node) override {
-        for (auto & sub : code->subs) {
-            if (sub.key.value == node->key.value) {
-                lineViewer.append(_GT("#"));
-                lineViewer.append(sub.name.toUnicode().c_str());
-            }
+        auto *sub = code->find<ESub>(node->key);
+        if (sub) {
+            lineViewer.append(_GT("&"));
+            lineViewer.append(sub->name.toUnicode().c_str());
         }
     }
     void visit(ASTSubscript *node) override {
@@ -244,28 +229,41 @@ struct SubVisitor : Visitor {
         lineViewer.append(_GT("..."));
     }
     void visit(ASTStructMember *node) override {
-        for (auto & i : code->structs) {
-            if (i.key.value == node->key.value) {
-                for (auto & member : i.members) {
-                    if (member.key.value == node->member.value) {
-                        lineViewer.append(_GT("."));
-                        lineViewer.append(member.name.toUnicode().c_str());
-                        break;
-                    }
-                }
-                break;
-            }
+        auto *member = code->find<EVar>(node->member);
+        if (member) {
+            lineViewer.append(_GT("."));
+            lineViewer.append(member->name.toUnicode().c_str());
         }
+/*
+        auto *stru = code->find<EStruct>(node->key);
+        if (stru) {
+            for (auto & member : stru->members) {
+                if (member.key.value == node->member.value) {
+                    lineViewer.append(_GT("."));
+                    lineViewer.append(member.name.toUnicode().c_str());
+                    break;
+                }
+            }
+
+        }
+*/
     }
     void visit(ASTVariable *node) override {
+        auto *var = code->find<EVar>(node->key);
+        if (var) {
+            lineViewer.append(var->name.toUnicode().c_str());
+            return;
+        }
+        return;
+
         if (node->key.type == KeyType_LocalOrParam) {
-            for (auto & local : current.locals) {
+            for (auto & local : current->locals) {
                 if (local.key.value == node->key.value) {
                     lineViewer.append(local.name.toUnicode().c_str());
                     return;
                 }
             }
-            for (auto & param : current.params) {
+            for (auto & param : current->params) {
                 if (param.key.value == node->key.value) {
                     lineViewer.append(param.name.toUnicode().c_str());
                     return;
@@ -273,29 +271,47 @@ struct SubVisitor : Visitor {
             }
 
         } else if (node->key.type == KeyType_ProgramVar) {
-            EModule *module = current.module;
-            for (auto & var : module->vars) {
-                if (var.key.value == node->key.value) {
-                    lineViewer.append(var.name.toUnicode().c_str());
-                    return;
-                }
+            auto *var = code->find<EVar>(node->key);
+            if (var) {
+                lineViewer.append(var->name.toUnicode().c_str());
+                return;
             }
         }
-
     }
     void visit(ASTDot *node) override {
         node->var->accept(this);
         node->field->accept(this);
     }
     void visit(ASTJudge *node) override {
+        InnerElement container;
+        processing = container.enter(ge_new(SwitchElement, 0), processing);
+        //////////////////////////////////
+        for (int i = 0; i < node->conditions.size(); ++i) {
+            InnerElement codeblock;
+            processing = codeblock.enter(ge_new(CodeBlockElement, 0), processing);
+
+            node->conditions[i]->preprocess(this);
+            lineViewer.append(_GT("switch ("));
+            node->conditions[i]->accept(this);
+            lineViewer.append(_GT(")"));
+            node->blocks[i]->accept(this);
+            processing = processing->outer;
+        }
+
+        InnerElement codeblock;
+        processing = codeblock.enter(ge_new(CodeBlockElement, 0), processing);
+        node->default_block->accept(this);
+        processing = processing->outer;
+        /////////////////////////////////
+        processing = processing->outer;
 
     }
     void visit(ASTLoop *node) override {
         InnerElement container;
-        processing = container.enter(new SwitchElement(0), processing);
+        processing = container.enter(ge_new(SwitchElement, 0), processing);
         //////////////////////////////////
         InnerElement block;
-        processing = block.enter(new CodeBlockElement(0), processing);
+        processing = block.enter(ge_new(CodeBlockElement, 0), processing);
 
         if (node->head) {
             node->head->preprocess(this);

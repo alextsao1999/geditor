@@ -8,8 +8,8 @@
 #define OutOfBound() (!element)
 #define CheckBound(ret) if (OutOfBound()) return ret
 
-LineViewer EventContext::getLineViewer(int offset, int column) {
-    return doc->getContext()->m_textBuffer.getLine(getLineCounter(), offset, column);
+LineViewer EventContext::getLineViewer(int offset) {
+    return doc->getContext()->m_textBuffer.getLine(getLineCounter(), offset);
 }
 Painter EventContext::getPainter() { return doc->getContext()->m_renderManager->getPainter(this); }
 Canvas EventContext::getCanvas(SkPaint *paint) {
@@ -163,8 +163,8 @@ bool EventContext::visible() {
 
 bool EventContext::selecting() { return getDocContext()->m_selecting; }
 
-Lexer *EventContext::getLexer(int column) {
-    getDocContext()->m_lexer.enter(this, column);
+Lexer *EventContext::getLexer() {
+    getDocContext()->m_lexer.enter(this);
     return &getDocContext()->m_lexer;
 }
 

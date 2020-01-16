@@ -16,7 +16,7 @@
 #include "tools.h"
 #include "ast.h"
 #include "lib2.h"
-
+#include <unordered_map>
 #define NOT_REACHED() printf("not reached !! %s:%d\n", __FILE__, __LINE__);
 #define make_ptr(p, ...) std::make_shared<p>(__VA_ARGS__)
 using namespace std;
@@ -171,6 +171,12 @@ struct ECode {
     std::vector<EVar> globals; // 全局变量
     std::vector<EStruct> structs; // 自定义数据类型
     std::vector<EDllSub> dlls; // dll
+    std::unordered_map<int, void *> maps;
+    template <typename Type>
+    inline Type *find(Key key) {
+        return (Type *) maps[key.value];
+    }
+
     void free() {
         ::free(code);
         for (auto & librarie : libraries) {

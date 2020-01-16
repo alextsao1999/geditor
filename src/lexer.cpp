@@ -17,9 +17,9 @@ bool IsCodeChar(GChar ch) {
     return IsAlpha(ch) || ch == _HM_C('_') || (ch > _GT('\u4E00') && ch < _GT('\u9FA5'));
 }
 
-void Lexer::enter(EventContext *ctx, int column) {
+void Lexer::enter(EventContext *ctx) {
     context = ctx;
-    viewer = context->getLineViewer(0, column);
+    viewer = context->getLineViewer();
     string = viewer.c_str();
     length = viewer.length();
     position = 0;

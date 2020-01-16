@@ -8,8 +8,8 @@
 void CaretManager::focus(EventContext *context, bool force) {
     EventContext *before = m_context;
     if (before) {
-        if (!force && before->element) {
-            before->element->onBlur(*before, context);
+        if (before->element) {
+            before->element->onBlur(*before, context, force);
         }
         if (before != context) {
             before->free();
@@ -64,7 +64,7 @@ bool CaretManager::next() {
             *m_context = cur;
             return false;
         }
-        cur.current()->onBlur(cur, m_context);
+        cur.current()->onBlur(cur, m_context, false);
         m_context->current()->onFocus(*m_context);
         return true;
     }
@@ -79,7 +79,7 @@ bool CaretManager::prev() {
             *m_context = last;
             return false;
         }
-        last.current()->onBlur(last, m_context);
+        last.current()->onBlur(last, m_context, false);
         m_context->current()->onFocus(*m_context);
         return true;
 

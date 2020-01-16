@@ -7,10 +7,12 @@
 // 之后根据需要加装内存池...
 #include <cstdlib>
 #include <utility>
-#define ge_new(element, ...) new element(__VA_ARGS__);
 #define ge_malloc malloc
 #define ge_free free
 #define ge_realloc realloc
+#define ge_new(element, ...) (new element(__VA_ARGS__))
+#define ge_delete(element) (delete element)
+
 #define ONCE_ALLOC 4
 int CeilToPowerOf2(int v);
 template <typename T>

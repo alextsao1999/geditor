@@ -13,9 +13,6 @@
 #include "text_buffer.h"
 #include "caret_manager.h"
 #include "lexer.h"
-#define max(a, b) (a > b ? a : b)
-#define min(a, b) (a > b ? b : a)
-
 struct Context;
 struct EventContext;
 class Root;
@@ -186,8 +183,8 @@ struct EventContext {
     CaretManager *getCaretManager();
     StyleManager *getStyleManager();
     inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
-    Lexer *getLexer(int column = 0);
-    LineViewer getLineViewer(int offset = 0, int column = 0);
+    Lexer *getLexer();
+    LineViewer getLineViewer(int offset = 0);
     void insertLine(int offset = 0, int count = 1) {
         for (int i = 0; i < count; ++i) {
             getDocContext()->m_textBuffer.insertLine(getLineCounter(), offset);

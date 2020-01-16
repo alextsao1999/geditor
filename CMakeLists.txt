@@ -21,7 +21,7 @@ add_subdirectory(third_party/skia)
 include_directories(third_party/ecode/)
 aux_source_directory(third_party/ecode/ sources)
 
-add_definitions(-DUNICODE -D_UNICODE -D_MT -D_Debug)
+add_definitions(-DUNICODE -D_UNICODE -D_Debug)
 include_directories(src/)
 file(GLOB_RECURSE headers RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.h)
 aux_source_directory(src/ sources)
@@ -33,14 +33,7 @@ add_executable(geditor ${sources} ${headers})
 set(LINK_STATIC_LIB opengl32.lib usp10.lib skia)
 target_link_libraries(geditor ${LINK_STATIC_LIB})
 
-add_executable(test third_party/test.cpp
-        src/memory.cpp
-        src/document.cpp
-        src/event.cpp
-        src/lexer.cpp
-        src/layout.cpp
-        src/line_index.cpp
-        src/paint_manager.cpp
-        src/caret_manager.cpp
-        src/table.cpp)
+add_executable(test
+        third_party/test.cpp
+        )
 target_link_libraries(test ${LINK_STATIC_LIB} lalr)

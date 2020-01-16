@@ -11,6 +11,7 @@
 #include "document.h"
 #include <thread>
 #include "open_visitor.h"
+#include "shellapi.h"
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 static bool isInit = false;
 class GEditor;
@@ -18,6 +19,7 @@ struct GEditorData {
     HWND m_hwnd;
     Document m_document;
     RenderManager m_renderManager;
+    bool m_dragging = false;
     explicit GEditorData(HWND hwnd) :
     m_hwnd(hwnd),
     m_document(&m_renderManager),
@@ -30,7 +32,7 @@ public:
     GEditor() :
     m_data(nullptr) {}
     explicit GEditor(HWND parent, int x, int y, int nWidth, int nHeight) {
-        HWND hwnd = CreateWindowEx(0, GEDITOR_CLASSNAME, _GT("GEditor"),
+        HWND hwnd = CreateWindowEx(WS_EX_ACCEPTFILES, GEDITOR_CLASSNAME, _GT("GEditor"),
                                    WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL,
                                    x, y, nWidth, nHeight, parent,
                                    nullptr, nullptr, nullptr);
@@ -38,21 +40,19 @@ public:
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
 
-        FileBuffer buffer(R"(C:\Users\Administrator\Desktop\edit\f.e)");
+/*
+        FileBuffer buffer(R"(C:\Users\Administrator\Desktop\edit\k.e)");
         ECodeParser parser(buffer);
         parser.Parse();
         int count = 0;
         for (auto &sub : parser.code.subs) {
             count++;
-            if (count > 100 && count < 200) {
-
-            } else {
-                continue;
-            }
             SubVisitor open(&parser.code, &m_data->m_document, sub);
             sub.ast->accept(&open);
         }
+
         m_data->m_document.flow();
+*/
     }
     ~GEditor() { delete m_data; }
 };
@@ -174,13 +174,24 @@ public:
             case WM_KILLFOCUS:
                 data->m_document.getContext()->m_caretManager.destroy();
                 break;
+            case WM_DROPFILES:
+                onDropFiles(hWnd, (HDROP) wParam, data);
+            break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
         }
         return 0;
     }
+
+    static int getDragPosition(HWND hWnd, int nBar) {
+        SCROLLINFO si;
+        si.cbSize = sizeof(SCROLLINFO);
+        si.fMask = SIF_ALL;
+        GetScrollInfo(hWnd, nBar, &si);
+        return si.nTrackPos;
+    }
     static void onHandleScroll(int nBar, GEditorData *data, WPARAM wParam) {
-        int step = (nBar == SB_VERT ? 25 : 1);
+        int step = (nBar == SB_VERT ? 35 : 1);
         int prev = GetScrollPos(data->m_hwnd, nBar);
         int movement = (((int16_t) HIWORD(wParam)) / -60) * step;
         prev += movement;
@@ -189,24 +200,29 @@ public:
                 prev -= step;
                 break;
             case SB_LINEDOWN:
+                data->m_dragging = false;
                 prev += step;
                 break;
-            case SB_THUMBTRACK:
-            {
-                SCROLLINFO si;
-                si.cbSize = sizeof(SCROLLINFO);
-                si.fMask = SIF_ALL;
-                GetScrollInfo(data->m_hwnd, nBar, &si);
-                prev = si.nTrackPos;
-            }
-                break;
             case SB_PAGEUP:
+                data->m_dragging = false;
                 prev -= step;
                 break;
             case SB_PAGEDOWN:
                 prev += step;
                 break;
+            case SB_THUMBTRACK:
+                data->m_dragging = true;
+                prev = getDragPosition(data->m_hwnd, SB_VERT);
+                break;
             case SB_ENDSCROLL:
+                if (data->m_dragging) {
+                    prev = getDragPosition(data->m_hwnd, SB_VERT);
+                }
+                break;
+            case SB_THUMBPOSITION:
+                if (data->m_dragging) {
+                    prev = getDragPosition(data->m_hwnd, SB_VERT);
+                }
                 break;
             default:
                 break;
@@ -214,6 +230,26 @@ public:
         SetScrollPos(data->m_hwnd, nBar, prev, true);
         data->m_renderManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
         data->m_document.getContext()->m_caretManager.update();
+    }
+    static void onDropFiles(HWND hwnd, HDROP hDropInfo, GEditorData *data) {
+        //  UINT  nFileCount = DragQueryFile(hDropInfo, (UINT)-1, NULL, 0);  //查询一共拖拽了几个文件
+        char szFileName[MAX_PATH] = "";
+        DragQueryFileA(hDropInfo, 0, szFileName, sizeof(szFileName));  //打开拖拽的第一个(下标为0)文件
+
+        FileBuffer buffer(szFileName);
+        ECodeParser parser(buffer);
+        parser.Parse();
+        SubVisitor open(&parser.code, &data->m_document);
+        for (auto &sub : parser.code.subs) {
+            open.createSub(&sub);
+            sub.ast->accept(&open);
+        }
+
+        data->m_document.flow();
+
+        //read_file(hwnd,szFileName);
+        //完成拖入文件操作，系统释放缓冲区 
+        DragFinish(hDropInfo);
     }
     static void onPaint(HWND hWnd, GEditorData *data) {
         PAINTSTRUCT ps;
@@ -223,6 +259,7 @@ public:
         data->m_renderManager.copy();
         EndPaint(hWnd, &ps);
     }
+
 };
 
 #endif //GEDITOR_GEDITOR_H

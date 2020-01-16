@@ -91,7 +91,7 @@ class Lexer {
     std::deque<Token> peeks;
 public:
     explicit Lexer() = default;
-    virtual void enter(EventContext *context, int column);
+    virtual void enter(EventContext *context);
     virtual bool has();
     virtual bool canNext();
     virtual Token next();

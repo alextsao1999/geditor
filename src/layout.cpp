@@ -13,26 +13,18 @@ void LayoutManager::ReflowAll(Document *doc) {
     //context.reflow(true);
 }
 
-void LayoutManager::reflow(EventContext context, bool relayout) {
+void LayoutManager::reflow(EventContext context, bool relayout, Offset offset) {
     if (!context.has()) {
         return;
     }
     // 把自身安排一下
     LayoutContext layoutContext;
     Element *current = context.current();
-    Offset offset;
-    bool outset = context.isHead();
-    if (outset) {
-        // 从起始开始 offset 为 {0, 0}
-        current->onEnterReflow(context, offset);
-    } else {
-        offset = current->getLogicOffset();
-    }
     Offset self = offset;
     Display display = current->getDisplay();
     if (relayout) current->onRelayout(context, this);
     m_layouts[display](context, this, display, layoutContext, self, offset);
-    if (outset) current->setLogicOffset(self);
+    current->setLogicOffset(self);
     current->onLeaveReflow(context, offset);
     context.next();
     // 再把同级别的元素都安排一下
@@ -55,7 +47,8 @@ void LayoutManager::reflow(EventContext context, bool relayout) {
             context_on(*context.outer, FinishReflow, layoutContext.blockMaxWidth, offset.y);
         }
         if (!relayout) { // 再把父级别的元素都安排一下
-            reflow(*context.outer, false);
+            reflow(*context.outer, false, context.outer->current()->getLogicOffset());
+            //context.outer->reflow(false);
         }
     }
 }
@@ -64,13 +57,13 @@ Layout(LayoutDisplayNone) {}
 Layout(LayoutDisplayAbsolute) {}
 Layout(LayoutDisplayInline) {
     layoutContext.blockMaxWidth = 0;
-    int before = next.x;
+//    int before = next.x;
     next.x += context.width();
     uint32_t value = context.height();
     if (value > layoutContext.lineMaxHeight) {
         layoutContext.lineMaxHeight = value;
     }
-    next.x = before;
+//    next.x = before;
 }
 Layout(LayoutDisplayBlock) {
     layoutContext.lineMaxHeight = 0;

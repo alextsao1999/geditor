@@ -50,8 +50,6 @@ public:
             SubVisitor open(&parser.code, &m_data->m_document, sub);
             sub.ast->accept(&open);
         }
-
-        m_data->m_document.flow();
 */
     }
     ~GEditor() { delete m_data; }
@@ -236,16 +234,27 @@ public:
         char szFileName[MAX_PATH] = "";
         DragQueryFileA(hDropInfo, 0, szFileName, sizeof(szFileName));  //打开拖拽的第一个(下标为0)文件
 
+
         FileBuffer buffer(szFileName);
         ECodeParser parser(buffer);
         parser.Parse();
-        SubVisitor open(&parser.code, &data->m_document);
-        for (auto &sub : parser.code.subs) {
-            open.createSub(&sub);
-            sub.ast->accept(&open);
+        for (auto &mod : parser.code.modules) {
+            auto *module = new ModuleElement();
+            module->name.append(mod.name.toUnicode());
+            data->m_document.append(module);
+            for (auto &key : mod.include) {
+                if (key.type == KeyType::KeyType_Sub) {
+                    auto *sub = parser.code.find<ESub>(key);
+                    if (sub) {
+                        SubVisitor open(&parser.code, &data->m_document, module, sub);
+                        sub->ast->accept(&open);
+                    }
+                }
+            }
         }
 
         data->m_document.flow();
+        data->m_renderManager.refresh();
 
         //read_file(hwnd,szFileName);
         //完成拖入文件操作，系统释放缓冲区 

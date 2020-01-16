@@ -153,6 +153,7 @@ void ECodeParser::ParseModule() {
     code.modules.resize(_buffer.ReadInt() >> 3);
     for (auto & module : code.modules) {
         module.key = ParseKey();
+        code.maps.emplace(module.key.value, &module);
     }
     _buffer.Skip(code.modules.size() * 4);
     for (auto & module : code.modules) {
@@ -190,6 +191,7 @@ void ECodeParser::ParseWindow() {
     code.windows.resize(_buffer.ReadInt() >> 3);
     for (auto & window : code.windows) {
         window.key = ParseKey();
+        //FIXME code.maps.emplace(window.key.value, &window);
     }
     _buffer.Skip(code.windows.size() << 2);
     for (auto & window : code.windows) {

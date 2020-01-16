@@ -11,18 +11,18 @@
 #include "visitor.h"
 #include "ast.h"
 
-
 std::wstring AnsiToUnicode(const char *str);
 #define A2W(ansi) (AnsiToUnicode((const char *)(ansi)).c_str())
 struct SubVisitor : Visitor {
     ECode *code;
     Document *document;
-    EventContext context;
+    Container<> *parent;
     LineViewer lineViewer;
     ESub *current = nullptr;
-    SubVisitor(ECode *code, Document *document) : code(code), document(document) {}
-    void createSub(ESub *sub) {
-        current = sub;
+    SubVisitor(ECode *code, Document *document, Container<> *parent, ESub *sub) :
+    code(code), document(document), parent(parent), current(sub) {}
+    Container<> *create() {
+        Container<> *subs = new SubElement();
 
         auto *table = new TableElement(current->params.size() + 3, 4);
         table->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
@@ -40,7 +40,7 @@ struct SubVisitor : Visitor {
             row->getColumn(0)->m_data.append(current->params[i].name.toUnicode().c_str());
             row->getColumn(1)->m_data.append(std::to_wstring(current->params[i].type));
         }
-        document->append(table);
+        subs->append(table);
 
         auto *vars = new TableElement(current->locals.size() + 1, 2);
         vars->getRow(0)->setColor(SkColorSetRGB(217, 227, 240));
@@ -53,10 +53,9 @@ struct SubVisitor : Visitor {
             row->getColumn(0)->m_data.append(current->locals[i].name.toUnicode().c_str());
             row->getColumn(1)->m_data.append(std::to_wstring(current->locals[i].type));
         }
-        document->append(vars);
-
+        subs->append(vars);
+        return subs;
     }
-
     void process(ASTFunCall *node) override {
         lineViewer = document->m_context.m_textBuffer.appendLine();
         processing->current->append(ge_new(AutoLineElement));
@@ -68,8 +67,9 @@ struct SubVisitor : Visitor {
     void visit(ASTProgram *node) override {
         InnerElement container{};
         processing = &container;
-        container.current = document;
+        container.current = create();
         container.outer = nullptr;
+        parent->append(container.current);
         for (auto &stmt : node->stmts) {
             if (stmt != nullptr) {
                 stmt->preprocess(this);

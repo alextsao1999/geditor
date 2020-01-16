@@ -6,6 +6,28 @@
 #define GEDITOR_LAYOUT_H
 
 #include "common.h"
+struct Offset {
+    int x = 0;
+    int y = 0;
+    Offset() = default;
+    Offset(int x, int y) : x(x), y(y) {}
+    inline Offset operator+(const Offset &offset) {
+        return {x + offset.x, y + offset.y};
+    }
+    inline Offset operator-(const Offset &offset) {
+        return {x - offset.x, y - offset.y};
+    }
+    inline Offset &operator+=(const Offset &offset) {
+        x += offset.x;
+        y += offset.y;
+        return *this;
+    }
+    inline Offset &operator-=(const Offset &offset) {
+        x -= offset.x;
+        y -= offset.y;
+        return *this;
+    }
+};
 
 //typedef int Display;
 enum Display {
@@ -25,7 +47,6 @@ class Element;
 class LayoutManager;
 class RenderManager;
 struct EventContext;
-struct Offset;
 struct LayoutContext {
     int lineMaxHeight = 0;
     int blockMaxWidth = 0;
@@ -61,7 +82,8 @@ public:
             LayoutDisplayCustom,
     };
     static void ReflowAll(Document *doc);
-    void reflow(EventContext context, bool relayout = false);
+
+    void reflow(EventContext context, bool relayout = false, Offset offset = {0, 0});
     LayoutFunc getLayoutFunc(Display display) { return m_layouts[display]; }
 };
 

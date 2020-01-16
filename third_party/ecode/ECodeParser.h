@@ -176,7 +176,10 @@ struct ECode {
     inline Type *find(Key key) {
         return (Type *) maps[key.value];
     }
-
+    template <typename Type>
+    inline Type *find(int value) {
+        return (Type *) maps[value];
+    }
     void free() {
         ::free(code);
         for (auto & librarie : libraries) {

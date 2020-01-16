@@ -1210,6 +1210,12 @@ class SingleBlockElement : public CodeBlockElement {
 public:
     using CodeBlockElement::CodeBlockElement;
     Tag getTag(EventContext &context) override { return _GT("Single CodeBlock"); }
+
+    void onEnterReflow(EventContext &context, Offset &offset) override {}
+    void onLeaveReflow(EventContext &context, Offset &offset) override {}
+    void onRelayout(EventContext &context, LayoutManager *sender) override {
+        sender->reflow(context.enter(), true, {25, 0});
+    }
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
         if (force) { return; }
         if (focus && focus->include(&context)) {
@@ -1247,25 +1253,25 @@ public:
         paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
         paint.setColor(SK_ColorBLACK);
         paint.setAlpha(180);
+        constexpr int lineLeft = 5;
+        constexpr int lineRight = 24;
 
         int lineTop = 15;
         if ((context.parent().tag() == _GT("CodeBlock") && context.isHead()) ||
             context.nearby(-1).tag().contain(_GT("CodeBlock"))) {
             lineTop = 20;
         }
-        canvas->drawLine(-15, lineTop, 0, lineTop, paint);
+        canvas->drawLine(lineLeft, lineTop, lineRight, lineTop, paint);
         if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
             int lineBottom = context.height() + 15;
-            constexpr int lineRight = -2;
-            canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
-
-            canvas->drawLine(-15, lineBottom, lineRight, lineBottom, paint); // 下边线
+            canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
+            canvas->drawLine(lineLeft, lineBottom, lineRight, lineBottom, paint); // 下边线
             GPath path = PathUtil::triangleRight(6, lineRight, lineBottom);
             canvas->drawPath(path, paint);
         } else {
             int lineBottom = context.height() - 2;
-            canvas->drawLine(-15, lineTop, -15, lineBottom, paint); // 竖线
-            GPath path = PathUtil::triangleDown(6, -15, lineBottom);
+            canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
+            GPath path = PathUtil::triangleDown(6, lineLeft, lineBottom);
             canvas->drawPath(path, paint);
         }
     }
@@ -1301,36 +1307,10 @@ public:
 };
 class SubElement : public Container<> {
 public:
-    SubElement() {
-
-/*
-        Container::append(new AutoLineElement());
-
-        auto *control = new SwitchElement();
-        control->addBlock()->replace(0, new SwitchElement())->free();
-        Container::append(control);
-        Container::append(new AutoLineElement());
-        Container::append(new AutoLineElement());
-        Container::append(new SwitchElement());
-        Container::append(new AutoLineElement());
-        Container::append(new SingleBlockElement());
-*/
-
-    }
+    SubElement() = default;
     Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }
-private:
-    int getWidth(EventContext &context) override {
-        return Element::getWidth(context);
-    }
 public:
-    void onRedraw(EventContext &context) override {
-        Root::onRedraw(context);
-        return;
-        Canvas canvas = context.getCanvas();
-        SkPaint paint;
-        paint.setColor(SK_ColorLTGRAY);
-        canvas->drawLine(0, context.height() + 3, context.width(), context.height() + 3, paint);
-    }
+    int getWidth(EventContext &context) override { return Element::getWidth(context); }
 };
 class MultiLine : public RelativeElement {
 private:
@@ -1425,4 +1405,60 @@ public:
 
     }
 };
+class ModuleElement : public Container<> {
+public:
+    ModuleElement()= default;
+    GString name;
+    bool expand = false;
+    Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }
+public:
+    int getWidth(EventContext &context) override { return Element::getWidth(context); }
+    int getHeight(EventContext &context) override { return expand ? Container<>::getHeight(context) + 15 : 20; }
+    void onFocus(EventContext &context) override {
+        context.getCaretManager()->set(15, 3);
+    }
+    void onLeftButtonUp(EventContext &context, int x, int y) override {
+        if (context.relative(x, y).y < 20) {
+            expand = !expand;
+            if (expand) {
+                context.relayout();
+            } else {
+                context.reflow();
+            }
+            if (context.getCaretManager()->include(&context)) {
+                if (expand) {
+                    context.enter().focus();
+                } else {
+                    context.focus();
+                }
+            }
+            context.redraw();
+        }
+    }
+    void onRelayout(EventContext &context, LayoutManager *sender) override {
+        if (expand) {
+            sender->reflow(context.enter(), true, {5, 30});
+        }
+    }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        canvas.drawText(name.c_str(), name.size() * sizeof(GChar), 18, 15, StyleDeafaultFont);
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        canvas->drawLine(0, 20, context.width(), 20, border);
+        border.setStyle(SkPaint::kFill_Style);
+        if (expand) {
+            canvas->drawPath(PathUtil::triangleDown(8, 9, 8), border);
+            Root::onRedraw(context);
+        } else {
+            canvas->drawPath(PathUtil::triangleRight(8, 7, 10), border);
+        }
+    }
+    void onEnterReflow(EventContext &context, Offset &offset) override {
+        offset.y += 10;
+    }
+};
+
 #endif //GEDITOR_TABLE_H

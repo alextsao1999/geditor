@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <codecvt>
-
+#include <windows.h>
 struct FixedData {
     char *data{nullptr};
     int length{0};
@@ -46,17 +46,18 @@ public:
         }
         fclose(f);
     }
-
+    explicit FileBuffer(const wchar_t *file) {
+        HANDLE hFile = CreateFileW(file, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
+        length = GetFileSize(hFile, NULL);
+        code = (uint8_t *) malloc(length);
+        DWORD haveReadByte;
+        SetFilePointer(hFile, 10, NULL, FILE_BEGIN);
+        ReadFile(hFile, (LPVOID *) code, length, &haveReadByte, 0);
+        CloseHandle(hFile);
+    }
     FileBuffer(char *data, size_t length) : code((uint8_t *) data), length(length) {}
-
-    inline bool Good() {
-        return pos < length;
-    }
-
-    inline void Skip(int step) {
-        pos += step;
-    }
-
+    inline bool Good() { return pos < length; }
+    inline void Skip(int step) { pos += step; }
     int ReadInt() {
         // Ð¡¶Ë×Ö½ÚÐò
         pos += 4;

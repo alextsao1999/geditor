@@ -146,7 +146,12 @@ public:
     // Display为Custom的时候才会调用这个方法
     virtual void onReflow(LayoutArgs()) {}
     virtual void onRelayout(EventContext &context, LayoutManager *sender) {
-        sender->reflow(context.enter(), true);
+        Offset offset;
+        EventContext ctx = context.enter();
+        if (!ctx.empty()) {
+            ctx.current()->onEnterReflow(ctx, offset);
+            sender->reflow(ctx, true, offset);
+        }
     }
     DEFINE_EVENT(onFocus);
     DEFINE_EVENT(onBlur, EventContext *focus, bool force);
@@ -198,6 +203,7 @@ public:
                 }
         */
         onRemove(context);
+        new_element->setLogicOffset(getLogicOffset());
         int old_line = getLineNumber();
         int new_line = new_element->getLineNumber();
         int delta = new_line - old_line;
@@ -455,25 +461,11 @@ public:
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
-    void flow() { LayoutManager::ReflowAll(this); }
+    void flow() {
+        setViewportOffset(m_viewportOffset);
+        LayoutManager::ReflowAll(this);
+    }
     Offset getLogicOffset() override { return {10, 10}; }
-/*
-    Element *append(Element *element) override {
-        int count = element->getLineNumber();
-        for (int i = 0; i < count; ++i) {
-            m_context.m_textBuffer.appendLine();
-        }
-        Container<>::append(element);
-        if (m_begin.empty()) {
-            m_begin = m_root.enter();
-        }
-        return element;
-    }
-    EventContext appendElement(Element *element) {
-        append(element);
-        return m_root.enter(-1);
-    }
-*/
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
     }

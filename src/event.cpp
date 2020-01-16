@@ -50,8 +50,8 @@ bool EventContext::next() {
     return true;
 }
 void EventContext::reflow(bool relayout) {
-    doc->m_context.m_layoutManager.reflow(*this, relayout);
-    doc->getContext()->m_caretManager.update(); // reflow之后更新光标位置
+    doc->m_context.m_layoutManager.reflow(*this, relayout, element->getLogicOffset());
+    //doc->getContext()->m_caretManager.update(); // reflow之后更新光标位置
 }
 void EventContext::remove(Root *root) {
     root->onRemove(*this);

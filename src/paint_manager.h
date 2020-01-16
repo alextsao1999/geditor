@@ -28,28 +28,6 @@ typedef SkPaint GPaint;
 typedef SkPoint GPoint;
 typedef SkScalar GScalar;
 
-struct Offset {
-    int x = 0;
-    int y = 0;
-    Offset() = default;
-    Offset(int x, int y) : x(x), y(y) {}
-    inline Offset operator+(const Offset &offset) {
-        return {x + offset.x, y + offset.y};
-    }
-    inline Offset operator-(const Offset &offset) {
-        return {x - offset.x, y - offset.y};
-    }
-    inline Offset &operator+=(const Offset &offset) {
-        x += offset.x;
-        y += offset.y;
-        return *this;
-    }
-    inline Offset &operator-=(const Offset &offset) {
-        x -= offset.x;
-        y -= offset.y;
-        return *this;
-    }
-};
 struct Size {
     int width;
     int height;

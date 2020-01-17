@@ -126,7 +126,7 @@ public:
 
         paint.reset();
         paint.setStyle(GStyle::kStrokeAndFill_Style);
-        paint.setColor(SK_ColorLTGRAY);
+        paint.setColor(SkColorSetRGB(145, 185, 205));
         add(StyleTableBorderSelected, paint);
 
         paint.reset();

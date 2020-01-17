@@ -815,23 +815,6 @@ public:
         canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, context.getStyle(StyleTableFont).paint());
     }
 
-    static void DrawSlection(EventContext &context, Offset start, Offset end) {
-        Canvas canvas = context.getCanvas();
-        GRect rect;
-        rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
-        rect.fTop -= 2;
-        rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont)->getTextSize() + 8;
-        SkPaint paint;
-        paint.setColor(SkColorSetRGB(204, 226, 254));
-        paint.setAlpha(255);
-        paint.setAntiAlias(true);
-        canvas->drawRoundRect(rect, 4, 4, paint);
-        paint.setColor(SkColorSetRGB(150, 200, 255));
-        paint.setStyle(SkPaint::kStroke_Style);
-        rect.inset(0.5f, 0.5f);
-        canvas->drawRoundRect(rect, 4, 4, paint);
-    }
-
 };
 class RowElement : public Container<DisplayRow> {
 public:
@@ -872,18 +855,16 @@ public:
 class TableElement : public Container<DisplayTable> {
 public:
     int m_delta = 0;
-    int m_column;
     int m_top;
     TableElement(int line, int column, int top = 5) {
         m_top = top;
-        m_column = column;
         for (int i = 0; i < line; ++i) {
             Container::append(new RowElement(column));
         }
     }
     Tag getTag(EventContext &context) override { return {_GT("Table Focus")}; }
-    RowElement *addRow() {
-        auto *row = new RowElement(m_column);
+    RowElement *addRow(int column) {
+        auto *row = new RowElement(column);
         append(row);
         return row;
     }
@@ -953,12 +934,22 @@ public:
 };
 class FastRow : public RelativeElement {
     class FastText : public TextElement {
+    public:
         Element *getNextWithContext(EventContext &context) override {
             return context.outer->cast<FastRow>()->get(context.index);
         }
         Element *getPrevWithContext(EventContext &context) override {
             return context.outer->cast<FastRow>()->get(context.index);
         }
+        bool isHead(EventContext &context) override {
+            return context.index == 0;
+        }
+
+        bool isTail(EventContext &context) override {
+            return context.outer->cast<FastRow>()->m_items.size() == context.index + 1;
+        }
+
+
     };
 public:
     int m_width = 0;
@@ -1023,21 +1014,28 @@ public:
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getWidth(EventContext &context) override { return m_width; }
     int getHeight(EventContext &context) override { return m_height; }
+    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
+    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
+
 };
 class FastTable : public Container<DisplayTable> {
 public:
     int m_delta = 0;
     int m_top;
     int m_rowHeight = 23;
-    int m_column;
-    explicit FastTable(int row, int column, int top = 5) : m_top(top), m_column(column) {
+    int m_column = 0;
+    explicit FastTable(int row, int column, int top = 5) : m_top(top) {
+        m_column = column;
         for (int i = 0; i < row; ++i) {
             Container::append(new FastRow(column, m_rowHeight));
         }
     }
     Tag getTag(EventContext &context) override { return {_GT("Table Focus")}; }
-    FastRow *addRow() {
-        auto *row = new FastRow(m_column, m_rowHeight);
+    FastRow *addRow(int column) {
+        if (column > m_column) {
+            m_column = column;
+        }
+        auto *row = new FastRow(column, m_rowHeight);
         append(row);
         return row;
     }
@@ -1069,11 +1067,28 @@ public:
     void onLeaveReflow(EventContext &context, Offset &offset) override {
         offset.x -= 4;
     }
+    void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
+        Container::onFinishReflow(context, offset, layout);
+        for_context(row, context) {
+            int width = row.logicWidth();
+            if (m_width > width) {
+                EventContext ctx = row.enter(-1);
+                ctx.setLogicWidth(ctx.logicWidth() + m_width - width);
+            }
+            row.setLogicWidth(m_width);
+        }
+    }
     void onRelayout(EventContext &context, LayoutManager *sender) override {
         for (int i = 0; i < m_column; ++i) {
             int columnMinWidth = 0;
             for_context(row, context) {
                 EventContext column = row.enter(i);
+                if (column.empty()) {
+                    continue;
+                }
+                if (column.isTail() && i < m_column) {
+                    continue;
+                }
                 int width = column.minWidth();
                 if (width > columnMinWidth) {
                     columnMinWidth = width;
@@ -1081,8 +1096,16 @@ public:
             }
             for_context(row, context) {
                 EventContext column = row.enter(i);
-                column.setLogicWidth(columnMinWidth);
+                if (column.empty()) {
+                    continue;
+                }
+                if (column.isTail() && i < m_column) {
+                    column.setLogicWidth(column.minWidth());
+                } else {
+                    column.setLogicWidth(columnMinWidth);
+                }
                 column.setLogicHeight(m_rowHeight);
+
             }
         }
         sender->reflow(context.enter(), true);
@@ -1097,7 +1120,6 @@ public:
             context.enter(-1).focus();
         }
     }
-
 };
 class CodeBlockElement : public Container<> {
 public:
@@ -1179,7 +1201,7 @@ public:
         GScalar inter[2] = {3, 2};
         paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
         paint.setColor(SK_ColorBLACK);
-        paint.setAlpha(180);
+        paint.setAlpha(140);
         int runawayTop = 15;
         int runawayLeft = 18;
         for_context(ctx, context) {
@@ -1429,11 +1451,21 @@ public:
     void createParamTable() {
         if (params)
             return;
+        //params = new FastTable(1, 6, 0);
+        params = header;
+        auto *row = params->addRow(6);
+
+        row->setColor(SkColorSetRGB(230, 237, 228));
+        row->getColumn(0)->m_data.append(_GT("Name"));
+        row->getColumn(1)->m_data.append(_GT("Name"));
+
+/*
         params = new FastTable(1, 6, 0);
         params->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
         params->getItem(0, 0)->m_data.append(_GT("Name"));
         params->getItem(0, 1)->m_data.append(_GT("Type"));
         Container::append(header, params);
+*/
     }
     void createLocalTable() {
         if (locals)
@@ -1445,14 +1477,14 @@ public:
     }
     void addParam(const GChar *name, const GChar *type) {
         if (params) {
-            auto *row = params->addRow();
+            auto *row = params->addRow(6);
             row->getColumn(0)->m_data.append(name);
             row->getColumn(1)->m_data.append(type);
         }
     }
     void addLocal(const GChar *name, const GChar *type) {
         if (locals) {
-            auto *row = locals->addRow();
+            auto *row = locals->addRow(4);
             row->getColumn(0)->m_data.append(name);
             row->getColumn(1)->m_data.append(type);
         }

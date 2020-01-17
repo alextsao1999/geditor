@@ -40,6 +40,16 @@ public:
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
 /*
+        auto *table = new FastTable(2, 4);
+        table->addRow(3);
+        table->addRow(2);
+
+        m_data->m_document.append(table);
+
+        m_data->m_document.flow();
+*/
+
+/*
         FileBuffer buffer(R"(C:\Users\Administrator\Desktop\edit\k.e)");
         ECodeParser parser(buffer);
         parser.Parse();

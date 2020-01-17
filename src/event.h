@@ -13,6 +13,7 @@
 #include "text_buffer.h"
 #include "caret_manager.h"
 #include "lexer.h"
+typedef int32_t NotifyValue;
 struct Context;
 struct EventContext;
 class Root;
@@ -26,9 +27,6 @@ struct Context {
     CommandQueue m_queue;
     Lexer m_lexer;
     TextBuffer m_textBuffer;
-    // 应该是记录EventContext 这里有些问题
-    Element *m_enterElement = nullptr;
-    GRect m_enterRect{};
     //////////////////////////
     bool m_selecting = false;
     Offset m_selectBase;
@@ -143,7 +141,7 @@ struct EventContext {
     void relayout();
     void focus(bool isCopy = true, bool force = false);
     void push(CommandType type, CommandData data);
-    void notify(int type, int param, int other);
+    void notify(int type, NotifyValue param, NotifyValue other);
     void timer(long long interval, int id = 0, int count = 0);
     void replace(Element *new_element, bool pushCommand = true);
     void remove(Root *ele);
@@ -276,6 +274,7 @@ struct EventContext {
     }
 
     bool selecting();
+    bool isMouseIn();
     bool isSelected();
     bool isSelectedStart();
     bool isSelectedEnd();

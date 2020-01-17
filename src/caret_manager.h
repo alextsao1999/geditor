@@ -31,9 +31,9 @@ class CaretManager {
     friend RenderManager;
 private:
     RenderManager *m_paintManager;
-    EventContext *m_context = nullptr;
     CaretPos m_data;
 public:
+    EventContext *m_context = nullptr;
     Offset m_relative;
     explicit CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();

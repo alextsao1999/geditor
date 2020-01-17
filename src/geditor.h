@@ -39,7 +39,6 @@ public:
         ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-
 /*
         FileBuffer buffer(R"(C:\Users\Administrator\Desktop\edit\k.e)");
         ECodeParser parser(buffer);
@@ -83,34 +82,24 @@ public:
         return {};
     }
     ////////////////////////////////////////////////////
-#define MsgCallEvent(name) { \
-        Offset pos(LOWORD(lParam), HIWORD(lParam)); \
-        pos += data->m_renderManager.getViewportOffset(); \
-        while (context.has()) { \
-            if (context.current()->contain(context, pos.x, pos.y)) { \
-                context.current()->name(context, pos.x, pos.y); \
-                break; \
-            } \
-            context.next(); \
-        }  \
+#define DispatchEvent(EVENT) { \
+    Offset pos = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset; \
+    current.EVENT(current.m_root, pos.x, pos.y);\
     }
-#define MsgCallFocus(name, ...) { \
-        Element *focus = data->m_document.getContext()->m_caretManager.getFocus(); \
-        if (focus) \
-            focus->name(*data->m_document.getContext()->m_caretManager.getEventContext(), ##__VA_ARGS__); \
-    }
+#define MsgCallFocus(name, ...) context_on_ptr(current.m_context.m_caretManager.m_context, name, ##__VA_ARGS__);
     /////////////////////////////////////////////////////
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
-        EventContext context = data->m_document.m_begin;
+        Document &current = data->m_document;
         switch (message) {
             case WM_MOUSEMOVE:
-                if (data->m_document.getContext()->m_selecting) {
-                    data->m_document.getContext()->selecting();
+                current.m_mouse = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset;
+                current.onMouseMove(current.m_root, current.m_mouse.x, current.m_mouse.y);
+                if (current.getContext()->m_selecting) {
+                    current.getContext()->selecting();
                     data->m_renderManager.refresh();
                 }
-                MsgCallEvent(onPreMouseMove);
                 break;
             case WM_MOUSEWHEEL:
             case WM_VSCROLL:
@@ -123,28 +112,28 @@ public:
                 data->m_renderManager.resize();
                 break;
             case WM_LBUTTONUP: // 鼠标左键放开
-                MsgCallEvent(onLeftButtonUp);
+                DispatchEvent(onLeftButtonUp);
                 data->m_document.getContext()->endSelect();
                 ReleaseCapture();
                 break;
             case WM_LBUTTONDOWN: // 鼠标左键按下
                 SetCapture(hWnd);
                 SetFocus(hWnd);
-                MsgCallEvent(onLeftButtonDown);
+                DispatchEvent(onLeftButtonDown);
                 data->m_document.getContext()->startSelect();
                 break;
             case WM_LBUTTONDBLCLK: // 鼠标左键双击
-                MsgCallEvent(onLeftDoubleClick);
+                DispatchEvent(onLeftDoubleClick);
                 break;
             case WM_RBUTTONUP:
-                MsgCallEvent(onRightButtonUp);
+                DispatchEvent(onRightButtonUp);
                 break;
             case WM_RBUTTONDOWN:
                 SetFocus(hWnd);
-                MsgCallEvent(onRightButtonDown);
+                DispatchEvent(onRightButtonDown);
                 break;
             case WM_RBUTTONDBLCLK:
-                MsgCallEvent(onRightDoubleClick);
+                DispatchEvent(onRightDoubleClick);
                 break;
             case WM_IME_CHAR:
             case WM_CHAR:
@@ -234,7 +223,6 @@ public:
         char szFileName[MAX_PATH] = "";
         DragQueryFileA(hDropInfo, 0, szFileName, sizeof(szFileName));  //打开拖拽的第一个(下标为0)文件
 
-
         FileBuffer buffer(szFileName);
         ECodeParser parser(buffer);
         parser.Parse();
@@ -252,7 +240,6 @@ public:
                 }
             }
         }
-
         data->m_document.flow();
         data->m_renderManager.refresh();
 

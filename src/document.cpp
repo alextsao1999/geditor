@@ -35,25 +35,6 @@ int Element::getWidth(EventContext &context) {
     return Root::getWidth(context);
 }
 
-void Element::onPreMouseMove(EventContext &context, int x, int y) {
-    for_context(event, context) {
-        if (cur_context(event, contain, x, y)) {
-            context_on(event, PreMouseMove, x, y);
-            return;
-        }
-    }
-    if (!context.doc->getContext()->m_enterRect.round().contains(x, y)) {
-        context.doc->getContext()->m_enterRect = context.rect();
-        auto *old = context.doc->getContext()->m_enterElement;
-        context.doc->getContext()->m_enterElement = this;
-        if (old) {
-            old->onMouseLeave(x, y);
-        }
-        onMouseEnter(context, x, y);
-    }
-    context.current()->onMouseMove(context, x, y); // 触发最内层的函数
-}
-
 Root *Root::getContain(EventContext &context, int x, int y) {
     if (!context.canEnter()) {
         return this;
@@ -93,9 +74,5 @@ void Root::onRedraw(EventContext &context) {
 }
 
 void Root::onRemove(EventContext &context) {
-    if (context.doc->getContext()->m_enterElement == this) {
-        context.doc->getContext()->m_enterElement->onMouseLeave(0, 0);
-        context.doc->getContext()->m_enterElement = nullptr;
-    }
 
 }

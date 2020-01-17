@@ -22,38 +22,21 @@ struct SubVisitor : Visitor {
     SubVisitor(ECode *code, Document *document, Container<> *parent, ESub *sub) :
     code(code), document(document), parent(parent), current(sub) {}
     Container<> *create() {
-        Container<> *subs = new SubElement();
-
-        auto *table = new TableElement(current->params.size() + 3, 4);
-        table->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
-        table->getItem(0, 0)->m_data.append(_GT("Function Name"));
-        table->getItem(0, 1)->m_data.append(_GT("Type"));
-        table->getItem(1, 0)->m_data.append(current->name.toUnicode().c_str());
-        table->getItem(1, 1)->m_data.append(std::to_wstring(current->type));
-        table->getRow(2)->setColor(SkColorSetRGB(230, 237, 228));
-        table->getItem(2, 0)->m_data.append(_GT("Name"));
-        table->getItem(2, 1)->m_data.append(_GT("Type"));
-        table->replace(1, 3, new TableElement(2, 2));
-        //table->replace(0, 3, new ButtonElement());
-        for (int i = 0; i < current->params.size(); ++i) {
-            auto *row = table->getRow(i + 3);
-            row->getColumn(0)->m_data.append(current->params[i].name.toUnicode().c_str());
-            row->getColumn(1)->m_data.append(std::to_wstring(current->params[i].type));
+        auto *subs = new SubElement();
+        subs->content(0).append(current->name.toUnicode().c_str());
+        subs->content(1).append(std::to_wstring(current->type));
+        if (!current->params.empty()) {
+            subs->createParamTable();
+            for (auto &param : current->params) {
+                subs->addParam(param.name.toUnicode().c_str(), std::to_wstring(param.type).c_str());
+            }
         }
-        subs->append(table);
-
-        auto *vars = new TableElement(current->locals.size() + 1, 2);
-        vars->getRow(0)->setColor(SkColorSetRGB(217, 227, 240));
-        vars->getItem(0, 0)->m_data.append(_GT("Name"));
-        vars->getItem(0, 0)->m_min = 100;
-        vars->getItem(0, 1)->m_data.append(_GT("Value"));
-        vars->getItem(0, 1)->m_min = 150;
-        for (int i = 0; i < current->locals.size(); ++i) {
-            auto *row = vars->getRow(i + 1);
-            row->getColumn(0)->m_data.append(current->locals[i].name.toUnicode().c_str());
-            row->getColumn(1)->m_data.append(std::to_wstring(current->locals[i].type));
+        if (!current->locals.empty()) {
+            subs->createLocalTable();
+            for (auto &local : current->locals) {
+                subs->addLocal(local.name.toUnicode().c_str(), std::to_wstring(local.type).c_str());
+            }
         }
-        subs->append(vars);
         return subs;
     }
     void process(ASTFunCall *node) override {

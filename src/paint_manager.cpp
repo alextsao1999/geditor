@@ -104,17 +104,6 @@ void RenderManager::redrawRect(GRect *rect) {
     update();
 //    m_data->m_document.onDraw(m_data->m_document.m_root, m_canvas.get());
     m_data->m_document.onRedraw(m_data->m_document.m_root);
-
-/*
-    if (context.isSelected()) {
-        Canvas canvas = context.getCanvas();
-        SkPaint color;
-        color.setColor(SK_ColorCYAN);
-        color.setAlpha(150);
-        auto bound = context.relative(select.x(), select.y());
-        canvas->drawRect(GRect::MakeXYWH(bound.x, bound.y, select.width(), select.height()), color);
-    }
-*/
 }
 
 void RenderManager::updateViewport(LayoutManager *layoutManager) {

@@ -66,7 +66,7 @@ void EventContext::focus(bool isCopy, bool force) { doc->m_context.m_caretManage
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), pos(), type, data});
 }
-void EventContext::notify(int type, int param, int other) {
+void EventContext::notify(int type, NotifyValue param, NotifyValue other) {
     CheckBound(void(0));
     current()->onNotify(*this, type, param, other);
 }
@@ -200,3 +200,6 @@ Offset EventContext::caretOffset() {
     return offset;
 }
 
+bool EventContext::isMouseIn() {
+    return rect().round().contains(doc->m_mouse.x, doc->m_mouse.y);
+}

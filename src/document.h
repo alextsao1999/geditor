@@ -24,7 +24,7 @@
 #define DEFINE_EVENT2(event) virtual void event(EventContext &context, int x, int y) {CallChildEvent(event);}
 #define CallEvent(context, event, ...) ((context).current()->event(context, ##__VA_ARGS__))
 #define for_context(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
-#define cur_context(ctx, method, ...) ((ctx).current()->method(ctx, ##__VA_ARGS__))
+#define context_on_ptr(ctx, method, ...) ((ctx) ? ((*(ctx)).current()->method(*(ctx), ##__VA_ARGS__)) : void(0))
 #define context_on(ctx, method, ...) {auto &&__ctx = (ctx);if (!__ctx.empty())__ctx.current()->on##method(__ctx, ##__VA_ARGS__);}
 // Root 无 父元素
 class Root {
@@ -114,7 +114,7 @@ public:
             enter.index = -1;
             enter.element = getTail();
             if (enter.element) {
-                enter.counter.increase(&enter, context.current()->getLineNumber() - enter.element->getLineNumber());
+                enter.counter.increase(&enter, getLineNumber() - enter.element->getLineNumber());
             }
             for (int j = 0; j < -idx - 1; ++j) {
                 enter.prev();
@@ -139,16 +139,12 @@ public:
     virtual void setPrev(Element *prev){}
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return DisplayNone; };
-    virtual void onPreMouseMove(EventContext &context, int x, int y);
-    virtual void onMouseMove(EventContext &context, int x, int y){}
-    virtual void onMouseEnter(EventContext &context, int x, int y) {}
-    virtual void onMouseLeave(int x, int y) {}
     // Display为Custom的时候才会调用这个方法
     virtual void onReflow(LayoutArgs()) {}
     virtual void onRelayout(EventContext &context, LayoutManager *sender) {
-        Offset offset;
         EventContext ctx = context.enter();
         if (!ctx.empty()) {
+            Offset offset;
             ctx.current()->onEnterReflow(ctx, offset);
             sender->reflow(ctx, true, offset);
         }
@@ -157,6 +153,7 @@ public:
     DEFINE_EVENT(onBlur, EventContext *focus, bool force);
     DEFINE_EVENT(onKeyDown, int code, int status);
     DEFINE_EVENT(onKeyUp, int code, int status);
+    DEFINE_EVENT2(onMouseMove);
     DEFINE_EVENT2(onLeftButtonUp);
     DEFINE_EVENT2(onLeftButtonDown);
     DEFINE_EVENT2(onRightButtonUp);
@@ -166,10 +163,9 @@ public:
     DEFINE_EVENT(onInputChar, int ch);
     DEFINE_EVENT(onSelect);
     DEFINE_EVENT(onUnselect);
-    //DEFINE_EVENT(onUndo, Command command);
     DEFINE_EVENT(onEnterReflow, Offset &offset);
     DEFINE_EVENT(onLeaveReflow, Offset &offset);
-    DEFINE_EVENT(onFinishReflow, int width, int height);
+    DEFINE_EVENT(onFinishReflow, Offset &offset, LayoutContext &layout);
     virtual void onUndo(Command command) {}
     virtual void onUndoDiscard(Command command) {}
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
@@ -177,7 +173,9 @@ public:
         None,
         Update,
     };
-    DEFINE_EVENT(onNotify, int type, int param, int other);
+    virtual void onNotify(EventContext &context, int type, NotifyValue param, NotifyValue other) {
+        if (context.outer) context.outer->notify(type, param, other);
+    }
     virtual int getLineNumber();
     int getWidth(EventContext &context) override;
 };
@@ -314,7 +312,16 @@ public:
     int getLogicHeight(EventContext &context) override { return m_height; }
     int getHeight(EventContext &context) override { return getLogicHeight(context); }
     int getWidth(EventContext &context) override { return getLogicWidth(context); }
-    void onFinishReflow(EventContext &context, int width, int height) override { m_width = width;m_height = height; }
+    void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
+        if (layout.lineMaxHeight) {
+            m_width = offset.x;
+            m_height = layout.lineMaxHeight;
+        }
+        if (layout.blockMaxWidth) {
+            m_width = layout.blockMaxWidth;
+            m_height = offset.y;
+        }
+    }
     Display getDisplay() override { return D; }
     virtual bool contain(Element *element) {
         Element *header = element->getHead();
@@ -377,6 +384,26 @@ public:
     }
     virtual Element *remove(int index) { return remove(get(index)); }
     virtual Element *replace(int index, Element *element) { return replace(get(index), element); }
+    virtual void append(Element *element, Element *ae){
+        Element *next = element->getNext();
+        if (next) {
+            next->setPrev(ae);
+        } else {
+            m_tail = ae;
+        }
+        element->setNext(ae);
+        ae->setPrev(element);
+    }
+    virtual void prepend(Element *element, Element *pe){
+        Element *prev = element->getPrev();
+        if (prev) {
+            prev->setNext(pe);
+        } else {
+            m_head = pe;
+        }
+        element->setPrev(pe);
+        pe->setNext(element);
+    }
 };
 template <Display D = DisplayBlock>
 class ScrolledContainer : public Container<D> {
@@ -394,7 +421,7 @@ public:
         m_contentWidth = width;
         m_contentHeight = height;
     }
-    void onPreMouseMove(EventContext &context, int x, int y) override {
+    void onMouseMove(EventContext &context, int x, int y) override {
         if (m_click) {
             m_contentOffset = context.relative(x, y) - m_clickOffset;
             m_contentOffset.x = 0;
@@ -402,7 +429,7 @@ public:
             context.redraw();
             return;
         }
-        Element::onPreMouseMove(context, x + m_contentOffset.x, y + m_contentOffset.y);
+        Element::onMouseMove(context, x + m_contentOffset.x, y + m_contentOffset.y);
     }
     void onLeftButtonUp(EventContext &context, int x, int y) override {
         m_click = false;
@@ -418,18 +445,12 @@ public:
         }
         Element::onLeftButtonDown(context, x + m_contentOffset.x, y + m_contentOffset.y);
     }
-    void onRightButtonUp(EventContext &context, int x, int y) override {
-        Element::onRightButtonUp(context, x + m_contentOffset.x, y + m_contentOffset.y);
-    }
-    void onRightButtonDown(EventContext &context, int x, int y) override {
-        Element::onRightButtonDown(context, x + m_contentOffset.x, y + m_contentOffset.y);
-    }
-    void onLeftDoubleClick(EventContext &context, int x, int y) override {
-        Element::onLeftDoubleClick(context, x + m_contentOffset.x, y + m_contentOffset.y);
-    }
-    void onRightDoubleClick(EventContext &context, int x, int y) override {
-        Element::onRightDoubleClick(context, x + m_contentOffset.x, y + m_contentOffset.y);
-    }
+#define ScrollEvent(EVENT) void EVENT(EventContext &context, int x, int y) \
+    {Element::EVENT(context, x + m_contentOffset.x, y + m_contentOffset.y);}
+    ScrollEvent(onRightButtonUp);
+    ScrollEvent(onRightButtonDown);
+    ScrollEvent(onLeftDoubleClick);
+    ScrollEvent(onRightDoubleClick);
     void onDraw(EventContext &context, SkCanvas *canvas) override {
         canvas->translate(0, -m_contentOffset.y);
         Root::onDraw(context, canvas);
@@ -453,6 +474,7 @@ public:
 class Document : public Container<DisplayBlock> {
 public:
     Context m_context;
+    Offset m_mouse;
     Offset m_viewportOffset;
     EventContext m_root;
     EventContext m_begin;
@@ -461,16 +483,13 @@ public:
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
-    void flow() {
-        setViewportOffset(m_viewportOffset);
-        LayoutManager::ReflowAll(this);
-    }
     Offset getLogicOffset() override { return {10, 10}; }
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
     }
-    void onFinishReflow(EventContext &context, int width, int height) override {
-        Container::onFinishReflow(context, width, height + 200);
+    void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
+        Container::onFinishReflow(context, offset, layout);
+        m_height += 200;
         m_context.m_renderManager->setVertScroll(m_height);
     }
     void setViewportOffset(Offset offset) {
@@ -500,6 +519,10 @@ public:
             auto command = m_context.m_queue.pop();
             command.context->current()->onUndo(command);
         }
+    }
+    void flow() {
+        setViewportOffset(m_viewportOffset);
+        LayoutManager::ReflowAll(this);
     }
 
 };

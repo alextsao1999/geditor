@@ -40,12 +40,15 @@ void LayoutManager::reflow(EventContext context, bool relayout, Offset offset) {
         context.next();
     }
     if (context.outer) {
+        context_on(*context.outer, FinishReflow, offset, layoutContext);
+/*
         if (layoutContext.lineMaxHeight) {
             context_on(*context.outer, FinishReflow, offset.x, layoutContext.lineMaxHeight);
         }
         if (layoutContext.blockMaxWidth) {
             context_on(*context.outer, FinishReflow, layoutContext.blockMaxWidth, offset.y);
         }
+*/
         if (!relayout) { // 再把父级别的元素都安排一下
             reflow(*context.outer, false, context.outer->current()->getLogicOffset());
             //context.outer->reflow(false);

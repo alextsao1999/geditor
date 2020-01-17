@@ -232,19 +232,6 @@ public:
         canvas.drawRoundRect(rect, 4, 4, paint);
 
     }
-    EventContext *ctx{nullptr};
-    void onMouseEnter(EventContext &context, int x, int y) override {
-        ctx = context.copy();
-        draw(11, 0, 0,
-                SkColorSetRGB(161, 161, 161), SkColorSetRGB(222, 222, 222));
-        context.redraw();
-    }
-    void onMouseLeave(int x, int y) override {
-        draw(0, 0, 0,
-             SkColorSetRGB(191, 191, 191), SkColorSetRGB(242, 242, 242));
-        ctx->redraw();
-        ctx->free();
-    }
     void onLeftButtonUp(EventContext &context, int x, int y) override {
         draw(11, 0, 0,
              SkColorSetRGB(161, 161, 161), SkColorSetRGB(222, 222, 222));
@@ -724,6 +711,7 @@ public:
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.pos().setOffset(context.absolute(x, y));
         context.focus();
+        context.redraw();
     }
     void onMouseMove(EventContext &context, int x, int y) override {
         if (context.selecting()) {
@@ -808,15 +796,6 @@ public:
         service.commit(m_data, StyleTableFont);
     }
     void onRedraw(EventContext &context) override {
-        bool isStart = context.isSelectedStart();
-        bool isEnd = context.isSelectedEnd();
-        auto *doctx = context.getDocContext();
-        if (isStart && isEnd) {
-            Offset start = context.relOffset(doctx->m_selectStart);
-            Offset end = context.relOffset(doctx->m_selectEnd);
-            DrawSlection(context, start, end);
-        }
-
         Canvas canvas = context.getCanvas();
         if (context.outer && context.outer->isSelected()) {
             canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
@@ -867,11 +846,6 @@ public:
     void setColor(GColor color) {
         m_color = color;
     }
-    void onNotify(EventContext &context, int type, int param, int other) override {
-        if (context.outer) {
-            context.outer->notify(type, param, other);
-        }
-    }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         SkPaint paint;
@@ -898,22 +872,20 @@ public:
 class TableElement : public Container<DisplayTable> {
 public:
     int m_delta = 0;
-    TableElement(int line, int column) {
+    int m_column;
+    int m_top;
+    TableElement(int line, int column, int top = 5) {
+        m_top = top;
+        m_column = column;
         for (int i = 0; i < line; ++i) {
             Container::append(new RowElement(column));
         }
     }
     Tag getTag(EventContext &context) override { return {_GT("Table Focus")}; }
-    RowElement *addRow(int column) {
-        auto *row = new RowElement(column);
+    RowElement *addRow() {
+        auto *row = new RowElement(m_column);
         append(row);
         return row;
-    }
-    TableElement *addRows(int column, int count = 1) {
-        for (int i = 0; i < count; ++i) {
-            append(new RowElement(column));
-        }
-        return this;
     }
     RowElement *getRow(int line) { return (RowElement *) get(line); }
     void replace(int line, int column, Element *element) {
@@ -922,7 +894,7 @@ public:
     }
     template <typename Type = TextElement>
     Type *getItem(int row, int col) { return (Type *) ((RowElement *) get(row))->get(col); }
-    void onNotify(EventContext &context, int type, int param, int other) override {
+    void onNotify(EventContext &context, int type, NotifyValue param, NotifyValue other) override {
         if (context.outer && context.outer->display() == DisplayRow) {
             context.outer->notify(type, param, other);
         } else {
@@ -942,7 +914,7 @@ public:
     int getMinWidth(EventContext &context) override { return m_width; }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 4;
-        offset.y += 5;
+        offset.y += m_top;
     }
     void onLeaveReflow(EventContext &context, Offset &offset) override {
         offset.x -= 4;
@@ -959,27 +931,161 @@ public:
                 if (height > MaxHeightBuffer[row.index]) MaxHeightBuffer[row.index] = height;
             }
         }
-        Offset pos_row(0, 0);
         for_context(row, context) {
-            row.current()->setLogicOffset(pos_row);
-            Offset pos_col(0, 0);
             for_context(col, row) {
-                col.current()->setLogicOffset(pos_col);
                 col.setLogicWidth(MaxWidthBuffer[col.index]);
                 col.setLogicHeight(MaxHeightBuffer[row.index]);
-                //context_on(col, FinishReflow, MaxWidthBuffer[col.index], MaxHeightBuffer[row.index]);
-                pos_col.x += MaxWidthBuffer[col.index];
             }
-            //row.setLogicWidth(pos_col.x);
-            //row.setLogicHeight(MaxHeightBuffer[row.index]);
-            context_on(row, FinishReflow, pos_col.x, MaxHeightBuffer[row.index]);
-            pos_row.y += MaxHeightBuffer[row.index];
         }
-        uint32_t table_width = 0;
-        for (auto iter = MaxWidthBuffer.iter(); iter.has(); iter.next()) {
-            table_width += iter.current();
+        sender->reflow(context.enter(), true);
+    }
+    void onFocus(EventContext &context) override {
+        CaretManager *caret = context.getCaretManager();
+        Offset offset = caret->data().getOffset();
+        GRect rect = context.rect();
+        if (offset.y < rect.fTop) {
+            context.enter().focus();
+        } else {
+            context.enter(-1).focus();
         }
-        context_on(context, FinishReflow, table_width, pos_row.y);
+    }
+
+};
+class FastRow : public RelativeElement {
+    class FastText : public TextElement {
+        Element *getNextWithContext(EventContext &context) override {
+            return context.outer->cast<FastRow>()->get(context.index);
+        }
+        Element *getPrevWithContext(EventContext &context) override {
+            return context.outer->cast<FastRow>()->get(context.index);
+        }
+    };
+public:
+    int m_width = 0;
+    int m_height = 0;
+    GColor m_color;
+    std::vector<FastText> m_items;
+    explicit FastRow(int column, int height, GColor color = SK_ColorWHITE) : m_color(color) {
+        m_height = height;
+        m_items.resize(column);
+    }
+    inline size_t size() { return m_items.size(); }
+    inline Element *get(int index) {
+        while (index < 0) {
+            index += size();
+        }
+        if (index < 0 || index >= size()) {
+            return nullptr;
+        }
+        return &m_items[index];
+    }
+    inline TextElement *getColumn(int index) { return &m_items[index]; }
+    void setColor(GColor color) {
+        m_color = color;
+    }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        SkPaint paint;
+        paint.setColor(m_color);
+        canvas->drawRect(canvas.bound(0, 0), paint);
+        Root::onRedraw(context);
+    }
+    void onFocus(EventContext &context) override {
+        CaretManager *caret = context.getCaretManager();
+        Offset offset = caret->data().getOffset();
+        for_context(ctx, context) {
+            GRect rect = ctx.rect();
+            if ((float) offset.x > rect.left() && (float) offset.x < rect.right()) {
+                ctx.focus();
+                return;
+            }
+        }
+        context.enter().focus();
+    }
+    Display getDisplay() override { return DisplayBlock; }
+    Element *getHead() override { return &m_items.front(); }
+    Element *getTail() override { return &m_items.back(); }
+    void onEnter(EventContext &context, EventContext &enter, int idx) override {
+        while (idx < 0) idx += size();
+        enter.index = idx;
+        enter.element = get(idx);
+    }
+    int getLineNumber() override { return 0; }
+    void onRelayout(EventContext &context, LayoutManager *sender) override {
+        Offset offset;
+        for_context(ctx, context) {
+            ctx.current()->setLogicOffset(offset);
+            offset.x += ctx.logicWidth();
+        }
+        m_width = offset.x;
+    }
+    int getLogicWidth(EventContext &context) override { return m_width; }
+    int getLogicHeight(EventContext &context) override { return m_height; }
+    int getWidth(EventContext &context) override { return m_width; }
+    int getHeight(EventContext &context) override { return m_height; }
+};
+class FastTable : public Container<DisplayTable> {
+public:
+    int m_delta = 0;
+    int m_top;
+    int m_rowHeight = 23;
+    int m_column;
+    explicit FastTable(int row, int column, int top = 5) : m_top(top), m_column(column) {
+        for (int i = 0; i < row; ++i) {
+            Container::append(new FastRow(column, m_rowHeight));
+        }
+    }
+    Tag getTag(EventContext &context) override { return {_GT("Table Focus")}; }
+    FastRow *addRow() {
+        auto *row = new FastRow(m_column, m_rowHeight);
+        append(row);
+        return row;
+    }
+    FastRow *getRow(int line) { return (FastRow *) get(line); }
+    template <typename Type = TextElement>
+    Type *getItem(int row, int col) { return (Type *) ((FastRow *) get(row))->get(col); }
+    void onNotify(EventContext &context, int type, NotifyValue param, NotifyValue other) override {
+        if (context.outer && context.outer->display() == DisplayRow) {
+            context.outer->notify(type, param, other);
+        } else {
+            context.relayout();
+            context.reflow();
+        }
+    }
+    void setLogicWidth(EventContext &context, int width) override {
+        m_delta = width - m_width;
+        for_context(row, context) {
+            EventContext end = row.enter(-1);
+            end.setLogicWidth(end.logicWidth() + m_delta);
+            row.setLogicWidth(width);
+        }
+    }
+    int getLogicWidth(EventContext &context) override { return m_width + m_delta; }
+    int getMinWidth(EventContext &context) override { return m_width; }
+    void onEnterReflow(EventContext &context, Offset &offset) override {
+        offset.x += 4;
+        offset.y += m_top;
+    }
+    void onLeaveReflow(EventContext &context, Offset &offset) override {
+        offset.x -= 4;
+    }
+    void onRelayout(EventContext &context, LayoutManager *sender) override {
+        for (int i = 0; i < m_column; ++i) {
+            int columnMinWidth = 0;
+            for_context(row, context) {
+                EventContext column = row.enter(i);
+                int width = column.minWidth();
+                if (width > columnMinWidth) {
+                    columnMinWidth = width;
+                }
+            }
+            for_context(row, context) {
+                EventContext column = row.enter(i);
+                column.setLogicWidth(columnMinWidth);
+                column.setLogicHeight(m_rowHeight);
+            }
+        }
+        sender->reflow(context.enter(), true);
     }
     void onFocus(EventContext &context) override {
         CaretManager *caret = context.getCaretManager();
@@ -1307,7 +1413,50 @@ public:
 };
 class SubElement : public Container<> {
 public:
-    SubElement() = default;
+    FastTable *header = nullptr;
+    FastTable *params = nullptr;
+    FastTable *locals = nullptr;
+    SubElement() {
+        header = new FastTable(2, 4);
+        header->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
+        header->getItem(0, 0)->m_data.append(_GT("Function Name"));
+        header->getItem(0, 1)->m_data.append(_GT("Type"));
+        header->getItem(0, 2)->m_data.append(_GT("Public"));
+        header->getItem(0, 3)->m_data.append(_GT("Comment  "));
+        Container::append(header);
+    }
+    GString &content(int col) { return header->getItem(1, col)->m_data; }
+    void createParamTable() {
+        if (params)
+            return;
+        params = new FastTable(1, 6, 0);
+        params->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
+        params->getItem(0, 0)->m_data.append(_GT("Name"));
+        params->getItem(0, 1)->m_data.append(_GT("Type"));
+        Container::append(header, params);
+    }
+    void createLocalTable() {
+        if (locals)
+            return;
+        locals = new FastTable(1, 4);
+        Container::append(params ? params : header, locals);
+        locals->getItem(0, 0)->m_data.append(_GT("Name   "));
+        locals->getItem(0, 1)->m_data.append(_GT("Type   "));
+    }
+    void addParam(const GChar *name, const GChar *type) {
+        if (params) {
+            auto *row = params->addRow();
+            row->getColumn(0)->m_data.append(name);
+            row->getColumn(1)->m_data.append(type);
+        }
+    }
+    void addLocal(const GChar *name, const GChar *type) {
+        if (locals) {
+            auto *row = locals->addRow();
+            row->getColumn(0)->m_data.append(name);
+            row->getColumn(1)->m_data.append(type);
+        }
+    }
     Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }
 public:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
@@ -1410,6 +1559,7 @@ public:
     ModuleElement()= default;
     GString name;
     bool expand = false;
+    bool layouted = false;
     Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }
 public:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
@@ -1420,20 +1570,15 @@ public:
     void onLeftButtonUp(EventContext &context, int x, int y) override {
         if (context.relative(x, y).y < 20) {
             expand = !expand;
-            if (expand) {
+            if (expand && !layouted) {
                 context.relayout();
-            } else {
-                context.reflow();
+                layouted = true;
             }
-            if (context.getCaretManager()->include(&context)) {
-                if (expand) {
-                    context.enter().focus();
-                } else {
-                    context.focus();
-                }
-            }
+            context.focus();
+            context.reflow();
             context.redraw();
         }
+        Element::onLeftButtonUp(context, x, y);
     }
     void onRelayout(EventContext &context, LayoutManager *sender) override {
         if (expand) {

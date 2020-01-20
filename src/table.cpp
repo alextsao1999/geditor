@@ -5,8 +5,8 @@
 #include "table.h"
 
 void AutoLineElement::onInputChar(EventContext &context, SelectionState state, int ch) {
+    auto line = context.getLineViewer();
     if (ch == VK_RETURN) {
-        auto line = context.getLineViewer();
         if (line.content() == _GT("if")) {
             context.replace(new SingleBlockElement(2));
             context.outer->relayout();

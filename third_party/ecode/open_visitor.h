@@ -26,13 +26,11 @@ struct SubVisitor : Visitor {
         subs->content(0).append(current->name.toUnicode().c_str());
         subs->content(1).append(getType(current->type));
         if (!current->params.empty()) {
-            subs->createParamTable();
             for (auto &param : current->params) {
                 subs->addParam(param.name.toUnicode().c_str(), getType(param.type).c_str());
             }
         }
         if (!current->locals.empty()) {
-            subs->createLocalTable();
             for (auto &local : current->locals) {
                 subs->addLocal(local.name.toUnicode().c_str(), getType(local.type).c_str());
             }

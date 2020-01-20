@@ -23,6 +23,7 @@ enum class CommandType {
     ReplaceElement,
     Break,
     Combine,
+    Separate,
 };
 
 union CommandData {

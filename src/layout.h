@@ -27,6 +27,9 @@ struct Offset {
         y -= offset.y;
         return *this;
     }
+    inline bool operator==(const Offset &offset) {
+        return x == offset.x && y == offset.y;
+    }
 };
 
 //typedef int Display;

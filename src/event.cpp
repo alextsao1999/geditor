@@ -49,7 +49,7 @@ bool EventContext::next() {
 }
 void EventContext::reflow(bool relayout) {
     doc->m_context.m_layoutManager.reflow(*this, relayout, element->getLogicOffset());
-    //doc->getContext()->m_caretManager.update(); // reflow之后更新光标位置
+    doc->getContext()->m_caretManager.update(); // reflow之后更新光标位置
 }
 void EventContext::remove(Root *root) {
     root->onRemove(*this);
@@ -149,6 +149,10 @@ SelectionState EventContext::getSelectionState() {
     auto &&dcontext = getDocContext();
     Offset start = dcontext->m_selectStart;
     Offset end = dcontext->m_selectEnd;
+
+    if (start == end) {
+        return SelectionNone;
+    }
 
     GRect a = this->rect();
     Offset caret = caretOffset();

@@ -104,7 +104,7 @@ void Lexer::ParseNextToken() {
         case _HM_C('@'):case _HM_C(':'):case _HM_C('!'):case _HM_C('|'):
         case _HM_C('&'):case _HM_C('+'):case _HM_C('>'):case _HM_C('<'):
         case _HM_C('='):case _HM_C('%'):case _HM_C('-'):case _HM_C('*'):
-        case _HM_C(','):
+        case _HM_C(','):case _HM_C('#'):
         case _HM_C('/'):
         TOKEN_START();
             NEXT();

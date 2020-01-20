@@ -409,9 +409,7 @@ public:
                 start->reflow();
                 start->redraw();
             }
-
         }
-
 
     }
     void onInputChar(EventContext &context, SelectionState state, int ch) override {
@@ -444,10 +442,9 @@ public:
                         } else {
                             caret->data().setIndex(-1);
                             caret->findPrev(TAG_FOCUS);
+                            return;
                         }
                     }
-                } else {
-                    context.redraw();
                 }
                 break;
             case VK_RETURN: {
@@ -532,24 +529,13 @@ public:
         context.deleteLine();
         context.push(CommandType::DeleteElement, CommandData(this));
         context.prevLine(getLineNumber());
-        if (m_prev) {
-            m_prev->setNext(m_next);
-        } else {
-            if (context.outer)
-                context.outer->current()->setHead(m_next);
-        }
-        if (m_next) {
-            m_next->setPrev(m_prev);
-        } else {
-            if (context.outer)
-                context.outer->current()->setTail(m_prev);
-        }
+        separate(context, m_next, m_prev);
     }
     virtual Element *copy() { return new LineElement(); }
     void onUndo(Command command) override {
         bool undo = false;
         command.context->setPos(command.pos); // 因为替换之前都是LineElement 所以直接focus就行
-        command.context->focus(false, true);
+        command.context->focus(true, true);
         auto line = command.context->getLineViewer();
         if (command.type == CommandType::Break) {
             auto next = command.context->getLineViewer(1);
@@ -570,51 +556,16 @@ public:
         }
         if (command.type == CommandType::AddElement) {
             command.context->deleteLine(1);
-            Element *next = command.data.element->getNext();
-            command.context->element->setNext(next);
-            if (next) {
-                next->setPrev(command.context->element);
-            } else {
-                if (command.context->outer) {
-                    command.context->outer->element->setTail(command.context->element);
-                }
-            }
-            command.data.element->free();
-            command.context->reflow();
         }
         if (command.type == CommandType::DeleteElement) {
             command.context->insertLine();
-            Element *prev = command.data.element->getPrev();
-            Element *next = command.data.element->getNext();
-            if (prev) {
-                prev->setNext(command.data.element);
-            } else {
-                // 第一行不能被删除
-            }
-            if (next) {
-                next->setPrev(command.data.element);
-            } else {
-                if (command.context->outer) {
-                    command.context->element->setTail(command.data.element);
-                }
-            }
-            command.context->reflow();
             undo = true;
-        }
-        if (command.type == CommandType::ReplaceElement) {
-            Element *old = command.context->element;
-            command.context->element = command.data.replace.element;
-            command.context->replace(old, false);
-            command.context->reflow();
-
-            command.data.replace.caret->free(); // 释放caret
-            command.data.replace.element->free(); // 释放替换的新元素
         }
         if (command.type == CommandType::DeleteString) {
             line.insert(command.data.string.pos, command.data.string.string->c_str());
+            delete command.data.string.string;
         }
-        command.context->redraw();
-
+        Element::onUndo(command);
         if (undo) {
             command.context->doc->undo();
         }
@@ -1031,6 +982,7 @@ public:
 class FastRow : public RelativeElement {
     class FastText : public TextElement {
     public:
+        void free() override {}
         Element *onNext(EventContext &context) override {
             return context.outer->cast<FastRow>()->get(++context.index);
         }
@@ -1118,7 +1070,18 @@ public:
     int getHeight(EventContext &context) override { return m_height; }
     void setLogicWidth(EventContext &context, int width) override { m_width = width; }
     void setLogicHeight(EventContext &context, int height) override { m_height = height; }
-
+    void onSelectionDelete(EventContext &context, SelectionState state) override {
+        if (state != SelectionNone) {
+            context.push(CommandType::DeleteElement, CommandData(this));
+            separate(context, m_next, m_prev);
+        }
+    }
+    void onUndo(Command command) override {
+        Element::onUndo(command);
+        if (command.type == CommandType::DeleteElement) {
+            command.context->outer->relayout();
+        }
+    }
 };
 class FastTable : public Container<DisplayTable> {
 public:
@@ -1262,6 +1225,11 @@ public:
 
     void onSelectionDelete(EventContext &context, SelectionState state) override {
         Element::onSelectionDelete(context, state);
+        if (state == SelectionInside || state == SelectionRow) {
+            context.push(CommandType::DeleteElement, CommandData(this));
+            separate(context, m_next, m_prev);
+        }
+
         if (state == SelectionStart) {
             auto first = context.enter().getSelectionState();
             if (first == SelectionStart) {
@@ -1269,16 +1237,20 @@ public:
             }
         }
 
-        if (state == SelectionInside || state == SelectionRow) {
-            printf("block delete \n");
-        }
-
         if (state == SelectionEnd) {
-            auto last = context.enter(-1).getSelectionState();
-            if (last == SelectionEnd) {
-                // 不一定完全删除...
+        }
+    }
+
+    void onUndo(Command command) override {
+        if (command.type == CommandType::Separate) {
+            if (m_head) {
+                m_head->setPrev(nullptr);
+            }
+            if (m_tail) {
+                m_tail->setNext(nullptr);
             }
         }
+        Element::onUndo(command);
     }
 };
 class SwitchElement : public Container<> {
@@ -1382,16 +1354,33 @@ public:
 
     }
     void onUndo(Command command) override {
-        if (command.type == CommandType::ReplaceElement) {
-            Element *old = command.context->element;
-            command.context->element = command.data.replace.element;
-            command.context->replace(old, false);
-            command.context->reflow();
-
-            command.context->setPos(command.pos);
-            command.data.replace.caret->focus(false, true);
+        Element::onUndo(command);
+    }
+    void onSelectionDelete(EventContext& context, SelectionState state) override {
+        Element::onSelectionDelete(context, state);
+        if (state == SelectionInside || state == SelectionRow) {
+            context.push(CommandType::DeleteElement, CommandData(this));
+            separate(context, m_next, m_prev);
         }
-        command.context->redraw();
+
+        if (state != SelectionNone) {
+            context.relayout();
+        }
+
+        if (state == SelectionStart) {
+            auto first = context.enter().getSelectionState();
+            if (first == SelectionStart) {
+                // 不一定完全删除
+            }
+        }
+
+
+        if (state == SelectionEnd) {
+            auto last = context.enter(-1).getSelectionState();
+            if (last == SelectionEnd) {
+                // 不一定完全删除...
+            }
+        }
     }
 };
 class SingleBlockElement : public CodeBlockElement {
@@ -1414,18 +1403,6 @@ public:
             context.outer->relayout();
             context.outer->redraw();
         }
-    }
-    void onUndo(Command command) override {
-        if (command.type == CommandType::ReplaceElement) {
-            Element *old = command.context->element;
-            command.context->element = command.data.replace.element;
-            command.context->replace(old, false);
-            command.context->reflow();
-
-            command.context->setPos(command.pos);
-            command.data.replace.caret->focus(false, true);
-        }
-        command.context->redraw();
     }
     void onRedraw(EventContext &context) override {
         CodeBlockElement::onRedraw(context);
@@ -1488,8 +1465,9 @@ public:
 class SubElement : public Container<> {
 public:
     FastTable *header = nullptr;
-    FastTable *params = nullptr;
     FastTable *locals = nullptr;
+    int paramCount = 0;
+    int localCount = 0;
     SubElement() {
         header = new FastTable(2, 4);
         header->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
@@ -1498,49 +1476,33 @@ public:
         header->getItem(0, 2)->m_data.append(_GT("Public"));
         header->getItem(0, 3)->m_data.append(_GT("Comment  "));
         Container::append(header);
+
+        locals = new FastTable(1, 4);
     }
     GString &content(int col) { return header->getItem(1, col)->m_data; }
-    void createParamTable() {
-        if (params)
-            return;
-        //params = new FastTable(1, 6, 0);
-        params = header;
-        auto *row = params->addRow(6);
-
-        row->setColor(SkColorSetRGB(230, 237, 228));
-        row->getColumn(0)->m_data.append(_GT("Name"));
-        row->getColumn(1)->m_data.append(_GT("Type"));
-        row->getColumn(2)->m_data.append(_GT("Nullable"));
-
-/*
-        params = new FastTable(1, 6, 0);
-        params->getRow(0)->setColor(SkColorSetRGB(230, 237, 228));
-        params->getItem(0, 0)->m_data.append(_GT("Name"));
-        params->getItem(0, 1)->m_data.append(_GT("Type"));
-        Container::append(header, params);
-*/
-    }
-    void createLocalTable() {
-        if (locals)
-            return;
-        locals = new FastTable(1, 4);
-        Container::append(params ? params : header, locals);
-        locals->getItem(0, 0)->m_data.append(_GT("Name   "));
-        locals->getItem(0, 1)->m_data.append(_GT("Type   "));
-    }
     void addParam(const GChar *name, const GChar *type) {
-        if (params) {
-            auto *row = params->addRow(6);
-            row->getColumn(0)->m_data.append(name);
-            row->getColumn(1)->m_data.append(type);
+        if (paramCount == 0) {
+            auto *param_header = header->addRow(6);
+            param_header->setColor(SkColorSetRGB(230, 237, 228));
+            param_header->getColumn(0)->m_data.append(_GT("Name"));
+            param_header->getColumn(1)->m_data.append(_GT("Type"));
+            param_header->getColumn(2)->m_data.append(_GT("Nullable"));
         }
+        paramCount++;
+        auto *row = header->addRow(6);
+        row->getColumn(0)->m_data.append(name);
+        row->getColumn(1)->m_data.append(type);
     }
     void addLocal(const GChar *name, const GChar *type) {
-        if (locals) {
-            auto *row = locals->addRow(4);
-            row->getColumn(0)->m_data.append(name);
-            row->getColumn(1)->m_data.append(type);
+        if (localCount == 0) {
+            Container::append(locals);
+            locals->getItem(0, 0)->m_data.append(_GT("Name   "));
+            locals->getItem(0, 1)->m_data.append(_GT("Type   "));
         }
+        localCount++;
+        auto *row = locals->addRow(4);
+        row->getColumn(0)->m_data.append(name);
+        row->getColumn(1)->m_data.append(type);
     }
     Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }
 public:

@@ -163,7 +163,58 @@ public:
     DEFINE_EVENT(onEnterReflow, Offset &offset);
     DEFINE_EVENT(onLeaveReflow, Offset &offset);
     DEFINE_EVENT(onFinishReflow, Offset &offset, LayoutContext &layout);
-    virtual void onUndo(Command command) {}
+    virtual void onUndo(Command command) {
+        if (command.type == CommandType::AddElement) {
+            Element *next = command.data.element->getNext();
+            command.context->element->setNext(next);
+            if (next) {
+                next->setPrev(command.context->element);
+            } else {
+                if (command.context->outer) {
+                    command.context->outer->element->setTail(command.context->element);
+                }
+            }
+            command.data.element->free();
+            command.context->reflow();
+        }
+        if (command.type == CommandType::DeleteElement) {
+            Element *prev = command.data.element->getPrev();
+            Element *next = command.data.element->getNext();
+            if (prev) {
+                prev->setNext(command.data.element);
+            } else {
+                if (command.context->outer) {
+                    command.context->outer->element->setHead(command.data.element);
+                }
+            }
+            if (next) {
+                next->setPrev(command.data.element);
+            } else {
+                if (command.context->outer) {
+                    command.context->element->setTail(command.data.element);
+                }
+            }
+            command.context->reflow();
+        }
+        if (command.type == CommandType::ReplaceElement) {
+            Element *old = command.context->element;
+            command.context->element = command.data.replace.element;
+            command.context->replace(old, false);
+
+            command.context->reflow();
+
+            command.context->setPos(command.pos);
+            command.data.replace.caret->focus(false, true);
+            // command.data.replace.caret->free(); // 释放caret
+            command.data.replace.element->free(); // 释放替换的新元素
+
+        }
+        if (command.type == CommandType::Separate) {
+            separate(*command.context, this, this);
+            command.context->relayout();
+        }
+        command.context->redraw();
+    }
     virtual void onUndoDiscard(Command command) {}
     virtual void onSelectionDelete(EventContext &context, SelectionState state) {
         for_context(ctx, context) {
@@ -195,6 +246,29 @@ public:
     }
     virtual int getLineNumber();
     int getWidth(EventContext &context) override;
+    void separate(EventContext &context, Element *start, Element *end) {
+        Element *prev = getPrev();
+        Element *next = getNext();
+        if (start) {
+            start->setPrev(prev);
+        }
+        if (end) {
+            end->setNext(next);
+        }
+        if (prev) {
+            prev->setNext(start);
+        } else {
+            if (context.outer)
+                context.outer->element->setHead(start);
+        }
+        if (next) {
+            next->setPrev(end);
+        } else {
+            if (context.outer)
+                context.outer->element->setTail(end);
+        }
+    }
+
 };
 class LinkedElement : public Element {
 protected:
@@ -461,11 +535,14 @@ public:
             if (command.type == CommandType::PushEnd) {
                 do {
                     command = m_context.m_queue.pop();
-                    if (command.context)
+                    if (command.context) {
                         command.context->current()->onUndo(command);
+                        command.context->free();
+                    }
                 } while (command.type != CommandType::PushStart);
             } else {
                 command.context->current()->onUndo(command);
+                command.context->free();
             }
         }
     }

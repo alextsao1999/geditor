@@ -223,7 +223,6 @@ public:
                 ctx.current()->onSelectionDelete(ctx, selection);
             }
         }
-
     }
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
     virtual void onNotify(EventContext &context, int type, NotifyValue param, NotifyValue other) {
@@ -266,6 +265,22 @@ public:
         } else {
             if (context.outer)
                 context.outer->element->setTail(end);
+        }
+    }
+    void remove(EventContext &context) {
+        Element *prev = getPrev();
+        Element *next = getNext();
+        if (prev) {
+            prev->setNext(next);
+        } else {
+            if (context.outer)
+                context.outer->element->setHead(prev);
+        }
+        if (next) {
+            next->setPrev(prev);
+        } else {
+            if (context.outer)
+                context.outer->element->setTail(next);
         }
     }
 
@@ -427,24 +442,6 @@ public:
     virtual Element *get(int index) {
         return index >= 0 ? m_head->getNextCount(index) : m_tail->getPrevCount(-index - 1);
     }
-    virtual Element *remove(Element *ele) {
-        if (ele == nullptr) {
-            return nullptr;
-        }
-        if (ele == m_head) {
-            m_head = m_head->getNext();
-            m_head->setPrev(nullptr);
-        } else {
-            ele->getPrev()->setNext(ele->getNext());
-        }
-        if (ele == m_tail) {
-            m_tail = m_tail->getPrev();
-            m_tail->setNext(nullptr);
-        } else {
-            ele->getNext()->setPrev(ele->getPrev());
-        }
-        return ele;
-    }
     virtual Element *replace(Element *before, Element *element) {
         if (before == nullptr) {
             return nullptr;
@@ -463,7 +460,27 @@ public:
         }
         return before;
     }
+/*
+    virtual Element *remove(Element *ele) {
+        if (ele == nullptr) {
+            return nullptr;
+        }
+        if (ele == m_head) {
+            m_head = m_head->getNext();
+            m_head->setPrev(nullptr);
+        } else {
+            ele->getPrev()->setNext(ele->getNext());
+        }
+        if (ele == m_tail) {
+            m_tail = m_tail->getPrev();
+            m_tail->setNext(nullptr);
+        } else {
+            ele->getNext()->setPrev(ele->getPrev());
+        }
+        return ele;
+    }
     virtual Element *remove(int index) { return remove(get(index)); }
+*/
     virtual Element *replace(int index, Element *element) { return replace(get(index), element); }
     virtual void append(Element *element, Element *ae){
         Element *next = element->getNext();

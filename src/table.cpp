@@ -9,9 +9,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
     if (ch == VK_RETURN) {
         if (line.content() == _GT("if")) {
             context.replace(new SingleBlockElement(2));
-            context.outer->relayout();
-            context.reflow();
-            context.redraw();
+            context.outer->update();
             auto newLine = context.getLineViewer();
             newLine.append(_GT(" ()"));
             EventContext &&ctx = context.enter();
@@ -24,9 +22,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         }
         if (line.content() == _GT("loop")) {
             context.replace(new LoopBlockElement(2));
-            context.outer->relayout();
-            context.reflow();
-            context.redraw();
+            context.outer->update();
             auto newLine = context.getLineViewer();
             newLine.append(_GT(" ()"));
             EventContext &&ctx = context.enter();
@@ -39,9 +35,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         }
         if (line.content() == _GT("switch")) {
             context.replace(new SwitchElement(3));
-            context.outer->relayout();
-            context.reflow();
-            context.redraw();
+            context.outer->update();
             auto newLine = context.getLineViewer();
             newLine.append(_GT(" ()"));
             EventContext &&ctx = context.enter().enter();

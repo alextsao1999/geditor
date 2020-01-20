@@ -12,6 +12,7 @@ struct CaretPos {
     Offset offset; // 绝对坐标
     void *data = nullptr;
     CaretPos() = default;
+    CaretPos(int index, Offset offset) : index(index), offset(offset) {}
     void setIndex(int idx) {
         index = idx;
         offset = Offset(0, 0);

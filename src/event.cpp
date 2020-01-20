@@ -57,7 +57,6 @@ void EventContext::remove(Root *root) {
 }
 void EventContext::relayout() {
     element->onRelayout(*this, getLayoutManager());
-    reflow();
 }
 void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
 void EventContext::focus(bool isCopy, bool force) { doc->m_context.m_caretManager.focus(isCopy ? copy() : this, force); }

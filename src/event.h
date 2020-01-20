@@ -178,7 +178,11 @@ struct EventContext {
     void timer(long long interval, int id = 0, int count = 0);
     void replace(Element *new_element, bool pushCommand = true);
     void remove(Root *ele);
-
+    void update() {
+        relayout();
+        reflow();
+        redraw();
+    }
     Tag tag();
     GRect rect();
     GRect bound(GScalar dx = 0, GScalar dy = 0);

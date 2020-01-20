@@ -79,6 +79,8 @@ static std::map<GString, int> keywords = {
         {_GT("计次循环尾"), StyleKeywordFont},
         {_GT("变量循环首"), StyleKeywordFont},
         {_GT("变量循环尾"), StyleKeywordFont},
+        {_GT("判断循环首"), StyleKeywordFont},
+        {_GT("判断循环尾"), StyleKeywordFont},
 };
 
 class Lexer {

@@ -13,8 +13,11 @@ class Element;
 struct EventContext;
 
 enum class CommandType {
+    PushStart,
+    PushEnd,
     AddChar,
     DeleteChar,
+    DeleteString,
     AddElement,
     DeleteElement,
     ReplaceElement,
@@ -27,6 +30,7 @@ union CommandData {
     CommandData(int pos, int ch) : input(InputData(pos, ch)) {}
     CommandData(EventContext *context, Element *element) : replace(ReplaceData(context, element)) {}
     explicit CommandData(Element *element) : element(element) {}
+    explicit CommandData(int pos, std::wstring *string) : string(StringData(pos, string)) {}
     struct InputData {
         int pos;
         int ch;
@@ -37,6 +41,11 @@ union CommandData {
         Element *element;
         ReplaceData(EventContext *context, Element *element) : caret(context), element(element) {}
     } replace;
+    struct StringData {
+        int pos;
+        std::wstring *string;
+        StringData(int pos, std::wstring *string) : pos(pos), string(string) {}
+    } string;
     Element *element; // new element
     int value;
 };

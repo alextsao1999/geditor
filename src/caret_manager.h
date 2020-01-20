@@ -60,7 +60,7 @@ public:
 
     // 实际的光标位置
     Offset current();
-    void create(int width = 1, int height = 18) {
+    void create(int width = 2, int height = 18) {
         CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
     }
     void destroy() {

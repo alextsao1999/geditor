@@ -10,22 +10,15 @@
 #include "common.h"
 #include "event.h"
 
-#define CallChildEvent(name) \
-    EventContext event = context.enter(); \
-    while (event.has()) { \
-        if (event.current()->contain(event, x, y)) { \
-            event.current()->name(event, x, y); \
-            break; \
-        } \
-        event.next(); \
-    }
-
-#define DEFINE_EVENT(event, ...) virtual void event(EventContext &context, ##__VA_ARGS__) {}
-#define DEFINE_EVENT2(event) virtual void event(EventContext &context, int x, int y) {CallChildEvent(event);}
-#define CallEvent(context, event, ...) ((context).current()->event(context, ##__VA_ARGS__))
+#define DispatchEvent(NAME) \
+    EventContext ctx = onDispatch(context, x, y); \
+    context_method(ctx, NAME, x, y);
+#define DEFINE_EVENT(EVENT, ...) virtual void EVENT(EventContext &context, ##__VA_ARGS__) {}
+#define DEFINE_EVENT2(EVENT) virtual void EVENT(EventContext &context, int x, int y) { DispatchEvent(EVENT); }
 #define for_context(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
-#define context_on_ptr(ctx, method, ...) ((ctx) ? ((*(ctx)).current()->method(*(ctx), ##__VA_ARGS__)) : void(0))
 #define context_on(ctx, method, ...) {auto &&__ctx = (ctx);if (!__ctx.empty())__ctx.current()->on##method(__ctx, ##__VA_ARGS__);}
+#define context_on_ptr(ctx, method, ...) ((ctx) ? ((*(ctx)).current()->method(*(ctx), ##__VA_ARGS__)) : void(0))
+#define context_method(context, event, ...) ((context).empty() ? void(0) : (context).current()->event(context, ##__VA_ARGS__))
 // Root 无 父元素
 class Root {
 public:
@@ -82,6 +75,10 @@ public:
 class Element : public Root {
     friend Document;
 public:
+    enum NotifyType {
+        None,
+        Update,
+    };
     Element() = default;
     Offset getOffset(EventContext &context) override;
     virtual int getChildCount() {
@@ -101,8 +98,8 @@ public:
     virtual Element *getPrev(){ return nullptr; }
     virtual bool isHead(EventContext &context) { return getPrev() == nullptr; }
     virtual bool isTail(EventContext &context) { return getNext() == nullptr; }
-    virtual Element *getNextWithContext(EventContext &context) { return getNext(); }
-    virtual Element *getPrevWithContext(EventContext &context){ return getPrev(); }
+    virtual Element *onNext(EventContext &context) { context.index++;return getNext(); }
+    virtual Element *onPrev(EventContext &context){ context.index--;return getPrev(); }
     virtual void onEnter(EventContext &context, EventContext &enter, int idx) {
         if (idx >= 0) {
             enter.index = 0;
@@ -160,7 +157,7 @@ public:
     DEFINE_EVENT2(onRightButtonDown);
     DEFINE_EVENT2(onLeftDoubleClick);
     DEFINE_EVENT2(onRightDoubleClick);
-    DEFINE_EVENT(onInputChar, int ch);
+    DEFINE_EVENT(onInputChar, SelectionState state, int ch);
     DEFINE_EVENT(onSelect);
     DEFINE_EVENT(onUnselect);
     DEFINE_EVENT(onEnterReflow, Offset &offset);
@@ -168,13 +165,33 @@ public:
     DEFINE_EVENT(onFinishReflow, Offset &offset, LayoutContext &layout);
     virtual void onUndo(Command command) {}
     virtual void onUndoDiscard(Command command) {}
+    virtual void onSelectionDelete(EventContext &context, SelectionState state) {
+        for_context(ctx, context) {
+            SelectionState selection = ctx.getSelectionState();
+            if (selection != SelectionNone) {
+                ctx.current()->onSelectionDelete(ctx, selection);
+            }
+        }
+
+    }
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
-    enum NotifyType {
-        None,
-        Update,
-    };
     virtual void onNotify(EventContext &context, int type, NotifyValue param, NotifyValue other) {
         if (context.outer) context.outer->notify(type, param, other);
+    }
+    virtual EventContext onDispatch(EventContext &context, int x, int y) {
+        for_context(ctx, context) {
+            if (ctx.current()->contain(ctx, x, y)) {
+                return ctx;
+            }
+        }
+        return {};
+    }
+    virtual int getSelectCount(EventContext &context) {
+        int count = 0;
+        for_context(ctx, context) {
+            count += ctx.isSelected();
+        }
+        return count;
     }
     virtual int getLineNumber();
     int getWidth(EventContext &context) override;
@@ -323,16 +340,6 @@ public:
         }
     }
     Display getDisplay() override { return D; }
-    virtual bool contain(Element *element) {
-        Element *header = element->getHead();
-        while (header != nullptr) {
-            if (header == element) {
-                return true;
-            }
-            header = header->getNext();
-        }
-        return false;
-    }
     virtual Element *append(Element *element) {
         if (m_tail == nullptr) {
             m_tail = m_head = element;
@@ -405,72 +412,6 @@ public:
         pe->setNext(element);
     }
 };
-template <Display D = DisplayBlock>
-class ScrolledContainer : public Container<D> {
-public:
-    Offset m_contentOffset;
-    bool m_click = false;
-    Offset m_clickOffset;
-    int m_contentWidth = 0;
-    int m_contentHeight = 0;
-    ScrolledContainer(int width, int height) {
-        m_width = width;
-        m_height = height;
-    }
-    void onFinishReflow(EventContext &context, int width, int height) override {
-        m_contentWidth = width;
-        m_contentHeight = height;
-    }
-    void onMouseMove(EventContext &context, int x, int y) override {
-        if (m_click) {
-            m_contentOffset = context.relative(x, y) - m_clickOffset;
-            m_contentOffset.x = 0;
-            context.getCaretManager()->update();
-            context.redraw();
-            return;
-        }
-        Element::onMouseMove(context, x + m_contentOffset.x, y + m_contentOffset.y);
-    }
-    void onLeftButtonUp(EventContext &context, int x, int y) override {
-        m_click = false;
-        Element::onLeftButtonUp(context, x + m_contentOffset.x, y + m_contentOffset.y);
-    }
-    void onLeftButtonDown(EventContext &context, int x, int y) override {
-        m_clickOffset = context.relative(x, y);
-        if (m_clickOffset.x > m_width - 10) {
-            m_contentOffset.y = m_clickOffset.y;
-            m_click = true;
-            printf("click %d", m_clickOffset.y);
-            return;
-        }
-        Element::onLeftButtonDown(context, x + m_contentOffset.x, y + m_contentOffset.y);
-    }
-#define ScrollEvent(EVENT) void EVENT(EventContext &context, int x, int y) \
-    {Element::EVENT(context, x + m_contentOffset.x, y + m_contentOffset.y);}
-    ScrollEvent(onRightButtonUp);
-    ScrollEvent(onRightButtonDown);
-    ScrollEvent(onLeftDoubleClick);
-    ScrollEvent(onRightDoubleClick);
-    void onDraw(EventContext &context, SkCanvas *canvas) override {
-        canvas->translate(0, -m_contentOffset.y);
-        Root::onDraw(context, canvas);
-        canvas->translate(0, m_contentOffset.y);
-
-        SkPaint border;
-
-        border.setAlpha(150);
-        border.setStyle(SkPaint::kFill_Style);
-        GRect rect = GRect::MakeXYWH(m_width - 10, m_contentOffset.y + 5, 8, 25);
-        canvas->drawRoundRect(rect, 3, 3, border);
-
-        border.setStyle(SkPaint::kStroke_Style);
-        canvas->drawRect(context.bound(0.5, 0.5), border);
-
-    }
-    Offset getCaretOffset(EventContext &context) override {
-        return {0, m_contentOffset.y};
-    }
-};
 class Document : public Container<DisplayBlock> {
 public:
     Context m_context;
@@ -517,14 +458,21 @@ public:
     void undo() {
         if (m_context.m_queue.has()) {
             auto command = m_context.m_queue.pop();
-            command.context->current()->onUndo(command);
+            if (command.type == CommandType::PushEnd) {
+                do {
+                    command = m_context.m_queue.pop();
+                    if (command.context)
+                        command.context->current()->onUndo(command);
+                } while (command.type != CommandType::PushStart);
+            } else {
+                command.context->current()->onUndo(command);
+            }
         }
     }
     void flow() {
         setViewportOffset(m_viewportOffset);
         LayoutManager::ReflowAll(this);
     }
-
 };
 
 #endif //TEST_DOCUMENT_H

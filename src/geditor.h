@@ -151,7 +151,17 @@ public:
                     data->m_document.undo();
                     return 0;
                 }
-                MsgCallFocus(onInputChar, wParam);
+                if (current.m_context.m_caretManager.m_context) {
+                    SelectionState state = current.m_context.m_caretManager.m_context->getSelectionState();
+                    if (state != SelectionNone) {
+                        current.m_context.pushStart();
+                        data->m_document.onSelectionDelete(data->m_document.m_root, state);
+                    }
+                    MsgCallFocus(onInputChar, state, wParam);
+                    if (state != SelectionNone) {
+                        current.m_context.pushEnd();
+                    }
+                }
                 break;
             case WM_KEYDOWN:
                 MsgCallFocus(onKeyDown, wParam, lParam);
@@ -250,6 +260,7 @@ public:
                 }
             }
         }
+        buffer.free();
         data->m_document.flow();
         data->m_renderManager.refresh();
 

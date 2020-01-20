@@ -4,7 +4,7 @@
 
 #include "table.h"
 
-void AutoLineElement::onInputChar(EventContext &context, int ch) {
+void AutoLineElement::onInputChar(EventContext &context, SelectionState state, int ch) {
     if (ch == VK_RETURN) {
         auto line = context.getLineViewer();
         if (line.content() == _GT("if")) {
@@ -19,6 +19,21 @@ void AutoLineElement::onInputChar(EventContext &context, int ch) {
             ctx.push(CommandType::AddChar, CommandData(2, ' '));
             ctx.push(CommandType::AddChar, CommandData(3, '('));
             ctx.push(CommandType::AddChar, CommandData(4, ')'));
+            ctx.focus();
+            return;
+        }
+        if (line.content() == _GT("loop")) {
+            context.replace(new LoopBlockElement(2));
+            context.outer->relayout();
+            context.reflow();
+            context.redraw();
+            auto newLine = context.getLineViewer();
+            newLine.append(_GT(" ()"));
+            EventContext &&ctx = context.enter();
+            context.pos().setIndex(-2);
+            ctx.push(CommandType::AddChar, CommandData(4, ' '));
+            ctx.push(CommandType::AddChar, CommandData(5, '('));
+            ctx.push(CommandType::AddChar, CommandData(6, ')'));
             ctx.focus();
             return;
         }
@@ -38,5 +53,5 @@ void AutoLineElement::onInputChar(EventContext &context, int ch) {
             return;
         }
     }
-    LineElement::onInputChar(context, ch);
+    LineElement::onInputChar(context, state, ch);
 }

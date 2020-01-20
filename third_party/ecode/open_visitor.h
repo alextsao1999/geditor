@@ -24,20 +24,60 @@ struct SubVisitor : Visitor {
     Container<> *create() {
         auto *subs = new SubElement();
         subs->content(0).append(current->name.toUnicode().c_str());
-        subs->content(1).append(std::to_wstring(current->type));
+        subs->content(1).append(getType(current->type));
         if (!current->params.empty()) {
             subs->createParamTable();
             for (auto &param : current->params) {
-                subs->addParam(param.name.toUnicode().c_str(), std::to_wstring(param.type).c_str());
+                subs->addParam(param.name.toUnicode().c_str(), getType(param.type).c_str());
             }
         }
         if (!current->locals.empty()) {
             subs->createLocalTable();
             for (auto &local : current->locals) {
-                subs->addLocal(local.name.toUnicode().c_str(), std::to_wstring(local.type).c_str());
+                subs->addLocal(local.name.toUnicode().c_str(), getType(local.type).c_str());
             }
         }
         return subs;
+    }
+    std::wstring getType(Key key) {
+        static std::map<int, const GChar *> maps = {
+                {SDT_BYTE, _GT("byte")},
+                {SDT_SHORT, _GT("short")},
+                {SDT_INT, _GT("int")},
+                {SDT_INT64, _GT("int64")},
+                {SDT_FLOAT, _GT("float")},
+                {SDT_DOUBLE, _GT("double")},
+                {SDT_BOOL, _GT("bool")},
+                {SDT_DATE_TIME, _GT("datetime")},
+                {SDT_TEXT, _GT("string")},
+                {SDT_BIN, _GT("binary")},
+                {SDT_SUB_PTR, _GT("sub_ptr")},
+                {SDT_STATMENT, _GT("statment")},
+        };
+        if (maps.count(key.value)) {
+            return maps[key.value];
+        }
+        if (key.type == 0) {
+            if (key.index == 48) {
+                return _GT("Object");
+            }
+            if (key.index == 49) {
+                return _GT("Varient");
+            }
+        }
+        if (key.type == KeyType::KeyType_DataStruct) {
+            auto *find = code->find<EStruct>(key.value);
+            if (find) {
+                return find->name.toUnicode();
+            }
+        }
+        if (key.type == KeyType::KeyType_Module) {
+            auto *find = code->find<EModule>(key.value);
+            if (find) {
+                return find->name.toUnicode();
+            }
+        }
+        return std::to_wstring(key.value);
     }
     void process(ASTFunCall *node) override {
         lineViewer = document->m_context.m_textBuffer.appendLine();
@@ -63,11 +103,12 @@ struct SubVisitor : Visitor {
     void visit(ASTFunCall *node) override {
         static std::map<std::string, std::wstring> binarys = {
                 {"相加", _GT(" + ")},
-                {"相等", _GT(" == ")},
                 {"相乘", _GT(" * ")},
                 {"赋值", _GT(" = ")},
-                {"等于", _GT(" = ")},
+                {"等于", _GT(" == ")},
                 {"不等于", _GT(" != ")},
+                {"大于", _GT(" > ")},
+                {"小于", _GT(" < ")},
         };
 
         if (node->lib >= 0) {
@@ -291,11 +332,8 @@ struct SubVisitor : Visitor {
     }
     void visit(ASTLoop *node) override {
         InnerElement container;
-        processing = container.enter(ge_new(SwitchElement, 0), processing);
+        processing = container.enter(ge_new(LoopBlockElement, 0), processing);
         //////////////////////////////////
-        InnerElement block;
-        processing = block.enter(ge_new(CodeBlockElement, 0), processing);
-
         if (node->head) {
             node->head->preprocess(this);
             node->head->accept(this);
@@ -305,7 +343,6 @@ struct SubVisitor : Visitor {
             node->tail->preprocess(this);
             node->tail->accept(this);
         }
-        processing = processing->outer;
         /////////////////////////////////
         processing = processing->outer;
 

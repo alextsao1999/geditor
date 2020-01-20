@@ -26,16 +26,6 @@ public:
     size_t length{0};
     size_t pos{0};
     explicit FileBuffer(const char *file) {
-/*
-        HANDLE hFile = CreateFile(file, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
-        length = GetFileSize(hFile, NULL);
-        code = (uint8_t *) malloc(length);
-        DWORD haveReadByte;
-        SetFilePointer(hFile, 10, NULL, FILE_BEGIN);
-        ReadFile(hFile, (LPVOID *) code, length, &haveReadByte, 0);
-        printf("have read %ld", length);
-        CloseHandle(hFile);
-*/
         FILE *f = fopen(file, "rb");
         struct stat st{};
         stat(file, &st);
@@ -56,6 +46,9 @@ public:
         CloseHandle(hFile);
     }
     FileBuffer(char *data, size_t length) : code((uint8_t *) data), length(length) {}
+    void free() {
+        ::free(code);
+    }
     inline bool Good() { return pos < length; }
     inline void Skip(int step) { pos += step; }
     int ReadInt() {
@@ -75,26 +68,22 @@ public:
     }
 
     inline FixedData ReadFixedData() {
-        int length = ReadInt();
-        if (length > 0) {
-            FixedData data((char *) &code[pos], length);
+        FixedData data((char *) &code[pos], ReadInt());
+        if (data.length > 0) {
             pos += data.length;
             return data;
-        } else {
-            return {nullptr, 0};
         }
-
+        return {};
     }
 
     inline FixedData ReadString() {
-        int length = strlen((char *) &code[pos]);
-        FixedData data((char *) &code[pos], length);
-        pos += length + 1;
+        FixedData data((char *) &code[pos], strlen((char *) &code[pos]));
+        pos += data.length + 1;
         return data;
     }
 
-    inline FixedData Read(int length) {
-        FixedData data((char *) &code[pos], length);
+    inline FixedData Read(int len) {
+        FixedData data((char *) &code[pos], len);
         pos += data.length;
         return data;
     }
@@ -107,9 +96,7 @@ public:
         return false;
     }
 
-    inline bool Check(uint8_t byte) {
-        return code[pos] == byte;
-    }
+    inline bool Check(uint8_t byte) { return code[pos] == byte; }
 
 };
 

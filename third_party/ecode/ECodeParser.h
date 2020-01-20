@@ -161,7 +161,6 @@ struct EDllSub {
 };
 
 struct ECode {
-    uint8_t *code{};
     BasicInfo info; // 源码信息
     std::vector<EWindow> windows; //窗口
     std::vector<EConst> constants; //常量
@@ -181,7 +180,6 @@ struct ECode {
         return (Type *) maps[value];
     }
     void free() {
-        ::free(code);
         for (auto & librarie : libraries) {
             FreeLibrary(librarie.hModule);
         }
@@ -199,14 +197,10 @@ public:
     int _check{0};
     char *_eLibPath;
 
-    explicit ECodeParser(FileBuffer &buf) : _buffer(buf), _eLibPath(GetLibPath()) {
-        code.code = buf.code;
-    }
-
+    explicit ECodeParser(FileBuffer &buf) : _buffer(buf), _eLibPath(GetLibPath()) {}
     ~ECodeParser() {
         delete[]_eLibPath;
     }
-
     bool Check(const char *check, size_t length);
     bool Cmp(const char *check, size_t length);
     void SetElibPath(char *path);

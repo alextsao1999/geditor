@@ -19,6 +19,14 @@ struct EventContext;
 class Root;
 class Element;
 class Document;
+enum SelectionState {
+    SelectionNone,
+    SelectionStart,
+    SelectionEnd,
+    SelectionSelf,
+    SelectionInside,
+    SelectionRow,
+};
 struct Context {
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
@@ -32,23 +40,26 @@ struct Context {
     Offset m_selectBase;
     Offset m_selectStart;
     Offset m_selectEnd;
-    //CaretPos m_selectStartPos;
-    //CaretPos m_selectEndPos;
+
+    CaretPos m_selectBasePos;
+    CaretPos m_selectStartPos;
+    CaretPos m_selectEndPos;
     void startSelect() {
         m_selecting = true;
-        //m_selectStartPos = m_caretManager.data();
 
         m_selectBase = m_caretManager.current();
         m_selectStart = m_selectBase;
         m_selectEnd = m_selectBase;
-        //m_selectStart = m_caretManager.current();
-        //m_selectEnd = m_selectStart;
 
+        m_selectBasePos = m_caretManager.data();
     }
     void endSelect() {
         m_selecting = false;
     }
-
+    void clearSelect() {
+        m_selectBase = m_selectStart = m_selectEnd = Offset(0, 0);
+        m_selecting = false;
+    }
     void selecting() {
         Offset current = m_caretManager.current();
         if (m_selectBase.y > current.y) {
@@ -58,6 +69,15 @@ struct Context {
             m_selectStart = m_selectBase;
             m_selectEnd = current;
         }
+
+        CaretPos pos = m_caretManager.data();
+        if (pos.offset.y > m_selectBasePos.offset.y) {
+            m_selectStartPos = m_selectBasePos;
+            m_selectEndPos = pos;
+        } else {
+            m_selectStartPos = pos;
+            m_selectEndPos = m_selectBasePos;
+        }
     }
     inline GRect getSelectRect() {
         Offset start = m_selectStart;
@@ -66,6 +86,19 @@ struct Context {
         SkRect rect{};
         rect.set({(SkScalar) start.x, (SkScalar) start.y}, {(SkScalar) end.x, (SkScalar) end.y});
         return rect;
+    }
+    void pushStart() {
+        m_queue.push({nullptr, CaretPos(), CommandType::PushStart, CommandData(0)});
+    }
+    void pushEnd() {
+        m_queue.push({nullptr, CaretPos(), CommandType::PushEnd, CommandData(0)});
+    }
+    void setSelectPos(CaretPos start, CaretPos end) {
+        m_selectStart = m_selectBase = start.offset;
+        m_selectEnd = end.offset;
+
+        m_selectStartPos = start;
+        m_selectEndPos = end;
     }
     explicit Context(RenderManager *renderManager) :
     m_renderManager(renderManager),
@@ -132,7 +165,7 @@ struct EventContext {
     inline bool has() { return element; };
     bool prev();
     bool next();
-    LineCounter getLineCounter() { if (outer) { return outer->getLineCounter() + counter; } else { return counter; } }
+    LineCounter getCounter() { if (outer) { return outer->getCounter() + counter; } else { return counter; } }
     // 只改变本层次Line
     void prevLine(int count = 1) { counter.decrease(this, count); }
     void nextLine(int count = 1) { counter.increase(this, count); }
@@ -185,12 +218,12 @@ struct EventContext {
     LineViewer getLineViewer(int offset = 0);
     void insertLine(int offset = 0, int count = 1) {
         for (int i = 0; i < count; ++i) {
-            getDocContext()->m_textBuffer.insertLine(getLineCounter(), offset);
+            getDocContext()->m_textBuffer.insertLine(getCounter(), offset);
         }
     }
     void deleteLine(int offset = 0, int count = 1) {
         for (int i = 0; i < count; ++i) {
-            getDocContext()->m_textBuffer.deleteLine(getLineCounter(), offset);
+            getDocContext()->m_textBuffer.deleteLine(getCounter(), offset);
         }
     }
     void breakLine(int offset, int idx) {
@@ -199,9 +232,9 @@ struct EventContext {
         next.append(line.c_str() + idx, line.length() - idx);
         line.remove(idx, line.length() - idx);
     }
-    void combineLine() {
-        auto line = getLineViewer();
-        auto next = getLineViewer(1);
+    void combineLine(int offset = 0) {
+        auto line = getLineViewer(offset);
+        auto next = getLineViewer(offset + 1);
         line.append(next.c_str());
         next.clear();
     }
@@ -275,9 +308,13 @@ struct EventContext {
 
     bool selecting();
     bool isMouseIn();
+    SelectionState getSelectionState();
     bool isSelected();
+    bool isSelectedRow();
+    bool isSelectedSelf();
     bool isSelectedStart();
     bool isSelectedEnd();
+    int selectedCount();
     bool visible();
     bool isHead();
     bool isTail();

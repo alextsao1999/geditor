@@ -9,7 +9,7 @@
 #define CheckBound(ret) if (OutOfBound()) return ret
 
 LineViewer EventContext::getLineViewer(int offset) {
-    return doc->getContext()->m_textBuffer.getLine(getLineCounter(), offset);
+    return doc->getContext()->m_textBuffer.getLine(getCounter(), offset);
 }
 Painter EventContext::getPainter() { return doc->getContext()->m_renderManager->getPainter(this); }
 Canvas EventContext::getCanvas(SkPaint *paint) {
@@ -33,10 +33,9 @@ bool EventContext::prev() {
     if (element == nullptr) {
         return false;
     }
-    element = element->getPrevWithContext(*this);
+    element = element->onPrev(*this);
     if (element) {
         prevLine(element->getLineNumber());
-        index--;
     }
     return true;
 }
@@ -44,9 +43,8 @@ bool EventContext::next() {
     if (element == nullptr) {
         return false;
     }
-    index++;
     nextLine(element->getLineNumber());
-    element = element->getNextWithContext(*this);
+    element = element->onNext(*this);
     return true;
 }
 void EventContext::reflow(bool relayout) {
@@ -146,13 +144,75 @@ Context *EventContext::getDocContext() { return doc->getContext(); }
 
 StyleManager *EventContext::getStyleManager() { return &getDocContext()->m_styleManager; }
 
+SelectionState EventContext::getSelectionState() {
+    CheckBound(SelectionNone);
+    auto &&dcontext = getDocContext();
+    Offset start = dcontext->m_selectStart;
+    Offset end = dcontext->m_selectEnd;
+
+    GRect a = this->rect();
+    Offset caret = caretOffset();
+    a.offset(-caret.x, -caret.y);
+
+    GRect b;
+    b.set({(float) start.x, (float) start.y}, {(float) end.x, (float) end.y});
+
+    SkIRect rect = a.round();
+    SelectionState state = SelectionNone;
+
+    if (a.fTop <= b.fBottom && b.fTop <= a.fBottom) {
+        state = SelectionRow;
+    }
+
+    if (GRect::Intersects(a, b)) {
+        state = SelectionInside;
+    }
+
+    if (b.fBottom >= a.fTop && b.fTop <= a.fBottom && a.fLeft <= b.fLeft && a.fRight >= b.fLeft) {
+        state = SelectionInside;
+    }
+
+    if (b.fRight >= a.fLeft && b.fLeft <= a.fRight && a.fTop <= b.fTop && a.fBottom >= b.fTop) {
+        state = SelectionInside;
+    }
+
+    if (rect.contains(start.x, start.y)) {
+        state = SelectionStart;
+    }
+
+    if (rect.contains(end.x, end.y)) {
+        state = (state == SelectionStart) ? SelectionSelf : SelectionEnd;
+    }
+
+    return state;
+}
+
 bool EventContext::isSelected() {
     CheckBound(false);
     GRect a = this->rect();
     Offset caret = caretOffset();
     a.offset(-caret.x, -caret.y);
     GRect b = getDocContext()->getSelectRect();
-    return a.fTop <= b.fBottom && b.fTop <= a.fBottom && (b.width() != 0 || b.height() != 0);
+    if (b.height() == 0) {
+        return b.fRight >= a.fLeft && b.fLeft <= a.fRight && a.fTop <= b.fTop && a.fBottom >= b.fTop;
+    }
+    if (b.width() == 0) {
+        return b.fBottom >= a.fTop && b.fTop <= a.fBottom && a.fLeft <= b.fLeft && a.fRight >= b.fLeft;
+    }
+    return GRect::Intersects(a, b);
+}
+
+bool EventContext::isSelectedSelf() {
+    return isSelectedStart() && isSelectedEnd();
+}
+
+bool EventContext::isSelectedRow() {
+    CheckBound(false);
+    GRect a = this->rect();
+    Offset caret = caretOffset();
+    a.offset(-caret.x, -caret.y);
+    GRect b = getDocContext()->getSelectRect();
+    return a.fTop <= b.fBottom && b.fTop <= a.fBottom && (b.height() != 0);
 }
 
 bool EventContext::visible() {
@@ -188,6 +248,10 @@ bool EventContext::isSelectedStart() {
 
 bool EventContext::isSelectedEnd() {
     return rect().round().contains(doc->m_context.m_selectEnd.x, doc->m_context.m_selectEnd.y);
+}
+
+int EventContext::selectedCount() {
+    return element->getSelectCount(*this);
 }
 
 Offset EventContext::caretOffset() {

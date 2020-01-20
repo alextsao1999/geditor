@@ -35,6 +35,10 @@ public:
         auto &&str = content();
         str.insert(str.begin() + pos, (GChar) ch);
     }
+    void insert(int pos, const GChar *string) {
+        auto &&str = content();
+        str.insert(pos, string);
+    }
     void remove(int pos, int length) {
         auto &&str = content();
         str.erase(str.begin() + pos, str.begin() + pos + length);
@@ -46,9 +50,7 @@ public:
     inline int length() { return content().length(); }
     inline size_t size() { return length() * sizeof(GChar); }
     void append(const GChar *text, int length = 0) {
-        if (length == 0) {
-            length = lstrlen(text);
-        }
+        if (length == 0) length = gstrlen(text);
         content().append(text, length);
     }
     template <typename ...Args>

@@ -82,12 +82,13 @@ public:
         wcex.hIconSm = nullptr;
         return RegisterClassEx(&wcex);
     }
-    static GEditor build(HWND parent, int x = 0, int y = 0, int nWidth = 850,int nHeight = 500) {
+
+    static GEditor *build(HWND parent, int x = 0, int y = 0, int nWidth = 850, int nHeight = 500) {
         if (!isInit && init()) {
             isInit = true;
         }
         if (isInit) {
-            return GEditor(parent, x, y, nWidth, nHeight);
+            return new GEditor(parent, x, y, nWidth, nHeight);
         }
         return {};
     }
@@ -159,7 +160,9 @@ public:
                     }
                     MsgCallFocus(onInputChar, state, wParam);
                     if (state != SelectionNone) {
+                        current.m_context.clearSelect();
                         current.m_context.pushEnd();
+                        current.m_root.redraw();
                     }
                 }
                 break;

@@ -129,3 +129,19 @@ EventContext *CaretManager::include(EventContext *context) {
     }
     return m_context->include(context);
 }
+
+void CaretManager::onErase(EventContext *context) {
+    if (m_context && context) {
+        if (m_context->outer) {
+            EventContext *ctx = m_context->outer->include(context->outer);
+            EventContext *find = m_context;
+            while (find && find->outer != ctx) {
+                find = find->outer;
+            }
+            if (find && find->index > context->index) {
+                find->index--;
+                find->prevLine(context->current()->getLineNumber());
+            }
+        }
+    }
+}

@@ -103,7 +103,7 @@ public:
     }
     void deleteLine(LineCounter counter, int offset) {
         int line = offset + counter.line;
-        if (m_buffer.size() == 1 || line == 0) { return; }
+        if (m_buffer.size() == 1) { return; }
         m_buffer.erase(m_buffer.begin() + line);
     }
     LineViewer getLine(LineCounter counter, int offset) {

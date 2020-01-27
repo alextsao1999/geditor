@@ -51,15 +51,14 @@ void EventContext::reflow(bool relayout) {
     doc->m_context.m_layoutManager.reflow(*this, relayout, element->getLogicOffset());
     doc->getContext()->m_caretManager.update(); // reflow之后更新光标位置
 }
-void EventContext::remove(Root *root) {
-    root->onRemove(*this);
-    root->free();
-}
 void EventContext::relayout() {
     element->onRelayout(*this, getLayoutManager());
 }
 void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
-void EventContext::focus(bool isCopy, bool force) { doc->m_context.m_caretManager.focus(isCopy ? copy() : this, force); }
+void EventContext::focus(bool isCopy, bool force) {
+    if (element)
+        doc->m_context.m_caretManager.focus(isCopy ? copy() : this, force);
+}
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), pos(), type, data});
 }
@@ -244,6 +243,31 @@ void EventContext::replace(Element *new_element, bool pushCommand) {
         //before->free();
     }
 }
+void EventContext::remove(bool pushCommand) {
+    if (element) {
+        if (pushCommand) {
+            push(CommandType::DeleteElement, CommandData(element));
+        }
+        element->separate(*this, element->getNext(), element->getPrev());
+    }
+}
+void EventContext::insert(Element *ele, bool pushCommand) {
+    if (pushCommand) {
+        push(CommandType::AddElement, CommandData(ele));
+    }
+    Element *next = element->getNext();
+    ele->setPrev(element);
+    ele->setNext(next);
+    element->setNext(ele);
+    if (next) {
+        next->setPrev(ele);
+    } else {
+        if (outer) {
+            outer->current()->setTail(ele);
+        }
+    }
+
+}
 
 bool EventContext::isSelectedStart() {
     return rect().round().contains(doc->m_context.m_selectStart.x, doc->m_context.m_selectStart.y);
@@ -270,3 +294,4 @@ Offset EventContext::caretOffset() {
 bool EventContext::isMouseIn() {
     return rect().round().contains(doc->m_mouse.x, doc->m_mouse.y);
 }
+

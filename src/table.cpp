@@ -5,9 +5,18 @@
 #include "table.h"
 
 void AutoLineElement::onInputChar(EventContext &context, SelectionState state, int ch) {
+    if (context.doc->m_onInputChar) {
+        ch = context.doc->m_onInputChar(&context, state, ch);
+        if (ch == 0) {
+            return;
+        }
+    }
     auto line = context.getLineViewer();
     if (ch == VK_RETURN) {
         if (line.content() == _GT("if")) {
+            if (context.isTail()) {
+                insert(context);
+            }
             context.replace(new SingleBlockElement(2));
             context.outer->update();
             auto newLine = context.getLineViewer();
@@ -21,6 +30,9 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
             return;
         }
         if (line.content() == _GT("loop")) {
+            if (context.isTail()) {
+                insert(context);
+            }
             context.replace(new LoopBlockElement(2));
             context.outer->update();
             auto newLine = context.getLineViewer();
@@ -34,6 +46,9 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
             return;
         }
         if (line.content() == _GT("switch")) {
+            if (context.isTail()) {
+                insert(context);
+            }
             context.replace(new SwitchElement(3));
             context.outer->update();
             auto newLine = context.getLineViewer();

@@ -28,6 +28,20 @@ enum SelectionState {
     SelectionRow,
 };
 struct Context {
+    std::map<GString, int> keywords = {
+            {_GT("if"),    StyleKeywordFont},
+            {_GT("while"), StyleKeywordFont},
+            {_GT("var"),   StyleKeywordFont},
+            {_GT("this"),  StyleKeywordFont},
+            {_GT("break"), StyleKeywordFont},
+            {_GT("do"),    StyleKeywordFont},
+            {_GT("class"), StyleKeywordFont},
+            {_GT("int"), StyleKeywordFont},
+            {_GT("switch"), StyleKeywordFont},
+            {_GT("true"), StyleKeywordFont},
+            {_GT("false"), StyleKeywordFont},
+            {_GT("null"), StyleKeywordFont},
+    };
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
     StyleManager m_styleManager;
@@ -42,8 +56,14 @@ struct Context {
     Offset m_selectEnd;
 
     CaretPos m_selectBasePos;
+    CaretPos m_selectCurrentPos;
     CaretPos m_selectStartPos;
     CaretPos m_selectEndPos;
+    void select(CaretPos start, CaretPos end) {
+        m_selecting = false;
+        setSelectPos(start, end);
+        m_renderManager->refresh();
+    }
     void startSelect() {
         m_selecting = true;
 
@@ -70,12 +90,12 @@ struct Context {
             m_selectEnd = current;
         }
 
-        CaretPos pos = m_caretManager.data();
-        if (pos.offset.y > m_selectBasePos.offset.y) {
+        m_selectCurrentPos = m_caretManager.data();
+        if (m_selectCurrentPos.offset.y > m_selectBasePos.offset.y) {
             m_selectStartPos = m_selectBasePos;
-            m_selectEndPos = pos;
+            m_selectEndPos = m_selectCurrentPos;
         } else {
-            m_selectStartPos = pos;
+            m_selectStartPos = m_selectCurrentPos;
             m_selectEndPos = m_selectBasePos;
         }
     }
@@ -88,10 +108,10 @@ struct Context {
         return rect;
     }
     void pushStart() {
-        m_queue.push({nullptr, CaretPos(), CommandType::PushStart, CommandData(0)});
+        m_queue.push({m_caretManager.getEventContext(), m_selectBasePos, CommandType::PushStart, CommandData(0)});
     }
     void pushEnd() {
-        m_queue.push({nullptr, CaretPos(), CommandType::PushEnd, CommandData(0)});
+        m_queue.push({nullptr, m_selectCurrentPos, CommandType::PushEnd, CommandData(0)});
     }
     void setSelectPos(CaretPos start, CaretPos end) {
         m_selectStart = m_selectBase = start.offset;
@@ -177,7 +197,8 @@ struct EventContext {
     void notify(int type, NotifyValue param, NotifyValue other);
     void timer(long long interval, int id = 0, int count = 0);
     void replace(Element *new_element, bool pushCommand = true);
-    void remove(Root *ele);
+    void remove(bool pushCommand = true);
+    void insert(Element *ele, bool pushCommand = true);
     void update() {
         relayout();
         reflow();
@@ -236,7 +257,10 @@ struct EventContext {
         next.append(line.c_str() + idx, line.length() - idx);
         line.remove(idx, line.length() - idx);
     }
-    void combineLine(int offset = 0) {
+    void combineLine(int offset = 0, bool pushCommand = true) {
+        if (pushCommand) {
+            push(CommandType::Combine, CommandData(getLineViewer().length()));
+        }
         auto line = getLineViewer(offset);
         auto next = getLineViewer(offset + 1);
         line.append(next.c_str());

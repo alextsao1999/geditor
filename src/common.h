@@ -12,6 +12,9 @@
 #include <string>
 #include "memory.h"
 
+struct EventContext;
+typedef int  (WINAPI *CallBack)(EventContext *, int, int);
+
 #define ANSI
 
 #ifdef UNICODE

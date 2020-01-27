@@ -6,20 +6,10 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
 
-set(inc_dirs
-        animator;config;core;device/xps;effects;gpu;gpu/gl;images;doc;pathops;pdf;pipe;ports;
-        record;svg;utils;utils/win;utils/ios;utils/mac;views;views/android;views/animated;views/unix;xml)
-foreach(inc_dir ${inc_dirs})
-    include_directories("third_party/skia/include/${inc_dir}")
-endforeach()
 add_subdirectory(third_party/skia)
-
-#add_subdirectory(third_party/lalr)
-#include_directories(third_party/lalr/lalr)
-
-
-include_directories(third_party/ecode/)
-aux_source_directory(third_party/ecode/ sources)
+add_subdirectory(third_party/ecode)
+include_directories(${skia_include_dirs})
+include_directories(${ecode_include_dirs})
 
 add_definitions(-DUNICODE -D_UNICODE -D_Debug)
 include_directories(src/)
@@ -28,12 +18,15 @@ aux_source_directory(src/ sources)
 source_group("Header Files" FILES ${headers})
 source_group("Source Files" FILES ${sources})
 
-add_executable(geditor ${sources} ${headers})
+add_library(geditor STATIC ${sources} ${headers})
 
-set(LINK_STATIC_LIB opengl32.lib usp10.lib skia)
-target_link_libraries(geditor ${LINK_STATIC_LIB})
+set(LINK_STATIC_LIB opengl32.lib usp10.lib skia geditor ecode)
 
-add_executable(test
-        third_party/test.cpp
-        )
-target_link_libraries(test ${LINK_STATIC_LIB} lalr)
+add_executable(main example/main.cpp)
+target_link_libraries(main ${LINK_STATIC_LIB})
+
+add_library(editor
+        SHARED
+        example/dll.h
+        example/dll.cpp)
+target_link_libraries(editor ${LINK_STATIC_LIB})

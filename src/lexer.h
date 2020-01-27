@@ -61,27 +61,6 @@ struct Token {
 };
 
 static GString symbols = _GT("+-*/");
-static std::map<GString, int> keywords = {
-        {_GT("if"),    StyleKeywordFont},
-        {_GT("while"), StyleKeywordFont},
-        {_GT("var"),   StyleKeywordFont},
-        {_GT("this"),  StyleKeywordFont},
-        {_GT("break"), StyleKeywordFont},
-        {_GT("do"),    StyleKeywordFont},
-        {_GT("class"), StyleKeywordFont},
-        {_GT("int"), StyleKeywordFont},
-        {_GT("switch"), StyleKeywordFont},
-        {_GT("true"), StyleKeywordFont},
-        {_GT("false"), StyleKeywordFont},
-        {_GT("null"), StyleKeywordFont},
-        {_GT("返回"), StyleKeywordFont},
-        {_GT("计次循环首"), StyleKeywordFont},
-        {_GT("计次循环尾"), StyleKeywordFont},
-        {_GT("变量循环首"), StyleKeywordFont},
-        {_GT("变量循环尾"), StyleKeywordFont},
-        {_GT("判断循环首"), StyleKeywordFont},
-        {_GT("判断循环尾"), StyleKeywordFont},
-};
 
 class Lexer {
     EventContext *context{};

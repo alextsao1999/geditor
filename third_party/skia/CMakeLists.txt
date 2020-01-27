@@ -17,18 +17,18 @@ add_definitions("-D_CRT_SECURE_NO_WARNINGS")
 add_definitions("-DSK_IGNORE_ETC1_SUPPORT")
 #add_definitions("-DUSE_MINGW")
 file(GLOB_RECURSE skia_headers RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.h)
-
 set(inc_dirs
 		animator;config;core;device/xps;effects;gpu;gpu/gl;images;doc;pathops;pdf;pipe;ports;
 		record;svg;utils;utils/win;utils/ios;utils/mac;views;views/android;views/animated;views/unix;xml)
 foreach(inc_dir ${inc_dirs})
-	include_directories("include/${inc_dir}")
+	list(APPEND skia_include_dirs "${CMAKE_CURRENT_SOURCE_DIR}/include/${inc_dir}")
 endforeach()
 set(inc_dirs animator;core;effects;effects/gradients;fonts;gpu;gpu/effects/;gpu/gl/;gpu/gl/builder;gpu/gl/debug;
 		image;images;lazy;opts;pathops;pipe;ports;sfnt;svg;utils;utils/win;views;views/animated;views/win;xml)
 foreach(inc_dir ${inc_dirs})
-	include_directories("src/${inc_dir}")
+	list(APPEND skia_include_dirs "${CMAKE_CURRENT_SOURCE_DIR}/src/${inc_dir}")
 endforeach()
+set(skia_include_dirs ${skia_include_dirs} CACHE INTERNAL "")
 set(aux_dirs animator;core;device;doc;effects;gpu;lazy;pathops;pdf;utils;sfnt;svg;views)
 foreach(aux_dir ${aux_dirs})
 	aux_source_directory("src/${aux_dir}" skia_src_${aux_dir})
@@ -160,7 +160,7 @@ if (BUILD_SHARED)
 else()
 	add_library(skia STATIC ${skia_sources} ${skia_headers})
 endif ()
-
+target_include_directories(skia PUBLIC ${skia_include_dirs})
 set_target_properties(skia PROPERTIES 
 	VERSION 1.0 
 	SOVERSION 1

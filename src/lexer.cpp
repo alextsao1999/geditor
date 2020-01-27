@@ -45,7 +45,9 @@ void Lexer::ParseIdentifier() {
     } while (IsCodeChar(CURRENT_CHAR) || IsNumber(CURRENT_CHAR));
     TOKEN_END(TokenIdentifier, StyleDeafaultFont);
     GString identifier(current.start, current.length);
-    current.style = keywords.count(identifier) ? keywords[identifier] : StyleDeafaultFont;
+
+    current.style = context->getDocContext()->keywords.count(identifier) ?
+                    context->getDocContext()->keywords[identifier] : StyleDeafaultFont;
 }
 
 void Lexer::ParseString() {

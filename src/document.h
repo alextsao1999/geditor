@@ -207,7 +207,6 @@ public:
             command.data.replace.caret->focus(false, true);
             // command.data.replace.caret->free(); // 释放caret
             command.data.replace.element->free(); // 释放替换的新元素
-
         }
         if (command.type == CommandType::Separate) {
             separate(*command.context, this, this);
@@ -223,6 +222,7 @@ public:
                 ctx.current()->onSelectionDelete(ctx, selection);
             }
         }
+        context.relayout();
     }
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
     virtual void onNotify(EventContext &context, int type, NotifyValue param, NotifyValue other) {
@@ -230,8 +230,15 @@ public:
     }
     virtual EventContext onDispatch(EventContext &context, int x, int y) {
         for_context(ctx, context) {
-            if (ctx.current()->contain(ctx, x, y)) {
-                return ctx;
+            if (ctx.display() == Display::DisplayInline) {
+                if (ctx.current()->contain(ctx, x, y)) {
+                    return ctx;
+                }
+            } else {
+                auto rect = ctx.rect();
+                if (rect.fTop < (float) y && rect.fBottom > (float) y) {
+                    return ctx;
+                }
             }
         }
         return {};
@@ -505,6 +512,11 @@ public:
 };
 class Document : public Container<DisplayBlock> {
 public:
+    CallBack m_onInputChar = nullptr;
+    CallBack m_onKeyDown = nullptr;
+    CallBack m_onMouseMove = nullptr;
+    CallBack m_onLeftClickDown = nullptr;
+    CallBack m_onBlur = nullptr;
     Context m_context;
     Offset m_mouse;
     Offset m_viewportOffset;
@@ -550,13 +562,16 @@ public:
         if (m_context.m_queue.has()) {
             auto command = m_context.m_queue.pop();
             if (command.type == CommandType::PushEnd) {
-                do {
+                CaretPos end = command.pos;
+                while (m_context.m_queue.has()) {
                     command = m_context.m_queue.pop();
-                    if (command.context) {
-                        command.context->current()->onUndo(command);
-                        command.context->free();
+                    if (command.type == CommandType::PushStart) {
+                        m_context.select(command.pos, end);
+                        break;
                     }
-                } while (command.type != CommandType::PushStart);
+                    command.context->current()->onUndo(command);
+                    command.context->free();
+                }
             } else {
                 command.context->current()->onUndo(command);
                 command.context->free();

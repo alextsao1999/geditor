@@ -15,7 +15,7 @@
 #include <SkFontStyle.h>
 #include <SkFontMgr.h>
 #include <SkFont.h>
-#include <SkTextBlob.h>
+#include "SkTextBlob.h"
 #include "common.h"
 #include "layout.h"
 
@@ -180,6 +180,13 @@ public:
     }
     void add(int id, const GStyle& paint) {
         m_map.emplace(std::pair<int, GStyle>(id, paint));
+    }
+    void set(int id, const GStyle& paint) {
+        if (m_map.count(id)) {
+            m_map[id] = paint;
+        } else {
+            m_map.emplace(std::pair<int, GStyle>(id, paint));
+        }
     }
     GStyle &get(int id) {
         return m_map[id];

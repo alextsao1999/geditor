@@ -126,8 +126,8 @@ EXPORT_API void WINAPI EventContextRelayout(EventContext *context) {
 EXPORT_API void WINAPI EventContextUpdate(EventContext *context) {
     context->update();
 }
-EXPORT_API void WINAPI EventContextFocus(EventContext *context, bool focus) {
-    context->focus(true, focus);
+EXPORT_API void WINAPI EventContextFocus(EventContext *context, bool isCopy, bool focus) {
+    context->focus(isCopy, focus);
 }
 EXPORT_API bool WINAPI EventContextCanEnter(EventContext *context) {
     return context->canEnter();
@@ -159,6 +159,9 @@ EXPORT_API EventContext *WINAPI EventContextFindPrev(EventContext *context, cons
 }
 EXPORT_API EventContext *WINAPI EventContextFindNext(EventContext *context, const char *tag) {
     return context->findNext(A2W(tag));
+}
+EXPORT_API EventContext *WINAPI EventContextFindInner(EventContext *context, const char *tag) {
+    return context->findInnerFirst(A2W(tag));
 }
 EXPORT_API void WINAPI EventContextFree(EventContext *context) {
     context->free();

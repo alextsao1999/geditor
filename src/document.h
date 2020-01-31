@@ -562,6 +562,7 @@ public:
         m_viewportOffset = offset;
     }
     void undo() {
+        m_context.clearSelect();
         if (m_context.m_queue.has()) {
             auto command = m_context.m_queue.pop();
             if (command.type == CommandType::PushEnd) {

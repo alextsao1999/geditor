@@ -36,7 +36,7 @@ typedef int  (WINAPI *CallBack)(EventContext *, int, int);
 
 #endif
 
-#include "stdio.h"
+#include <cstdio>
 #define NOT_REACHED() do { \
     fprintf(stderr, "shouldn't be reached! %s:%d", __FILE__, __LINE__); \
 } while (0);

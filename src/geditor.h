@@ -18,7 +18,7 @@ class GEditor;
 struct GEditorData {
     HWND m_hwnd;
     Document m_document;
-    RenderManager m_renderManager;
+    WindowRenderManager m_renderManager;
     bool m_dragging = false;
     explicit GEditorData(HWND hwnd) :
     m_hwnd(hwnd),
@@ -33,22 +33,12 @@ public:
     m_data(nullptr) {}
     explicit GEditor(HWND parent, int x, int y, int nWidth, int nHeight) {
         HWND hwnd = CreateWindowEx(WS_EX_ACCEPTFILES, GEDITOR_CLASSNAME, _GT("GEditor"),
-                                   WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL,
+                                   WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL | WS_BORDER,
                                    x, y, nWidth, nHeight, parent,
                                    nullptr, nullptr, nullptr);
         ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-/*
-        auto *table = new FastTable(2, 4);
-        table->addRow(3);
-        table->addRow(2);
-
-        m_data->m_document.append(table);
-
-        m_data->m_document.flow();
-*/
-
 /*
         FileBuffer buffer(R"(C:\Users\Administrator\Desktop\edit\k.e)");
         ECodeParser parser(buffer);
@@ -108,8 +98,8 @@ public:
                 current.m_mouse = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset;
                 current.onMouseMove(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 if (current.getContext()->m_selecting) {
-                    current.getContext()->selecting();
-                    data->m_renderManager.refresh();
+                    current.getContext()->updateSelect();
+                    data->m_renderManager.invalidate();
                 }
                 break;
             case WM_MOUSEWHEEL:
@@ -192,7 +182,6 @@ public:
         }
         return 0;
     }
-
     static int getDragPosition(HWND hWnd, int nBar) {
         SCROLLINFO si;
         si.cbSize = sizeof(SCROLLINFO);
@@ -238,7 +227,7 @@ public:
                 break;
         }
         SetScrollPos(data->m_hwnd, nBar, prev, true);
-        data->m_renderManager.updateViewport(&data->m_document.getContext()->m_layoutManager);
+        data->m_renderManager.updateViewport();
         data->m_document.getContext()->m_caretManager.update();
     }
     static void onDropFiles(HWND hwnd, HDROP hDropInfo, GEditorData *data) {
@@ -265,7 +254,7 @@ public:
         }
         buffer.free();
         data->m_document.flow();
-        data->m_renderManager.refresh();
+        data->m_renderManager.invalidate();
 
         //read_file(hwnd,szFileName);
         //完成拖入文件操作，系统释放缓冲区 
@@ -275,7 +264,7 @@ public:
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
         GRect rect = GRect::MakeLTRB(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
-        data->m_renderManager.redrawRect(&rect);
+        data->m_renderManager.update(&rect);
         data->m_renderManager.copy();
         EndPaint(hWnd, &ps);
     }

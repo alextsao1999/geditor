@@ -6,12 +6,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
 
+add_definitions(-DUNICODE -D_UNICODE)
+
 add_subdirectory(third_party/skia)
 add_subdirectory(third_party/ecode)
 include_directories(${skia_include_dirs})
 include_directories(${ecode_include_dirs})
 
-add_definitions(-DUNICODE -D_UNICODE -D_Debug)
 include_directories(src/)
 file(GLOB_RECURSE headers RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.h)
 aux_source_directory(src/ sources)

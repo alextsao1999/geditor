@@ -77,13 +77,20 @@ protected:
 public:
     TextCaretService(const Offset& offset, EventContext* context) : m_offset(offset), m_context(context) {
         m_index = m_context->getCaretManager()->data().index;
+        m_move = m_context->relOffset(m_context->getCaretManager()->data().offset);
     }
     void setTextOffset(Offset offset) { m_offset = offset; }
     int& index() { return m_index; }
-    void moveLeft() { m_index--; }
-    void moveRight() { m_index++; }
-    void moveToIndex(int index) { m_index = index; }
-    void moveTo(Offset offset) { m_move = offset; }
+    void moveLeft() { moveToIndex(m_index - 1); }
+    void moveRight() { moveToIndex(m_index + 1); }
+    void moveToIndex(int index) {
+        m_index = index;
+        m_move = {0, 0};
+    }
+    void moveTo(Offset offset) {
+        m_index = 0;
+        m_move = offset;
+    }
     bool commit(int style = StyleDeafaultFont) {
         LineViewer viewer = m_context->getLineViewer();
         return commit(viewer.c_str(), viewer.size(), m_context->getStyle(style), nullptr);
@@ -176,10 +183,31 @@ public:
         return {index, m_context->absOffset(Offset(rects[index].fLeft, m_offset.y))};
     }
     void show(Offset offset, int index) {
-        CaretManager* m_caret = m_context->getCaretManager();
+        CaretManager *m_caret = m_context->getCaretManager();
         m_caret->data().set(index, m_context->absOffset(offset));
-        m_caret->set(offset.x, offset.y);
+        m_caret->set(offset);
         m_caret->show();
+    }
+};
+class OffsetCaretService {
+public:
+    EventContext *m_context;
+    Offset m_move;
+    explicit OffsetCaretService(EventContext *context) : m_context(context) {
+        m_move = m_context->relOffset(m_context->getCaretManager()->data().offset);
+    }
+    OffsetCaretService &moveTo(Offset offset) {
+        m_move = offset;
+        return *this;
+    }
+    void commit(Offset offset) {
+        m_move = offset;
+        commit();
+    }
+    void commit() {
+        auto *caret = m_context->getCaretManager();
+        caret->data().setOffset(m_move);
+        caret->set(m_move);
     }
 };
 class ButtonElement : public RelativeElement {
@@ -334,24 +362,30 @@ public:
         }
         int startIndex = service.index();
         int endIndex = service.index();
-        while (startIndex - 1 >= 0 && IsCodeChar(line.charAt(startIndex - 1))) {
+        while (startIndex - 1 >= 0 && (IsCodeChar(line.charAt(startIndex - 1)) || IsNumber(line.charAt(startIndex - 1)))) {
             startIndex--;
         }
-        while (endIndex < length && IsCodeChar(line.charAt(endIndex))) {
+        while (endIndex < length && (IsCodeChar(line.charAt(endIndex)) || IsNumber(line.charAt(endIndex)))) {
             endIndex++;
         }
         CaretPos start = service.getIndexPos(rects, startIndex);
         CaretPos end = service.getIndexPos(rects, endIndex);
-        context.getDocContext()->setSelectPos(start, end);
+        context.getDocContext()->select(start, end);
         context.setPos(end);
         context.focus();
         context.redraw();
     }
     void onMouseMove(EventContext &context, int x, int y) override {
-        if (context.selecting()) {
+        if (context.isSelecting()) {
             context.pos().setOffset(context.absolute(x, y));
             context.focus();
         }
+/*
+        if (context.isMouseIn()) {
+            context.redraw();
+        }
+*/
+
     }
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
@@ -429,6 +463,7 @@ public:
         auto line = context.getLineViewer();
         switch (ch) {
             case VK_BACK:
+                context.getAutoComplete()->hide();
                 if (state == SelectionNone) {
                     if (service.index() > 0) {
                         context.push(CommandType::DeleteChar,
@@ -459,6 +494,7 @@ public:
                 }
                 break;
             case VK_RETURN: {
+                context.getAutoComplete()->hide();
                 insert(context);
                 int idx = service.index();
                 context.push(CommandType::Break, CommandData(idx));
@@ -480,24 +516,12 @@ public:
         }
         service.commit();
         context.redraw();
+        context.getAutoComplete()->show();
     }
     void onFocus(EventContext &context) override {
         context_on_outer(context, Focus);
-        auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 6), &context);
-        service.moveTo(context.relOffset(caret->data().getOffset()));
         service.commit();
-        // 选中
-        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcOut_Mode)
-        // 设置文字
-        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kSrcIn_Mode);
-        // 设置背景
-        //SkColorFilter::CreateModeFilter(SK_ColorLTGRAY, SkXfermode::Mode::kColorDodge_Mode);
-/*
-        style.setColorFilter(SkColorFilter::CreateModeFilter(
-                        SkColorSetARGB(255, 255, 250, 227), SkXfermode::Mode::kDarken_Mode));
-*/
-
     }
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
         context_on_outer(context, Blur, focus, force);
@@ -515,21 +539,21 @@ public:
     virtual void drawSelection(EventContext &context) {
         SelectionState state = context.getSelectionState();
         if (state == SelectionSelf) {
-            Offset start = context.relOffset(context.getDocContext()->m_selectStart);
-            Offset end = context.relOffset(context.getDocContext()->m_selectEnd);
+            Offset start = context.relOffset(context.getDocContext()->getSelectStart());
+            Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
             DrawSlection(context, start, end);
         }
         if (state == SelectionStart) {
             TextCaretService text(Offset(4, 6), &context);
             Buffer<SkRect> rects;
             text.breakText(rects);
-            Offset start = context.relOffset(context.getDocContext()->m_selectStart);
+            Offset start = context.relOffset(context.getDocContext()->getSelectStart());
             if (rects.count) {
                 DrawSlection(context, start, Offset(rects.back().right(), rects.back().top()));
             }
         }
         if (state == SelectionEnd) {
-            Offset end = context.relOffset(context.getDocContext()->m_selectEnd);
+            Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
             DrawSlection(context, Offset(4, 6), end);
         }
         if (state == SelectionInside || state == SelectionRow) {
@@ -544,15 +568,11 @@ public:
         }
     }
     void onUndo(Command command) override {
-        bool undo = false;
-        command.context->setPos(command.pos); // 因为替换之前都是LineElement 所以直接focus就行
-        command.context->focus(true, true);
         auto line = command.context->getLineViewer();
         if (command.type == CommandType::Break) {
             auto next = command.context->getLineViewer(1);
             line.append(next.c_str());
             next.clear();
-            undo = true;
         }
         if (command.type == CommandType::Combine) {
             command.context->breakLine(0, command.data.value);
@@ -562,22 +582,21 @@ public:
         }
         if (command.type == CommandType::DeleteChar) {
             line.insert(command.data.input.pos, command.data.input.ch);
-            command.context->pos().setIndex(command.pos.index + 1);
-            command.context->focus(false, true);
         }
         if (command.type == CommandType::AddElement) {
             command.context->deleteLine(1);
         }
         if (command.type == CommandType::DeleteElement) {
             command.context->insertLine();
-            undo = true;
         }
         if (command.type == CommandType::DeleteString) {
             line.insert(command.data.string.pos, command.data.string.string->c_str());
             delete command.data.string.string;
         }
+        command.context->setPos(command.pos);
+        command.context->focus(true, true);
         Element::onUndo(command);
-        if (undo) {
+        if (command.type == CommandType::Break || command.type == CommandType::DeleteElement) {
             command.context->doc->undo();
         }
     }
@@ -599,11 +618,12 @@ public:
         rect.fTop -= 2;
         rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont)->getTextSize() + 8;
         SkPaint paint;
-        paint.setColor(SkColorSetRGB(204, 226, 254));
+        paint.setColor(SkColorSetRGB(218, 227, 233));
         paint.setAlpha(255);
         paint.setAntiAlias(true);
         canvas->drawRoundRect(rect, 4, 4, paint);
-        paint.setColor(SkColorSetRGB(150, 200, 255));
+        paint.setColor(SK_ColorBLACK);
+        paint.setAlpha(30);
         paint.setStyle(SkPaint::kStroke_Style);
         rect.inset(0.5f, 0.5f);
         canvas->drawRoundRect(rect, 4, 4, paint);
@@ -613,7 +633,9 @@ public:
 class SyntaxLineElement : public LineElement {
 public:
     Element *copy() override { return new SyntaxLineElement(); }
+
     void onRedraw(EventContext &context) override {
+        context.gutter();
         Canvas canvas = context.getCanvas();
         drawSelection(context);
         SkPaint border;
@@ -623,7 +645,7 @@ public:
             border.setStyle(SkPaint::Style::kStroke_Style);
         }
         border.setColor(SK_ColorLTGRAY);
-        //canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        // canvas->drawRect(canvas.bound(0.5, 0.5), border);
         auto *lexer = context.getLexer();
         Offset offset(4, context.height() - 4);
         while (lexer->has()) {
@@ -717,7 +739,7 @@ public:
                 return;
             }
         }
-        if (context.selecting()) {
+        if (context.isSelecting()) {
             context.pos().setOffset(context.absolute(x, y));
             context.focus();
         }
@@ -824,7 +846,6 @@ public:
             return;
         }
         TextCaretService service(Offset(6, 2), &context);
-        service.moveTo(context.relOffset(context.pos().getOffset()));
         service.commit(m_data, StyleTableFont);
     }
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
@@ -839,8 +860,8 @@ public:
         Canvas canvas = context.getCanvas();
         canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
         if (context.isSelectedSelf()) {
-            Offset start = context.relOffset(context.getDocContext()->m_selectStart);
-            Offset end = context.relOffset(context.getDocContext()->m_selectEnd);
+            Offset start = context.relOffset(context.getDocContext()->getSelectStart());
+            Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
             DrawSlection(context, start, end);
         }
         canvas.translate(0, context.getStyle(StyleTableFont).getTextSize());
@@ -1648,7 +1669,11 @@ public:
                 context.relayout();
                 layouted = true;
             }
-            context.focus();
+            if (expand) {
+                context.findInnerFirst(TAG_FOCUS)->focus(false);
+            } else {
+                context.focus();
+            }
             context.reflow();
             context.redraw();
         }

@@ -84,8 +84,6 @@ public:
             LayoutDisplayRow,
             LayoutDisplayCustom,
     };
-    static void ReflowAll(Document *doc);
-
     void reflow(EventContext context, bool relayout = false, Offset offset = {0, 0});
     LayoutFunc getLayoutFunc(Display display) { return m_layouts[display]; }
 };

@@ -88,6 +88,17 @@ EXPORT_API void WINAPI GeditorLineGetString(GEditor *editor, int line, char *str
 EXPORT_API Element *WINAPI GeditorAppendElement(GEditor *editor, Element *element) {
     return editor->m_data->m_document.append(element);
 }
+EXPORT_API int WINAPI EventContextGetLineLength(EventContext *context, int offset) {
+    auto &string = context->getLineViewer(offset).content();
+    return WideCharToMultiByte(0, 0, &string.front(), string.length(), 0, 0, 0, 0);
+}
+EXPORT_API void WINAPI EventContextGetLineString(EventContext *context, int offset, char *string, int length) {
+    auto &content = context->getLineViewer(offset).content();
+    if (content.length() == 0) {
+        return;
+    }
+    WideCharToMultiByte(0, 0, &content.front(), content.length(), string, length, 0, 0);
+}
 EXPORT_API void WINAPI EventContextInsert(EventContext *context, Element *element, bool push) {
     context->insert(element, push);
 }
@@ -142,7 +153,6 @@ EXPORT_API void WINAPI EventContextGetPos(EventContext *context, CaretPos *pos) 
 EXPORT_API void WINAPI EventContextSetPos(EventContext *context, CaretPos *pos) {
     context->setPos(*pos);
     context->getDocContext()->m_caretManager.update();
-
 }
 EXPORT_API EventContext *WINAPI EventContextFindPrev(EventContext *context, const char *tag) {
     return context->findPrev(A2W(tag));

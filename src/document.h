@@ -527,9 +527,12 @@ public:
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
-    Offset getLogicOffset() override { return {10, 10}; }
+    Offset getLogicOffset() override { return {25, 0}; }
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
+    }
+    void onRelayout(EventContext &context, LayoutManager *sender) override {
+        sender->reflow(context.enter(), true, {10, 10});
     }
     void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
         Container::onFinishReflow(context, offset, layout);
@@ -567,7 +570,7 @@ public:
                     command = m_context.m_queue.pop();
                     if (command.type == CommandType::PushStart) {
                         m_context.select(command.pos, end);
-                        break;
+                        return;
                     }
                     command.context->current()->onUndo(command);
                     command.context->free();
@@ -580,7 +583,7 @@ public:
     }
     void flow() {
         setViewportOffset(m_viewportOffset);
-        LayoutManager::ReflowAll(this);
+        m_root.relayout();
     }
 };
 

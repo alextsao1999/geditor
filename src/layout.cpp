@@ -7,12 +7,6 @@
 #include "table.h"
 LayoutManager::LayoutManager(RenderManager *renderManager) : m_renderManager(renderManager) {}
 
-void LayoutManager::ReflowAll(Document *doc) {
-    EventContext context(doc);
-    doc->m_context.m_layoutManager.reflow(context.enter(), true);
-    //context.reflow(true);
-}
-
 void LayoutManager::reflow(EventContext context, bool relayout, Offset offset) {
     if (!context.has()) {
         return;

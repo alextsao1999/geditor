@@ -17,6 +17,21 @@ void CaretManager::focus(EventContext *context, bool force) {
     }
     m_context = context;
     if (context) {
+        Size size = m_paintManager->getViewportSize();
+        Offset view = context->viewportOffset();
+        if (view.y < 0) {
+            Offset offset = context->offset();
+            offset.x = 0;
+            m_paintManager->setViewportOffset(offset);
+        }
+        view.y += context->height();
+        if (view.y > size.height) {
+            Offset offset = context->offset();
+            offset.x = 0;
+            offset.y = offset.y + context->height() - size.height;
+            m_paintManager->setViewportOffset(offset);
+        }
+
         context_on(*context, Focus);
         // 更新光标位置
         update();

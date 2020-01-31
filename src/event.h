@@ -12,6 +12,7 @@
 #include "paint_manager.h"
 #include "text_buffer.h"
 #include "caret_manager.h"
+#include "auto_complete.h"
 #include "lexer.h"
 typedef int32_t NotifyValue;
 struct Context;
@@ -42,6 +43,7 @@ struct Context {
             {_GT("false"), StyleKeywordFont},
             {_GT("null"), StyleKeywordFont},
     };
+    AutoComplete m_autoComplete;
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
     StyleManager m_styleManager;
@@ -51,36 +53,56 @@ struct Context {
     TextBuffer m_textBuffer;
     //////////////////////////
     bool m_selecting = false;
+/*
     Offset m_selectBase;
     Offset m_selectStart;
     Offset m_selectEnd;
-
+*/
     CaretPos m_selectBasePos;
     CaretPos m_selectCurrentPos;
     CaretPos m_selectStartPos;
     CaretPos m_selectEndPos;
     void select(CaretPos start, CaretPos end) {
         m_selecting = false;
-        setSelectPos(start, end);
-        m_renderManager->refresh();
+        m_selectBasePos = start;
+        m_selectCurrentPos = end;
+        if (m_selectCurrentPos.offset.y > m_selectBasePos.offset.y) {
+            m_selectStartPos = m_selectBasePos;
+            m_selectEndPos = m_selectCurrentPos;
+        } else {
+            m_selectStartPos = m_selectCurrentPos;
+            m_selectEndPos = m_selectBasePos;
+        }
+        if (m_selectCurrentPos.offset.y == m_selectBasePos.offset.y) {
+            if (m_selectStartPos.index > m_selectEndPos.index) {
+                std::swap(m_selectStartPos, m_selectEndPos);
+            }
+        }
+        m_renderManager->invalidate();
     }
     void startSelect() {
         m_selecting = true;
 
+/*
         m_selectBase = m_caretManager.current();
         m_selectStart = m_selectBase;
         m_selectEnd = m_selectBase;
+*/
 
         m_selectBasePos = m_caretManager.data();
+        m_selectStartPos = m_selectBasePos;
+        m_selectEndPos = m_selectBasePos;
     }
     void endSelect() {
         m_selecting = false;
     }
     void clearSelect() {
-        m_selectBase = m_selectStart = m_selectEnd = Offset(0, 0);
+        //m_selectBase = m_selectStart = m_selectEnd = Offset(0, 0);
+        m_selectBasePos = m_selectStartPos = m_selectEndPos = {};
         m_selecting = false;
     }
-    void selecting() {
+    void updateSelect() {
+/*
         Offset current = m_caretManager.current();
         if (m_selectBase.y > current.y) {
             m_selectStart = current;
@@ -89,6 +111,7 @@ struct Context {
             m_selectStart = m_selectBase;
             m_selectEnd = current;
         }
+*/
 
         m_selectCurrentPos = m_caretManager.data();
         if (m_selectCurrentPos.offset.y > m_selectBasePos.offset.y) {
@@ -99,30 +122,30 @@ struct Context {
             m_selectEndPos = m_selectBasePos;
         }
     }
+    inline Offset getSelectStart() {
+        return m_selectStartPos.offset;
+    }
+    inline Offset getSelectEnd() {
+        return m_selectEndPos.offset;
+    }
     inline GRect getSelectRect() {
-        Offset start = m_selectStart;
-        Offset end = m_selectEnd;
+        Offset start = getSelectStart();
+        Offset end = getSelectEnd();
 
         SkRect rect{};
         rect.set({(SkScalar) start.x, (SkScalar) start.y}, {(SkScalar) end.x, (SkScalar) end.y});
         return rect;
     }
     void pushStart() {
-        m_queue.push({m_caretManager.getEventContext(), m_selectBasePos, CommandType::PushStart, CommandData(0)});
+        m_queue.push({nullptr, m_selectBasePos, CommandType::PushStart, CommandData(0)});
     }
     void pushEnd() {
         m_queue.push({nullptr, m_selectCurrentPos, CommandType::PushEnd, CommandData(0)});
     }
-    void setSelectPos(CaretPos start, CaretPos end) {
-        m_selectStart = m_selectBase = start.offset;
-        m_selectEnd = end.offset;
-
-        m_selectStartPos = start;
-        m_selectEndPos = end;
-    }
     explicit Context(RenderManager *renderManager) :
     m_renderManager(renderManager),
     m_caretManager(renderManager),
+    m_autoComplete(&m_caretManager),
     m_layoutManager(renderManager){}
 };
 struct Tag {
@@ -238,6 +261,7 @@ struct EventContext {
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
     StyleManager *getStyleManager();
+    AutoComplete *getAutoComplete();
     inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
     Lexer *getLexer();
     LineViewer getLineViewer(int offset = 0);
@@ -334,8 +358,9 @@ struct EventContext {
         return nullptr;
     }
 
-    bool selecting();
+    bool isSelecting();
     bool isMouseIn();
+    bool isFocusIn();
     SelectionState getSelectionState();
     bool isSelected();
     bool isSelectedRow();
@@ -400,7 +425,21 @@ struct EventContext {
         }
         return nullptr;
     }
-
+    EventContext *findInnerFirst(const GChar *tag) {
+        for (EventContext inner = enter(); inner.has(); inner.next()) {
+            if (inner.tag().contain(tag)) {
+                return inner.copy();
+            } else {
+                if (inner.canEnter()) {
+                    EventContext *find = inner.findInnerFirst(tag);
+                    if (find) {
+                        return find;
+                    }
+                }
+            }
+        }
+        return nullptr;
+    }
     template <typename Type>
     inline Type *cast() { return (Type *) element; }
     bool compare(EventContext *rvalue) {
@@ -449,6 +488,7 @@ struct EventContext {
         return current;
     }
     Offset caretOffset();
+    void gutter();
 };
 class EventContextBuilder {
 public:

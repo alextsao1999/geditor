@@ -141,12 +141,13 @@ void EventContext::timer(long long interval, int id, int count) {
 Context *EventContext::getDocContext() { return doc->getContext(); }
 
 StyleManager *EventContext::getStyleManager() { return &getDocContext()->m_styleManager; }
+AutoComplete *EventContext::getAutoComplete() { return &getDocContext()->m_autoComplete; }
 
 SelectionState EventContext::getSelectionState() {
     CheckBound(SelectionNone);
     auto &&dcontext = getDocContext();
-    Offset start = dcontext->m_selectStart;
-    Offset end = dcontext->m_selectEnd;
+    Offset start = dcontext->getSelectStart();
+    Offset end = dcontext->getSelectEnd();
 
     if (start == end) {
         return SelectionNone;
@@ -223,7 +224,7 @@ bool EventContext::visible() {
     return GRect::Intersects(GRect::MakeWH(size.width, size.height), viewportRect()) && display() != DisplayNone;
 }
 
-bool EventContext::selecting() { return getDocContext()->m_selecting; }
+bool EventContext::isSelecting() { return getDocContext()->m_selecting; }
 
 Lexer *EventContext::getLexer() {
     getDocContext()->m_lexer.enter(this);
@@ -270,11 +271,11 @@ void EventContext::insert(Element *ele, bool pushCommand) {
 }
 
 bool EventContext::isSelectedStart() {
-    return rect().round().contains(doc->m_context.m_selectStart.x, doc->m_context.m_selectStart.y);
+    return rect().round().contains(doc->m_context.getSelectStart().x, doc->m_context.getSelectStart().y);
 }
 
 bool EventContext::isSelectedEnd() {
-    return rect().round().contains(doc->m_context.m_selectEnd.x, doc->m_context.m_selectEnd.y);
+    return rect().round().contains(doc->m_context.getSelectEnd().x, doc->m_context.getSelectEnd().y);
 }
 
 int EventContext::selectedCount() {
@@ -293,5 +294,19 @@ Offset EventContext::caretOffset() {
 
 bool EventContext::isMouseIn() {
     return rect().round().contains(doc->m_mouse.x, doc->m_mouse.y);
+}
+
+bool EventContext::isFocusIn() {
+    return compare(getCaretManager()->getEventContext());
+}
+
+void EventContext::gutter() {
+    GString &&string = std::to_wstring(getCounter().line + 1);
+    auto &style = getStyle(StyleDeafaultFont).paint();
+    Offset view = viewportOffset();
+    view.x = 5;
+    view.y += style.getTextSize() + 8;
+    doc->m_context.m_renderManager->m_canvas->drawText(string.c_str(), string.size() * 2, view.x, view.y, style);
+
 }
 

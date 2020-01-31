@@ -126,7 +126,7 @@ public:
 
         paint.reset();
         paint.setStyle(GStyle::kStrokeAndFill_Style);
-        paint.setColor(SkColorSetRGB(204, 226, 254));
+        paint.setColor(SkColorSetRGB(218, 227, 233));
         add(StyleTableBorderSelected, paint);
 
         paint.reset();
@@ -276,13 +276,12 @@ public:
     HBITMAP m_hBitmap = nullptr;
     SkBitmap m_bitmap;
     std::shared_ptr<SkCanvas> m_canvas;
-    GEditorData *m_data = nullptr;
 public:
     RenderManager() = default;
-    explicit RenderManager(HWND hwnd, GEditorData *data) : m_hWnd(hwnd), m_data(data) {
+    explicit RenderManager(HWND hwnd) : m_hWnd(hwnd) {
         m_hWndDC = GetDC(hwnd);
         m_hMemDC = CreateCompatibleDC(m_hWndDC);
-        resize();
+        RenderManager::resize();
     };
     ~RenderManager() {
         if (m_hBitmap)
@@ -291,7 +290,7 @@ public:
     }
     virtual void refresh() { InvalidateRect(m_hWnd, nullptr, false); }
     virtual void invalidate() { InvalidateRect(m_hWnd, nullptr, false); }
-    virtual void update() { m_canvas->clear(SK_ColorWHITE); }
+    virtual void update(GRect *rect) {}
     virtual void resize() {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);
@@ -305,7 +304,6 @@ public:
         m_bitmap.installPixels(info, bits, info.minRowBytes());
         m_canvas = std::make_shared<SkCanvas>(m_bitmap);
     }
-    virtual void redrawRect(GRect *rect);
     virtual void redraw(EventContext *ctx);
     virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
     virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) {
@@ -316,7 +314,8 @@ public:
 //        return Canvas(ctx, m_canvas.get());
         return Canvas(ctx, new SkCanvas(m_bitmap));
     }
-    virtual Offset getViewportOffset();
+    virtual Offset getViewportOffset() { return {}; }
+    virtual void setViewportOffset(Offset offset) {}
     virtual void setVertScroll(uint32_t height) {
         SCROLLINFO info;
         info.cbSize = sizeof(SCROLLINFO);
@@ -330,10 +329,9 @@ public:
         info.fMask = SIF_ALL;
         SetScrollInfo(m_hWnd, SB_VERT, &info, true);
     }
-    virtual void updateViewport(LayoutManager *layoutManager);
     virtual Size getViewportSize() {
         RECT rect;
-        GetWindowRect(m_hWnd, &rect);
+        GetClientRect(m_hWnd, &rect);
         return {rect.right - rect.left, rect.bottom - rect.top};
     }
     bool copy() {
@@ -341,5 +339,13 @@ public:
         return (bool) BitBlt(m_hWndDC, 0, 0, size.width, size.height, m_hMemDC, 0, 0, SRCCOPY);
     }
 };
-
+class WindowRenderManager : public RenderManager {
+public:
+    GEditorData *m_data = nullptr;
+    WindowRenderManager(HWND hwnd, GEditorData *data) : RenderManager(hwnd), m_data(data) {}
+    void updateViewport();
+    Offset getViewportOffset() override;
+    void setViewportOffset(Offset offset) override;
+    void update(GRect *rect) override;
+};
 #endif //TEST_PAINT_MANAGER_H

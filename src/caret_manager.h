@@ -18,6 +18,7 @@ struct CaretPos {
         offset = Offset(0, 0);
     }
     void setOffset(Offset value) {
+        index = 0;
         offset = value;
     }
     int getIndex() { return index; }
@@ -29,7 +30,8 @@ struct CaretPos {
 };
 
 class CaretManager {
-    friend RenderManager;
+    friend class RenderManager;
+    friend class AutoComplete;
 private:
     RenderManager *m_paintManager;
     CaretPos m_data;
@@ -74,10 +76,8 @@ public:
         m_relative = pos;
         update();
     }
-    // 设置相对的光标位置
     void set(int x, int y) { set(Offset(x, y)); }
     void update();
-    // 当前Focus的EventContext
     bool next();
     bool prev();
     bool enter(int index = 0);

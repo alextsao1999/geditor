@@ -100,13 +100,7 @@ void RenderManager::redraw(EventContext *ctx) {
     InvalidateRect(m_hWnd, nullptr, false);
 }
 
-void RenderManager::redrawRect(GRect *rect) {
-    update();
-//    m_data->m_document.onDraw(m_data->m_document.m_root, m_canvas.get());
-    m_data->m_document.onRedraw(m_data->m_document.m_root);
-}
-
-void RenderManager::updateViewport(LayoutManager *layoutManager) {
+void WindowRenderManager::updateViewport() {
     Offset offset;
     offset.x = GetScrollPos(m_hWnd, SB_HORZ);
     offset.y = GetScrollPos(m_hWnd, SB_VERT);
@@ -114,9 +108,18 @@ void RenderManager::updateViewport(LayoutManager *layoutManager) {
     refresh();
 }
 
-Offset RenderManager::getViewportOffset() {
+Offset WindowRenderManager::getViewportOffset() {
     return m_data->m_document.m_viewportOffset;
 }
 
+void WindowRenderManager::setViewportOffset(Offset offset) {
+    SetScrollPos(m_hWnd, SB_HORZ, offset.x, true);
+    SetScrollPos(m_hWnd, SB_VERT, offset.y, true);
+    m_data->m_document.setViewportOffset(offset);
+    refresh();
+}
 
-
+void WindowRenderManager::update(GRect *rect) {
+    m_canvas->clear(SK_ColorWHITE);
+    m_data->m_document.onRedraw(m_data->m_document.m_root);
+}

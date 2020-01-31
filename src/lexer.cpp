@@ -14,7 +14,7 @@ bool IsAlpha(GChar ch) {
     return (ch >= _HM_C('a') && ch <= _HM_C('z')) || (ch >= _HM_C('A') && ch <= _HM_C('Z'));
 }
 bool IsCodeChar(GChar ch) {
-    return IsAlpha(ch) || ch == _HM_C('_') || (ch > _GT('\u4E00') && ch < _GT('\u9FA5'));
+    return IsAlpha(ch) || ch == _HM_C('_') || (ch >= _GT('\u4E00') && ch <= _GT('\u9FA5'));
 }
 
 void Lexer::enter(EventContext *ctx) {

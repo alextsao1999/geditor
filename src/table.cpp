@@ -13,52 +13,30 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
     }
     auto line = context.getLineViewer();
     if (ch == VK_RETURN) {
+        Element *replace = nullptr;
         if (line.content() == _GT("if")) {
-            if (context.isTail()) {
-                insert(context);
-            }
-            context.replace(new SingleBlockElement(2));
-            context.outer->update();
-            auto newLine = context.getLineViewer();
-            newLine.append(_GT(" ()"));
-            EventContext &&ctx = context.enter();
-            context.pos().setIndex(-2);
-            ctx.push(CommandType::AddChar, CommandData(2, ' '));
-            ctx.push(CommandType::AddChar, CommandData(3, '('));
-            ctx.push(CommandType::AddChar, CommandData(4, ')'));
-            ctx.focus();
-            return;
+            replace = new SingleBlockElement(2);
         }
         if (line.content() == _GT("loop")) {
-            if (context.isTail()) {
-                insert(context);
-            }
-            context.replace(new LoopBlockElement(2));
-            context.outer->update();
-            auto newLine = context.getLineViewer();
-            newLine.append(_GT(" ()"));
-            EventContext &&ctx = context.enter();
-            context.pos().setIndex(-2);
-            ctx.push(CommandType::AddChar, CommandData(4, ' '));
-            ctx.push(CommandType::AddChar, CommandData(5, '('));
-            ctx.push(CommandType::AddChar, CommandData(6, ')'));
-            ctx.focus();
-            return;
+            replace = new LoopBlockElement(2);
         }
         if (line.content() == _GT("switch")) {
+            replace = new SwitchElement(3);
+        }
+        if (replace) {
             if (context.isTail()) {
                 insert(context);
             }
-            context.replace(new SwitchElement(3));
+            context.replace(replace);
             context.outer->update();
             auto newLine = context.getLineViewer();
             newLine.append(_GT(" ()"));
-            EventContext &&ctx = context.enter().enter();
-            context.pos().setIndex(-2);
-            ctx.push(CommandType::AddChar, CommandData(6, ' '));
-            ctx.push(CommandType::AddChar, CommandData(7, '('));
-            ctx.push(CommandType::AddChar, CommandData(8, ')'));
-            ctx.focus();
+            EventContext *inner = context.findInnerFirst(TAG_FOCUS);
+            inner->pos().setIndex(-2);
+            inner->push(CommandType::AddChar, CommandData(2, ' '));
+            inner->push(CommandType::AddChar, CommandData(3, '('));
+            inner->push(CommandType::AddChar, CommandData(4, ')'));
+            inner->focus(false);
             return;
         }
     }

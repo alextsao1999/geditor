@@ -7,6 +7,7 @@
 
 void CaretManager::focus(EventContext *context, bool force) {
     EventContext *before = m_context;
+    m_context = context;
     if (before) {
         if (before->element) {
             before->element->onBlur(*before, context, force);
@@ -15,7 +16,6 @@ void CaretManager::focus(EventContext *context, bool force) {
             before->free();
         }
     }
-    m_context = context;
     if (context) {
         Size size = m_paintManager->getViewportSize();
         Offset view = context->viewportOffset();
@@ -79,8 +79,7 @@ bool CaretManager::next() {
             *m_context = cur;
             return false;
         }
-        cur.current()->onBlur(cur, m_context, false);
-        m_context->current()->onFocus(*m_context);
+        focus(m_context);
         return true;
     }
     return false;
@@ -94,10 +93,8 @@ bool CaretManager::prev() {
             *m_context = last;
             return false;
         }
-        last.current()->onBlur(last, m_context, false);
-        m_context->current()->onFocus(*m_context);
+        focus(m_context);
         return true;
-
     }
     return false;
 }

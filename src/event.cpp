@@ -250,6 +250,8 @@ void EventContext::remove(bool pushCommand) {
             push(CommandType::DeleteElement, CommandData(element));
         }
         element->separate(*this, element->getNext(), element->getPrev());
+        deleteLine(0, element->getLineNumber());
+        prevLine(element->getLineNumber());
     }
 }
 void EventContext::insert(Element *ele, bool pushCommand) {
@@ -267,7 +269,7 @@ void EventContext::insert(Element *ele, bool pushCommand) {
             outer->current()->setTail(ele);
         }
     }
-
+    insertLine(element->getLineNumber(), ele->getLineNumber());
 }
 
 bool EventContext::isSelectedStart() {

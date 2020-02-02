@@ -39,6 +39,7 @@ public:
         ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
+
 /*
         FileBuffer buffer(R"(C:\Users\Administrator\Desktop\edit\k.e)");
         ECodeParser parser(buffer);
@@ -153,6 +154,7 @@ public:
                         current.m_context.clearSelect();
                         current.m_context.pushEnd();
                         current.m_root.redraw();
+                        current.m_context.m_caretManager.update();
                     }
                 }
                 break;
@@ -253,9 +255,8 @@ public:
             }
         }
         buffer.free();
-        data->m_document.flow();
+        data->m_document.layout();
         data->m_renderManager.invalidate();
-
         //read_file(hwnd,szFileName);
         //完成拖入文件操作，系统释放缓冲区 
         DragFinish(hDropInfo);

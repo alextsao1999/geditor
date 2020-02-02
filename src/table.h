@@ -172,9 +172,13 @@ public:
         LineViewer viewer = m_context->getLineViewer(0);
         breakText(viewer.c_str(), viewer.size(), m_context->getStyle(style), rects);
     }
+
     CaretPos getIndexPos(Buffer<SkRect> &rects, int index) {
         while (index < 0) {
-            index += rects.count;
+            index = rects.count + index + 1;
+        }
+        if (rects.count == 0) {
+            return {index, {}};
         }
         if (index >= rects.count) {
             index = rects.count;
@@ -343,7 +347,7 @@ public:
     Display getDisplay() override { return DisplayLine; }
     Tag getTag(EventContext &context) override {
         Tag tag = {_GT("Line Focus")};
-        tag.append(_GT("(")).append(context.getCounter().line).append(_GT(")"));
+        tag.append(_GT("(")).append(context.getCounter().line + 1).append(_GT(")"));
         return tag;
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
@@ -390,6 +394,24 @@ public:
     void onKeyDown(EventContext &context, int code, int status) override {
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(4, 5), &context);
+        if (code == VK_DELETE) {
+            auto line = context.getLineViewer();
+            if (service.index() >= line.length()) {
+                return;
+            }
+            context.push(CommandType::DeleteChar,
+                         CommandData(service.index(), line.charAt(service.index())));
+            line.remove(service.index());
+            context.redraw();
+        }
+        if (code == VK_HOME) {
+            context.pos().setIndex(0);
+            context.focus(false);
+        }
+        if (code == VK_END) {
+            context.pos().setIndex(-1);
+            context.focus(false);
+        }
         if (code == VK_LEFT) {
             service.moveLeft();
             if (!service.commit()) {
@@ -477,17 +499,24 @@ public:
                         if (prev.tag().contain(_GT("Line"))) {
                             auto prevLine = prev.getLineViewer();
                             int length = prevLine.length();
-                            context.pos().setIndex(length);
-                            prev.push(CommandType::Combine, CommandData(length));
-                            prevLine.append(line.c_str());
+                            caret->data().setIndex(length);
+                            prev.combineLine();
                             erase(context);
                             prev.reflow();
                             prev.redraw();
                             prev.focus();
                             return;
                         } else {
+                            if (!context.getLineViewer().empty() || context.isHead()) {
+                                caret->data().setIndex(-1);
+                                context.findPrev(TAG_FOCUS)->focus(false);
+                                return;
+                            }
+                            context.remove();
                             caret->data().setIndex(-1);
-                            caret->findPrev(TAG_FOCUS);
+                            prev.findInnerLast(TAG_FOCUS)->focus(false);
+                            prev.reflow();
+                            prev.redraw();
                             return;
                         }
                     }
@@ -528,12 +557,10 @@ public:
     }
     virtual void insert(EventContext &context) {
         context.insert(copy());
-        context.insertLine(1);
     }
     virtual void erase(EventContext &context) {
         context.remove();
-        context.deleteLine();
-        context.prevLine(getLineNumber());
+        //context.prevLine(getLineNumber());
     }
     virtual Element *copy() { return new LineElement(); }
     virtual void drawSelection(EventContext &context) {
@@ -582,12 +609,6 @@ public:
         }
         if (command.type == CommandType::DeleteChar) {
             line.insert(command.data.input.pos, command.data.input.ch);
-        }
-        if (command.type == CommandType::AddElement) {
-            command.context->deleteLine(1);
-        }
-        if (command.type == CommandType::DeleteElement) {
-            command.context->insertLine();
         }
         if (command.type == CommandType::DeleteString) {
             line.insert(command.data.string.pos, command.data.string.string->c_str());
@@ -733,6 +754,19 @@ public:
         context.focus();
         context.redraw();
     }
+    void onLeftDoubleClick(EventContext &context, int x, int y) override {
+        if (context.outer && context.outer->tag().contain(TAG_HEADER)) {
+            return;
+        }
+        TextCaretService service(Offset(6, 2), &context);
+        Buffer<SkRect> rects;
+        service.breakText(m_data.c_str(), m_data.size() * sizeof(GChar), context.getStyle(StyleTableFont), rects);
+        auto start = service.getIndexPos(rects, 0);
+        auto end = service.getIndexPos(rects, -1);
+        context.getDocContext()->select(start, end);
+        context.setPos(end);
+        context.getCaretManager()->getEventContext()->focus(false);
+    }
     void onMouseMove(EventContext &context, int x, int y) override {
         if (context.doc->m_onMouseMove) {
             if (context.doc->m_onMouseMove(&context, x, y)) {
@@ -821,14 +855,18 @@ public:
         TextCaretService service(Offset(6, 2), &context);
         switch (ch) {
             case VK_BACK:
-                if (service.index() > 0) {
-                    m_data.erase(service.index() - 1, 1);
+                if (service.index() > 0 && state == SelectionNone) {
+                    int current = service.index() - 1;
+                    context.push(CommandType::DeleteChar,
+                                 CommandData(current, m_data.at(current)));
+                    m_data.erase(current, 1);
                     service.moveLeft();
                 }
                 break;
             case VK_RETURN:
                 break;
             default:
+                context.push(CommandType::AddChar, CommandData(service.index(), ch));
                 m_data.insert(m_data.begin() + service.index(), ch);
                 service.moveRight();
                 break;
@@ -862,34 +900,43 @@ public:
         if (context.isSelectedSelf()) {
             Offset start = context.relOffset(context.getDocContext()->getSelectStart());
             Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
-            DrawSlection(context, start, end);
+            LineElement::DrawSlection(context, start, end);
         }
         canvas.translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas.drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 6, 3, StyleTableFont);
+        canvas.drawText(m_data.c_str(), m_data.size() * sizeof(GChar), 6, 3, StyleTableFont);
     }
-    void onDraw(EventContext &context, Drawable canvas) override {
-        if (context.outer && context.outer->isSelectedRow()) {
-            canvas->drawRect(context.bound(0.5, 0.5), context.getStyle(StyleTableBorderSelected).paint());
-        } else {
-            canvas->drawRect(context.bound(0.5, 0.5), context.getStyle(StyleTableBorder).paint());
+    void onUndo(Command command) override {
+        auto &line = m_data;
+        if (command.type == CommandType::AddChar) {
+            line.erase(command.data.input.pos);
         }
-        canvas->translate(0, context.getStyle(StyleTableFont).getTextSize());
-        canvas->drawText(m_data.c_str(), m_data.length() * sizeof(GChar), 4, 2, context.getStyle(StyleTableFont).paint());
+        if (command.type == CommandType::DeleteChar) {
+            line.insert(line.begin() + command.data.input.pos, command.data.input.ch);
+        }
+        if (command.type == CommandType::DeleteString) {
+            line.insert(command.data.string.pos, *command.data.string.string);
+            delete command.data.string.string;
+        }
+        command.context->outer->notify(Update, 0, 0);
+        command.context->setPos(command.pos);
+        command.context->focus(true, true);
+        Element::onUndo(command);
     }
-    static void DrawSlection(EventContext &context, Offset start, Offset end) {
-        Canvas canvas = context.getCanvas();
-        GRect rect;
-        rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
-        rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont)->getTextSize() + 5;
-        SkPaint paint;
-        paint.setColor(SkColorSetRGB(204, 226, 254));
-        paint.setAlpha(255);
-        paint.setAntiAlias(true);
-        canvas->drawRoundRect(rect, 4, 4, paint);
-        paint.setColor(SkColorSetRGB(150, 200, 255));
-        paint.setStyle(SkPaint::kStroke_Style);
-        rect.inset(0.5f, 0.5f);
-        canvas->drawRoundRect(rect, 4, 4, paint);
+    void onSelectionDelete(EventContext &context, SelectionState state) override {
+        auto &line = m_data;
+        auto *dctx = context.getDocContext();
+        if (state == SelectionSelf) {
+            CaretPos start = context.getDocContext()->m_selectStartPos;
+            CaretPos end = context.getDocContext()->m_selectEndPos;
+            if (start.index > end.index) {
+                std::swap(start, end);
+            }
+            int length = end.index - start.index;
+            context.push(CommandType::DeleteString,
+                         CommandData(start.index, new GString(line.c_str() + start.index, length)));
+            line.erase(start.index, length);
+            context.setPos(start);
+        }
     }
 
 };
@@ -1123,10 +1170,13 @@ public:
     void setLogicWidth(EventContext &context, int width) override { m_width = width; }
     void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     void onSelectionDelete(EventContext &context, SelectionState state) override {
-        if (context.tag().contain(TAG_UNDELETEABLE)) {
-            return;
+        if (state == SelectionSelf) {
+            if (context.selectedCount() == 1) {
+                Element::onSelectionDelete(context, state);
+                return;
+            }
         }
-        if (state == SelectionSelf && context.selectedCount() == 1) {
+        if (context.tag().contain(TAG_UNDELETEABLE)) {
             return;
         }
         if (m_prev) {
@@ -1333,18 +1383,23 @@ public:
             }
         }
         if (force) { return; }
-        if (focus && focus->include(&context)) {
-            return;
-        }
         bool clear = true;
-        for_context(block, context) {
-            for_context(row, block) {
-                if (!row.getLineViewer().empty()) {
-                    clear = false;
-                }
+        int line = getLineNumber();
+        for (int i = 0; i < line; ++i) {
+            if (!context.getLineViewer(i).empty()) {
+                clear = false;
             }
         }
         if (clear) {
+            if (focus) {
+                EventContext *find = focus->include(&context);
+                if (find) {
+                    EventContext *value = find->nearby(-1).findInnerLast(TAG_FOCUS);
+                    if (value) {
+                        value->focus(false, false);
+                    }
+                }
+            }
             context.replace(new AutoLineElement());
             if (context.outer) {
                 context.outer->update();
@@ -1442,14 +1497,26 @@ public:
             return;
         }
         bool clear = true;
-        for_context(ctx, context) {
-            if (!ctx.getLineViewer().empty()) {
+        int line = getLineNumber();
+        for (int i = 0; i < line; ++i) {
+            if (!context.getLineViewer(i).empty()) {
                 clear = false;
             }
         }
         if (clear) {
+            if (focus) {
+                EventContext *find = focus->include(&context);
+                if (find) {
+                    EventContext *value = find->nearby(-1).findInnerLast(TAG_FOCUS);
+                    if (value) {
+                        value->focus(false, false);
+                    }
+                }
+            }
+
             context.replace(new AutoLineElement());
             context.outer->update();
+
         }
     }
     void onRedraw(EventContext &context) override {
@@ -1651,7 +1718,7 @@ public:
 };
 class ModuleElement : public Container<> {
 public:
-    ModuleElement()= default;
+    ModuleElement() = default;
     GString name;
     bool expand = false;
     bool layouted = false;

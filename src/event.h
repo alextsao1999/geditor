@@ -282,10 +282,10 @@ struct EventContext {
         line.remove(idx, line.length() - idx);
     }
     void combineLine(int offset = 0, bool pushCommand = true) {
-        if (pushCommand) {
-            push(CommandType::Combine, CommandData(getLineViewer().length()));
-        }
         auto line = getLineViewer(offset);
+        if (pushCommand) {
+            push(CommandType::Combine, CommandData(line.length()));
+        }
         auto next = getLineViewer(offset + 1);
         line.append(next.c_str());
         next.clear();
@@ -440,6 +440,19 @@ struct EventContext {
         }
         return nullptr;
     }
+    EventContext *findInnerLast(const GChar *tag) {
+        if (this->tag().contain(tag)) {
+            return copy();
+        }
+        for (EventContext inner = enter(-1); inner.has(); inner.prev()) {
+            EventContext *find = inner.findInnerLast(tag);
+            if (find) {
+                return find;
+            }
+        }
+        return nullptr;
+    }
+
     template <typename Type>
     inline Type *cast() { return (Type *) element; }
     bool compare(EventContext *rvalue) {

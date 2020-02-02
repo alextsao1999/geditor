@@ -12,7 +12,43 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         }
     }
     auto line = context.getLineViewer();
+    if (ch == VK_BACK) {
+        if (context.isHead() && context.pos().index == 0) {
+            if (context.outer && context.outer->tag().contain(_GT("CodeBlock"))) {
+                EventContext ctx;
+                if (context.outer->outer && context.outer->outer->tag().contain(_GT("Switch"))) {
+                    ctx = context.outer->outer->nearby(-1);
+                } else {
+                    ctx = context.outer->nearby(-1);
+                }
+                if (ctx.getLineViewer().empty()) {
+                    EventContext prev = ctx.nearby(-1);
+                    ctx.remove();
+                    prev.update();
+                    EventContext *inner = prev.nearby(1).findInnerFirst(TAG_FOCUS);
+                    inner->focus(false, true);
+                    return;
+                }
+            }
+        }
+
+    }
     if (ch == VK_RETURN) {
+        if (context.isHead() && context.pos().index == 0) {
+            if (context.outer && context.outer->tag().contain(_GT("CodeBlock"))) {
+                EventContext ctx;
+                if (context.outer->outer && context.outer->outer->tag().contain(_GT("Switch"))) {
+                    ctx = context.outer->outer->nearby(-1);
+                } else {
+                    ctx = context.outer->nearby(-1);
+                }
+                ctx.insert(copy());
+                ctx.update();
+                EventContext *inner = ctx.nearby(2).findInnerFirst(TAG_FOCUS);
+                inner->focus(false, true);
+                return;
+            }
+        }
         Element *replace = nullptr;
         if (line.content() == _GT("if")) {
             replace = new SingleBlockElement(2);

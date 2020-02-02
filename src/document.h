@@ -174,6 +174,7 @@ public:
                     command.context->outer->element->setTail(command.context->element);
                 }
             }
+            command.context->deleteLine(command.data.element->getLineNumber());
             command.data.element->free();
             command.context->reflow();
         }
@@ -194,6 +195,7 @@ public:
                     command.context->element->setTail(command.data.element);
                 }
             }
+            command.context->insertLine(0, command.data.element->getLineNumber());
             command.context->reflow();
         }
         if (command.type == CommandType::ReplaceElement) {
@@ -582,7 +584,7 @@ public:
             }
         }
     }
-    void flow() {
+    void layout() {
         setViewportOffset(m_viewportOffset);
         m_root.relayout();
     }

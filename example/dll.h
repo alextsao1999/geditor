@@ -10,6 +10,7 @@
 
 #include <Windows.h>
 #define EXPORT_API extern "C" __declspec(dllexport)
+typedef int BOOL;
 EXPORT_API GEditor *WINAPI CreateGeditor(HWND hWnd, int x, int y, int width, int height) {
     return GEditorBuilder::build(hWnd, x, y, width, height);
 }
@@ -88,6 +89,12 @@ EXPORT_API void WINAPI GeditorLineGetString(GEditor *editor, int line, char *str
 EXPORT_API Element *WINAPI GeditorAppendElement(GEditor *editor, Element *element) {
     return editor->m_data->m_document.append(element);
 }
+EXPORT_API EventContext *WINAPI EventContextCopy(EventContext *context) {
+    return context->copy();
+}
+EXPORT_API void WINAPI EventContextSetLineString(EventContext *context, int offset, const char *str) {
+    context->getLineViewer(offset).content().assign(A2W(str));
+}
 EXPORT_API int WINAPI EventContextGetLineLength(EventContext *context, int offset) {
     auto &string = context->getLineViewer(offset).content();
     return WideCharToMultiByte(0, 0, &string.front(), string.length(), 0, 0, 0, 0);
@@ -99,10 +106,10 @@ EXPORT_API void WINAPI EventContextGetLineString(EventContext *context, int offs
     }
     WideCharToMultiByte(0, 0, &content.front(), content.length(), string, length, 0, 0);
 }
-EXPORT_API void WINAPI EventContextInsert(EventContext *context, Element *element, bool push) {
+EXPORT_API void WINAPI EventContextInsert(EventContext *context, Element *element, BOOL push) {
     context->insert(element, push);
 }
-EXPORT_API void WINAPI EventContextRemove(EventContext *context, bool push) {
+EXPORT_API void WINAPI EventContextRemove(EventContext *context, BOOL push) {
     context->remove(push);
 }
 EXPORT_API void WINAPI EventContextEnter(EventContext *enter, EventContext *context, int index) {
@@ -111,10 +118,10 @@ EXPORT_API void WINAPI EventContextEnter(EventContext *enter, EventContext *cont
 EXPORT_API void WINAPI EventContextNearby(EventContext *ctx, EventContext *context, int index) {
     *ctx = context->nearby(index);
 }
-EXPORT_API bool WINAPI EventContextNext(EventContext *context) {
+EXPORT_API BOOL WINAPI EventContextNext(EventContext *context) {
     return context->next();
 }
-EXPORT_API bool WINAPI EventContextPrev(EventContext *context) {
+EXPORT_API BOOL WINAPI EventContextPrev(EventContext *context) {
     return context->prev();
 }
 EXPORT_API void WINAPI EventContextTag(EventContext *context, char *string) {
@@ -126,16 +133,22 @@ EXPORT_API void WINAPI EventContextRelayout(EventContext *context) {
 EXPORT_API void WINAPI EventContextUpdate(EventContext *context) {
     context->update();
 }
-EXPORT_API void WINAPI EventContextFocus(EventContext *context, bool isCopy, bool focus) {
+EXPORT_API void WINAPI EventContextRedraw(EventContext *context) {
+    context->redraw();
+}
+EXPORT_API void WINAPI EventContextReflow(EventContext *context) {
+    context->reflow();
+}
+EXPORT_API void WINAPI EventContextFocus(EventContext *context, BOOL isCopy, BOOL focus) {
     context->focus(isCopy, focus);
 }
-EXPORT_API bool WINAPI EventContextCanEnter(EventContext *context) {
+EXPORT_API BOOL WINAPI EventContextCanEnter(EventContext *context) {
     return context->canEnter();
 }
-EXPORT_API bool WINAPI EventContextIsHead(EventContext *context) {
+EXPORT_API BOOL WINAPI EventContextIsHead(EventContext *context) {
     return context->isHead();
 }
-EXPORT_API bool WINAPI EventContextIsTail(EventContext *context) {
+EXPORT_API BOOL WINAPI EventContextIsTail(EventContext *context) {
     return context->isTail();
 }
 EXPORT_API int WINAPI EventContextGetLine(EventContext *context) {
@@ -198,21 +211,13 @@ EXPORT_API Element *WINAPI CreateTableElement(int row, int column, int top) {
 EXPORT_API Element *WINAPI CreateRowElement(int column, int height) {
     return new FastRow(column, height);
 }
-EXPORT_API void WINAPI LineElemntInsert(EventContext *context) {
-    auto *line = (LineElement *) context->current();
-    line->insert(*context);
-}
-EXPORT_API void WINAPI LineElemntErase(EventContext *context) {
-    auto *line = (LineElement *) context->current();
-    line->erase(*context);
-}
 EXPORT_API void WINAPI RowSetColumnString(FastRow *row, int column, const char *string) {
     row->getColumn(column)->m_data.assign(A2W(string));
 }
-EXPORT_API void WINAPI RowSetHeader(FastRow *row, bool header) {
+EXPORT_API void WINAPI RowSetHeader(FastRow *row, BOOL header) {
     row->setHeader(header);
 }
-EXPORT_API void WINAPI RowSetUndeleteable(FastRow *row, bool de) {
+EXPORT_API void WINAPI RowSetUndeleteable(FastRow *row, BOOL de) {
     row->setUndeleteable(de);
 }
 EXPORT_API void WINAPI RowSetColor(FastRow *row, GColor color) {

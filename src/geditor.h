@@ -8,22 +8,23 @@
 #include "utils.h"
 #include "paint_manager.h"
 #include "table.h"
-#include "document.h"
-#include <thread>
+#include "doc_manager.h"
 #include "open_visitor.h"
 #include "shellapi.h"
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
-static bool isInit = false;
 class GEditor;
 struct GEditorData {
     HWND m_hwnd;
-    Document m_document;
     WindowRenderManager m_renderManager;
     bool m_dragging = false;
+    DocumentManager m_manager;
     explicit GEditorData(HWND hwnd) :
     m_hwnd(hwnd),
-    m_document(&m_renderManager),
+    m_manager(&m_renderManager),
     m_renderManager(hwnd, this){}
+    inline Document &current() {
+        return *m_manager.current();
+    }
 };
 class GEditor {
 public:
@@ -39,22 +40,10 @@ public:
         ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-
-/*
-        FileBuffer buffer(R"(C:\Users\Administrator\Desktop\edit\k.e)");
-        ECodeParser parser(buffer);
-        parser.Parse();
-        int count = 0;
-        for (auto &sub : parser.code.subs) {
-            count++;
-            SubVisitor open(&parser.code, &m_data->m_document, sub);
-            sub.ast->accept(&open);
-        }
-*/
+        m_data->m_manager.open(R"(C:/Users/Administrator/Desktop/compiler4e/runtime.c)");
     }
     ~GEditor() { delete m_data; }
 };
-
 class GEditorBuilder {
 public:
     static ATOM init() {
@@ -73,8 +62,8 @@ public:
         wcex.hIconSm = nullptr;
         return RegisterClassEx(&wcex);
     }
-
     static GEditor *build(HWND parent, int x = 0, int y = 0, int nWidth = 850, int nHeight = 500) {
+        static bool isInit = false;
         if (!isInit && init()) {
             isInit = true;
         }
@@ -93,7 +82,7 @@ public:
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
-        Document &current = data->m_document;
+        Document &current = data->current();
         switch (message) {
             case WM_MOUSEMOVE:
                 current.m_mouse = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset;
@@ -115,14 +104,14 @@ public:
                 break;
             case WM_LBUTTONUP: // 鼠标左键放开
                 DispatchEvent(onLeftButtonUp);
-                data->m_document.getContext()->endSelect();
+                data->current().getContext()->endSelect();
                 ReleaseCapture();
                 break;
             case WM_LBUTTONDOWN: // 鼠标左键按下
                 SetCapture(hWnd);
                 SetFocus(hWnd);
                 DispatchEvent(onLeftButtonDown);
-                data->m_document.getContext()->startSelect();
+                data->current().getContext()->startSelect();
                 break;
             case WM_LBUTTONDBLCLK: // 鼠标左键双击
                 DispatchEvent(onLeftDoubleClick);
@@ -140,14 +129,14 @@ public:
             case WM_IME_CHAR:
             case WM_CHAR:
                 if (wParam == 26 && (GetKeyState(VK_CONTROL) & 0x8000)) {
-                    data->m_document.undo();
+                    data->current().undo();
                     return 0;
                 }
                 if (current.m_context.m_caretManager.m_context) {
                     SelectionState state = current.m_context.m_caretManager.m_context->getSelectionState();
                     if (state != SelectionNone) {
                         current.m_context.pushStart();
-                        data->m_document.onSelectionDelete(data->m_document.m_root, state);
+                        data->current().onSelectionDelete(data->current().m_root, state);
                     }
                     MsgCallFocus(onInputChar, state, wParam);
                     if (state != SelectionNone) {
@@ -171,10 +160,10 @@ public:
                 PostQuitMessage(0);
                 break;
             case WM_SETFOCUS:
-                data->m_document.getContext()->m_caretManager.create();
+                data->current().getContext()->m_caretManager.create();
                 break;
             case WM_KILLFOCUS:
-                data->m_document.getContext()->m_caretManager.destroy();
+                data->current().getContext()->m_caretManager.destroy();
                 break;
             case WM_DROPFILES:
                 onDropFiles(hWnd, (HDROP) wParam, data);
@@ -230,34 +219,32 @@ public:
         }
         SetScrollPos(data->m_hwnd, nBar, prev, true);
         data->m_renderManager.updateViewport();
-        data->m_document.getContext()->m_caretManager.update();
+        data->current().getContext()->m_caretManager.update();
     }
     static void onDropFiles(HWND hwnd, HDROP hDropInfo, GEditorData *data) {
         //  UINT  nFileCount = DragQueryFile(hDropInfo, (UINT)-1, NULL, 0);  //查询一共拖拽了几个文件
         char szFileName[MAX_PATH] = "";
         DragQueryFileA(hDropInfo, 0, szFileName, sizeof(szFileName));  //打开拖拽的第一个(下标为0)文件
-
         FileBuffer buffer(szFileName);
         ECodeParser parser(buffer);
         parser.Parse();
         for (auto &mod : parser.code.modules) {
             auto *module = new ModuleElement();
             module->name.append(mod.name.toUnicode());
-            data->m_document.append(module);
+            data->current().append(module);
             for (auto &key : mod.include) {
                 if (key.type == KeyType::KeyType_Sub) {
                     auto *sub = parser.code.find<ESub>(key);
                     if (sub) {
-                        SubVisitor open(&parser.code, &data->m_document, module, sub);
+                        SubVisitor open(&parser.code, &data->current(), module, sub);
                         sub->ast->accept(&open);
                     }
                 }
             }
         }
         buffer.free();
-        data->m_document.layout();
+        data->current().layout();
         data->m_renderManager.invalidate();
-        //read_file(hwnd,szFileName);
         //完成拖入文件操作，系统释放缓冲区 
         DragFinish(hDropInfo);
     }

@@ -62,7 +62,7 @@ void EventContext::focus(bool isCopy, bool force) {
 void EventContext::push(CommandType type, CommandData data) {
     doc->getContext()->m_queue.push({copy(), pos(), type, data});
 }
-void EventContext::notify(int type, NotifyValue param, NotifyValue other) {
+void EventContext::notify(int type, NotifyParam param, NotifyValue other) {
     CheckBound(void(0));
     current()->onNotify(*this, type, param, other);
 }
@@ -249,7 +249,7 @@ void EventContext::remove(bool pushCommand) {
         if (pushCommand) {
             push(CommandType::DeleteElement, CommandData(element));
         }
-        element->separate(*this, element->getNext(), element->getPrev());
+        element->link(*this, element->getNext(), element->getPrev());
         deleteLine(0, element->getLineNumber());
         prevLine(element->getLineNumber());
     }
@@ -270,6 +270,13 @@ void EventContext::insert(Element *ele, bool pushCommand) {
         }
     }
     insertLine(element->getLineNumber(), ele->getLineNumber());
+}
+void EventContext::seperate(bool pushCommand) {
+    if (pushCommand) {
+        push(CommandType::SeparateElement, CommandData(element));
+    }
+    element->link(*this, element->getHead(), element->getTail());
+    element = element->getHead();
 }
 
 bool EventContext::isSelectedStart() {
@@ -304,11 +311,13 @@ bool EventContext::isFocusIn() {
 
 void EventContext::gutter() {
     GString &&string = std::to_wstring(getCounter().line + 1);
-    auto &style = getStyle(StyleDeafaultFont).paint();
+    auto style = getStyle(StyleDeafaultFont).paint();
+    style.setColor(SkColorSetRGB(69,145,245));
     Offset view = viewportOffset();
     view.x = 5;
     view.y += style.getTextSize() + 8;
     doc->m_context.m_renderManager->m_canvas->drawText(string.c_str(), string.size() * 2, view.x, view.y, style);
 
 }
+
 

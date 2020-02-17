@@ -9,7 +9,7 @@
 #include <mutex>
 #include "common.h"
 #include "event.h"
-
+#include "client.h"
 #define DispatchEvent(NAME) \
     EventContext ctx = onDispatch(context, x, y); \
     context_method(ctx, NAME, x, y);
@@ -19,7 +19,7 @@
 #define context_on(ctx, method, ...) {auto &&__ctx = (ctx);if (!__ctx.empty())__ctx.current()->on##method(__ctx, ##__VA_ARGS__);}
 #define context_on_ptr(ctx, method, ...) ((ctx) ? ((*(ctx)).current()->method(*(ctx), ##__VA_ARGS__)) : void(0))
 #define context_method(context, event, ...) ((context).empty() ? void(0) : (context).current()->event(context, ##__VA_ARGS__))
-// Root æ—  çˆ¶å…ƒç´ 
+// Root ÎŞ ¸¸ÔªËØ
 class Root {
 public:
     virtual ~Root() = default;
@@ -29,9 +29,9 @@ public:
     virtual void free() {}
     virtual Tag getTag(EventContext &context) { return {_GT("Element")}; }
 
-    // è·å–å¯¹äºçˆ¶å…ƒç´ çš„ç›¸å¯¹åç§»
+    // »ñÈ¡¶ÔÓÚ¸¸ÔªËØµÄÏà¶ÔÆ«ÒÆ
     virtual Offset getLogicOffset() { return {0, 0}; }
-    // è·å–å®é™…çš„åç§»
+    // »ñÈ¡Êµ¼ÊµÄÆ«ÒÆ
     virtual Offset getOffset(EventContext &context) { return {0, 0}; }
     virtual Offset getCaretOffset(EventContext &context) { return {0, 0}; }
     virtual int getLogicWidth(EventContext &context) { return 0; };
@@ -39,27 +39,27 @@ public:
     virtual int getMinWidth(EventContext &context) { return getLogicWidth(context); };
     virtual int getMinHeight(EventContext &context) { return getLogicHeight(context); };
 
-    // reflow ç»“æŸæ—¶ ä¼šè°ƒç”¨æ­¤æ–¹æ³• ä¼ é€’æœ€å¤§çš„è¡Œé«˜åº¦æˆ–æœ€å¤§çš„å—å®½åº¦
+    // reflow ½áÊøÊ± »áµ÷ÓÃ´Ë·½·¨ ´«µİ×î´óµÄĞĞ¸ß¶È»ò×î´óµÄ¿é¿í¶È
     virtual void setLogicWidth(EventContext &context, int width) {};
     virtual void setLogicHeight(EventContext &context, int height) {};
-    // è·å–å®é™…å®½åº¦
+    // »ñÈ¡Êµ¼Ê¿í¶È
     virtual int getWidth(EventContext &context) { return getLogicWidth(context); };
-    // è·å–å®é™…é«˜åº¦
+    // »ñÈ¡Êµ¼Ê¸ß¶È
     virtual int getHeight(EventContext &context) { return getLogicHeight(context); };
     /**
-     * ç»å¯¹åæ ‡æ˜¯å¦åŒ…å«åœ¨å…ƒç´ ä¸­
+     * ¾ø¶Ô×ø±êÊÇ·ñ°üº¬ÔÚÔªËØÖĞ
      * @return bool
      */
     virtual bool contain(EventContext &context, int x, int y) {
         return context.rect().round().contains(x, y);
     };
     /**
-     * è·å–ç»å¯¹åæ ‡æ‰€åŒ…å«çš„æœ€åº•å±‚çš„å…ƒç´ 
+     * »ñÈ¡¾ø¶Ô×ø±êËù°üº¬µÄ×îµ×²ãµÄÔªËØ
      * @return Root *
      */
     Root *getContain(EventContext &context, int x, int y);
     /**
-     * è·å–ç›¸å¯¹åæ ‡æ‰€åœ¨çš„å­å…ƒç´ 
+     * »ñÈ¡Ïà¶Ô×ø±êËùÔÚµÄ×ÓÔªËØ
      * @return EventContext
      */
     /////////////////////////////////////////
@@ -71,7 +71,7 @@ public:
     /////////////////////////////////////////
 };
 
-// Element æœ‰ çˆ¶å…ƒç´ 
+// Element ÓĞ ¸¸ÔªËØ
 class Element : public Root {
     friend Document;
 public:
@@ -136,7 +136,7 @@ public:
     virtual void setPrev(Element *prev){}
     virtual void setLogicOffset(Offset offset) {}
     virtual Display getDisplay() { return DisplayNone; };
-    // Displayä¸ºCustomçš„æ—¶å€™æ‰ä¼šè°ƒç”¨è¿™ä¸ªæ–¹æ³•
+    // DisplayÎªCustomµÄÊ±ºò²Å»áµ÷ÓÃÕâ¸ö·½·¨
     virtual void onReflow(LayoutArgs()) {}
     virtual void onRelayout(EventContext &context, LayoutManager *sender) {
         EventContext ctx = context.enter();
@@ -174,27 +174,14 @@ public:
                     command.context->outer->element->setTail(command.context->element);
                 }
             }
-            command.context->deleteLine(command.data.element->getLineNumber());
+            command.context->deleteLine(command.context->current()->getLineNumber(),
+                                        command.data.element->getLineNumber());
             command.data.element->free();
             command.context->reflow();
         }
         if (command.type == CommandType::DeleteElement) {
-            Element *prev = command.data.element->getPrev();
-            Element *next = command.data.element->getNext();
-            if (prev) {
-                prev->setNext(command.data.element);
-            } else {
-                if (command.context->outer) {
-                    command.context->outer->element->setHead(command.data.element);
-                }
-            }
-            if (next) {
-                next->setPrev(command.data.element);
-            } else {
-                if (command.context->outer) {
-                    command.context->element->setTail(command.data.element);
-                }
-            }
+            Element *ele = command.data.element;
+            command.context->current()->link(*command.context, ele, ele);
             command.context->insertLine(0, command.data.element->getLineNumber());
             command.context->reflow();
         }
@@ -207,11 +194,11 @@ public:
 
             command.context->setPos(command.pos);
             command.data.replace.caret->focus(false, true);
-            // command.data.replace.caret->free(); // é‡Šæ”¾caret
-            command.data.replace.element->free(); // é‡Šæ”¾æ›¿æ¢çš„æ–°å…ƒç´ 
+            // command.data.replace.caret->free(); // ÊÍ·Åcaret
+            command.data.replace.element->free(); // ÊÍ·ÅÌæ»»µÄĞÂÔªËØ
         }
-        if (command.type == CommandType::Separate) {
-            separate(*command.context, this, this);
+        if (command.type == CommandType::SeparateElement) {
+            link(*command.context, this, this);
             command.context->relayout();
         }
         command.context->redraw();
@@ -227,8 +214,13 @@ public:
         context.relayout();
     }
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
-    virtual void onNotify(EventContext &context, int type, NotifyValue param, NotifyValue other) {
-        if (context.outer) context.outer->notify(type, param, other);
+    virtual void onNotify(EventContext &context, int type, NotifyParam param, NotifyValue other) {
+        if (type == Update) {
+            context.update();
+        } else {
+            if (context.outer)
+                context.outer->notify(type, param, other);
+        }
     }
     virtual EventContext onDispatch(EventContext &context, int x, int y) {
         for_context(ctx, context) {
@@ -254,7 +246,7 @@ public:
     }
     virtual int getLineNumber();
     int getWidth(EventContext &context) override;
-    void separate(EventContext &context, Element *start, Element *end) {
+    void link(EventContext &context, Element *start, Element *end) {
         Element *prev = getPrev();
         Element *next = getNext();
         if (start) {
@@ -308,7 +300,7 @@ public:
         if (new_element == nullptr) {
             return this;
         }
-        /* //åˆ é™¤å…ƒç´ (æš‚æ—¶ä¸éœ€è¦)
+        /* //É¾³ıÔªËØ(ÔİÊ±²»ĞèÒª)
                 if (new_element == nullptr) {
                     if (m_prev) m_prev->setNext(m_next); else context.outer->current()->setHead(m_next);
                     if (m_next) m_next->setPrev(m_prev); else context.outer->current()->setTail(m_prev);
@@ -398,7 +390,8 @@ public:
     }
 };
 
-// æ ¹æ®Children è‡ªåŠ¨æ”¹å˜å®½é«˜
+class LanguageClient;
+// ¸ù¾İChildren ×Ô¶¯¸Ä±ä¿í¸ß
 template <Display D = DisplayBlock>
 class Container : public RelativeElement {
 public:
@@ -514,10 +507,6 @@ public:
 };
 class Document : public Container<DisplayBlock> {
 public:
-    CallBack m_onInputChar = nullptr;
-    CallBack m_onKeyDown = nullptr;
-    CallBack m_onMouseMove = nullptr;
-    CallBack m_onLeftClickDown = nullptr;
     CallBack m_onBlur = nullptr;
     Context m_context;
     Offset m_mouse;
@@ -527,6 +516,9 @@ public:
 public:
     explicit Document(RenderManager *renderManager) : m_context(renderManager), m_root(this) {}
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
+    virtual LanguageClient *getLanguageClient() { return nullptr; };
+    virtual string_ref getUri() { return nullptr; };
+    virtual void uploadContent() {};
     ///////////////////////////////////////////////////////////////////
     inline Context *getContext() { return &m_context; };
     Offset getLogicOffset() override { return {25, 0}; }
@@ -542,7 +534,7 @@ public:
         m_context.m_renderManager->setVertScroll(m_height);
     }
     void setViewportOffset(Offset offset) {
-        if (m_viewportOffset.y > offset.y) { // å‘ä¸Š
+        if (m_viewportOffset.y > offset.y) { // ÏòÉÏ
             while (m_begin.has()) {
                 if (!m_begin.visible()) {
                     m_begin.next();
@@ -550,7 +542,7 @@ public:
                 }
                 m_begin.prev();
             }
-        } else { // å‘ä¸‹
+        } else { // ÏòÏÂ
             while (m_begin.has()) {
                 if (m_begin.visible()) {
                     break;

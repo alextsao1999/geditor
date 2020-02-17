@@ -1,5 +1,5 @@
 //
-// Created by ²ÜË³ on 2019/5/31.
+// Created by æ›¹é¡º on 2019/5/31.
 //
 #ifndef PARSE_E_FILE_TRANSLATOR_H
 #define PARSE_E_FILE_TRANSLATOR_H
@@ -46,7 +46,7 @@ public:
     }
 
     /**
-     * ²éÕÒ¾Ö²¿±äÁ¿»òÕß²ÎÊı
+     * æŸ¥æ‰¾å±€éƒ¨å˜é‡æˆ–è€…å‚æ•°
      * @param key
      * @return
      */
@@ -65,7 +65,7 @@ public:
     }
 
     /**
-     * ²éÕÒ³ÌĞò¼¯±äÁ¿
+     * æŸ¥æ‰¾ç¨‹åºé›†å˜é‡
      * @param key
      * @return
      */

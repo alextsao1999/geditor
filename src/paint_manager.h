@@ -15,6 +15,7 @@
 #include <SkFontStyle.h>
 #include <SkFontMgr.h>
 #include <SkFont.h>
+#include <SkImageDecoder.h>
 #include "SkTextBlob.h"
 #include "common.h"
 #include "layout.h"
@@ -160,7 +161,7 @@ public:
         add(StyleSelectedFont, paint);
 
         paint.reset();
-        paint.setTextSize(13);
+        paint.setTextSize(12);
         //paint.setFont("DengXian", GStyle::kNormal);
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
@@ -334,6 +335,13 @@ public:
         GetClientRect(m_hWnd, &rect);
         return {rect.right - rect.left, rect.bottom - rect.top};
     }
+    virtual GRect getViewportRect() {
+        RECT rect;
+        GetClientRect(m_hWnd, &rect);
+        return {0, 0,
+                SkIntToScalar(rect.right - rect.left),
+                SkIntToScalar(rect.bottom - rect.top)};
+    }
     bool copy() {
         Size size = getViewportSize();
         return (bool) BitBlt(m_hWndDC, 0, 0, size.width, size.height, m_hMemDC, 0, 0, SRCCOPY);
@@ -342,7 +350,10 @@ public:
 class WindowRenderManager : public RenderManager {
 public:
     GEditorData *m_data = nullptr;
-    WindowRenderManager(HWND hwnd, GEditorData *data) : RenderManager(hwnd), m_data(data) {}
+    SkBitmap m_background;
+    WindowRenderManager(HWND hwnd, GEditorData *data) : RenderManager(hwnd), m_data(data) {
+        SkImageDecoder::DecodeFile(R"(C:\Users\Administrator\Desktop\back.bmp)", &m_background);
+    }
     void updateViewport();
     Offset getViewportOffset() override;
     void setViewportOffset(Offset offset) override;

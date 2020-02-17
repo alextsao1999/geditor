@@ -44,6 +44,7 @@ public:
     }
     void show();
     void hide() {
+        return;
         ShowWindow(m_hWnd, SW_HIDE);
     }
     static ATOM RegisterACClass() {

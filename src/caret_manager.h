@@ -43,24 +43,6 @@ public:
     Element *getFocus();
     EventContext *getEventContext() { return m_context; }
     inline CaretPos &data() { return m_data; }
-
-    bool direction = false;
-    int counter = 0;
-    void onFrame() {
-        counter = direction ? counter - 15 : counter + 15;
-        if (counter >= 240 || counter <= 0) {
-            direction = !direction;
-        }
-        SkPaint paint;
-        paint.setStyle(SkPaint::Style::kStroke_Style);
-        paint.setStrokeWidth(2);
-        paint.setColor(SK_ColorBLACK);
-        paint.setAlpha(counter);
-        Offset offset = current() - m_paintManager->getViewportOffset();
-        m_paintManager->m_canvas->drawLine(offset.x, offset.y, offset.x, offset.y + 20, paint);
-
-    }
-
     // 实际的光标位置
     Offset current();
     void create(int width = 2, int height = 18) {

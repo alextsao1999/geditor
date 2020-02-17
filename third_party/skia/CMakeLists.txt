@@ -94,8 +94,15 @@ if (NOT BUILD_SHARED)
 	list(APPEND skia_src_images
 			src/images/bmpdecoderhelper.cpp
 			src/images/SkDecodingImageGenerator.cpp
+			src/images/SkImageDecoder_astc.cpp
 			src/images/SkImageDecoder.cpp
 			src/images/SkScaledBitmapSampler.cpp
+			src/images/SkImageDecoder_FactoryDefault.cpp
+			src/images/SkImageDecoder_FactoryRegistrar.cpp
+#			src/images/SkImageDecoder_libpng.cpp
+			src/images/SkImageDecoder_libjpeg.cpp
+			src/images/SkImageDecoder_libbmp.cpp
+			src/images/SkJpegUtility.cpp
 			)
 endif ()
 set(skia_src_opts

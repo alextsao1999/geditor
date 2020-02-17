@@ -64,7 +64,7 @@ public:
 };
 
 class TextBuffer {
-private:
+public:
     LineBuffer m_buffer;
     int m_count = 0;
 public:

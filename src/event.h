@@ -14,6 +14,7 @@
 #include "caret_manager.h"
 #include "auto_complete.h"
 #include "lexer.h"
+typedef void *NotifyParam;
 typedef int32_t NotifyValue;
 struct Context;
 struct EventContext;
@@ -27,6 +28,14 @@ enum SelectionState {
     SelectionSelf,
     SelectionInside,
     SelectionRow,
+};
+static const char *SelectionString[] = {
+        "SelectionNone",
+        "SelectionStart",
+        "SelectionEnd",
+        "SelectionSelf",
+        "SelectionInside",
+        "SelectionRow",
 };
 struct Context {
     std::map<GString, int> keywords = {
@@ -97,7 +106,7 @@ struct Context {
         m_selecting = false;
     }
     void clearSelect() {
-        //m_selectBase = m_selectStart = m_selectEnd = Offset(0, 0);
+//        m_selectBase = m_selectStart = m_selectEnd = Offset(0, 0);
         m_selectBasePos = m_selectStartPos = m_selectEndPos = {};
         m_selecting = false;
     }
@@ -121,11 +130,20 @@ struct Context {
             m_selectStartPos = m_selectCurrentPos;
             m_selectEndPos = m_selectBasePos;
         }
+        if (m_selectCurrentPos.offset.y == m_selectBasePos.offset.y) {
+            if (m_selectStartPos.index > m_selectEndPos.index) {
+                std::swap(m_selectStartPos, m_selectEndPos);
+            }
+        }
     }
+
     inline Offset getSelectStart() {
+//        return m_selectStart;
         return m_selectStartPos.offset;
     }
+
     inline Offset getSelectEnd() {
+//        return m_selectEnd;
         return m_selectEndPos.offset;
     }
     inline GRect getSelectRect() {
@@ -202,6 +220,7 @@ struct EventContext {
     EventContext *outer = nullptr;
     int index = 0;
     LineCounter counter;
+    inline Document *document() { return doc; }
     Context *getDocContext();
     int count();
     inline bool empty() { return element == nullptr || doc == nullptr; }
@@ -217,11 +236,12 @@ struct EventContext {
     void relayout();
     void focus(bool isCopy = true, bool force = false);
     void push(CommandType type, CommandData data);
-    void notify(int type, NotifyValue param, NotifyValue other);
+    void notify(int type, NotifyParam param, NotifyValue other);
     void timer(long long interval, int id = 0, int count = 0);
     void replace(Element *new_element, bool pushCommand = true);
     void remove(bool pushCommand = true);
     void insert(Element *ele, bool pushCommand = true);
+    void seperate(bool pushCommand = true);
     void update() {
         relayout();
         reflow();

@@ -16,15 +16,15 @@ enum class CommandType {
     PushStart,
     PushEnd,
     AddChar,
-    AddString,
+    SetString,
     DeleteChar,
     DeleteString,
     AddElement,
     DeleteElement,
     ReplaceElement,
+    SeparateElement,
     Break,
     Combine,
-    Separate,
 };
 
 union CommandData {

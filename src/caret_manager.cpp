@@ -16,6 +16,9 @@ void CaretManager::focus(EventContext *context, bool force) {
             before->free();
         }
     }
+    if (m_context != context) {
+        return;
+    }
     if (context) {
         Size size = m_paintManager->getViewportSize();
         Offset view = context->viewportOffset();

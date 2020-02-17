@@ -104,22 +104,27 @@ void WindowRenderManager::updateViewport() {
     Offset offset;
     offset.x = GetScrollPos(m_hWnd, SB_HORZ);
     offset.y = GetScrollPos(m_hWnd, SB_VERT);
-    m_data->m_document.setViewportOffset(offset);
+    m_data->current().setViewportOffset(offset);
     refresh();
 }
 
 Offset WindowRenderManager::getViewportOffset() {
-    return m_data->m_document.m_viewportOffset;
+    return m_data->current().m_viewportOffset;
 }
 
 void WindowRenderManager::setViewportOffset(Offset offset) {
     SetScrollPos(m_hWnd, SB_HORZ, offset.x, true);
     SetScrollPos(m_hWnd, SB_VERT, offset.y, true);
-    m_data->m_document.setViewportOffset(offset);
+    m_data->current().setViewportOffset(offset);
     refresh();
 }
 
 void WindowRenderManager::update(GRect *rect) {
-    m_canvas->clear(SK_ColorWHITE);
-    m_data->m_document.onRedraw(m_data->m_document.m_root);
+    if (m_background.empty()) {
+        m_canvas->clear(SK_ColorWHITE);
+    } else {
+        GRect bound = getViewportRect();
+        m_canvas->drawBitmapRect(m_background, bound);
+    }
+    m_data->current().onRedraw(m_data->current().m_root);
 }

@@ -1,5 +1,5 @@
 //
-// Created by ²ÜË³ on 2019/5/3.
+// Created by æ›¹é¡º on 2019/5/3.
 //
 
 #ifndef PARSE_E_FILE_FILEBUFFER_H
@@ -42,7 +42,13 @@ public:
         code = (uint8_t *) malloc(length);
         DWORD haveReadByte;
         SetFilePointer(hFile, 10, NULL, FILE_BEGIN);
-        ReadFile(hFile, (LPVOID *) code, length, &haveReadByte, 0);
+        size_t totalRead = 0;
+        while (ReadFile(hFile, &code[totalRead], length, &haveReadByte, 0)) {
+            totalRead += haveReadByte;
+            if (totalRead >= length) {
+                break;
+            }
+        }
         CloseHandle(hFile);
     }
     FileBuffer(char *data, size_t length) : code((uint8_t *) data), length(length) {}
@@ -52,13 +58,13 @@ public:
     inline bool Good() { return pos < length; }
     inline void Skip(int step) { pos += step; }
     int ReadInt() {
-        // Ð¡¶Ë×Ö½ÚÐò
+        // å°ç«¯å­—èŠ‚åº
         pos += 4;
         return (code[pos - 4] | (code[pos - 3] << 8) | (code[pos - 2] << 16) | (code[pos - 1] << 24));
     }
 
     short ReadShort() {
-        // Ð¡¶Ë×Ö½ÚÐò
+        // å°ç«¯å­—èŠ‚åº
         pos += 2;
         return (code[pos - 2] | (code[pos - 1] << 8));
     }

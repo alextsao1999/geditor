@@ -18,20 +18,8 @@ EXPORT_API void WINAPI DeleteGeditor(GEditor *editor) {
     delete editor;
 }
 EXPORT_API HWND WINAPI GEditorGetHWnd(GEditor *editor) { return editor->m_data->m_hwnd; }
-EXPORT_API void WINAPI GEditorSetOnInputChar(GEditor *editor, CallBack callback) {
-    editor->m_data->m_document.m_onInputChar = callback;
-}
-EXPORT_API void WINAPI GEditorSetOnKeyDown(GEditor *editor, CallBack callback) {
-    editor->m_data->m_document.m_onKeyDown = callback;
-}
-EXPORT_API void WINAPI GEditorSetOnMouseMove(GEditor *editor, CallBack callback) {
-    editor->m_data->m_document.m_onMouseMove = callback;
-}
-EXPORT_API void WINAPI GEditorSetOnLeftClickDown(GEditor *editor, CallBack callback) {
-    editor->m_data->m_document.m_onLeftClickDown = callback;
-}
 EXPORT_API void WINAPI GEditorSetOnBlur(GEditor *editor, CallBack callback) {
-    editor->m_data->m_document.m_onBlur = callback;
+    editor->m_data->current().m_onBlur = callback;
 }
 EXPORT_API void WINAPI GEditorSetStyle(GEditor *editor, int style_id, GColor color) {
     GStyle style;
@@ -39,61 +27,65 @@ EXPORT_API void WINAPI GEditorSetStyle(GEditor *editor, int style_id, GColor col
     style.setTextSize(14);
     style.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
     style.setAntiAlias(true);
-    editor->m_data->m_document.m_context.m_styleManager.set(style_id, style);
+    editor->m_data->current().m_context.m_styleManager.set(style_id, style);
 }
 EXPORT_API void WINAPI GEditorAddKeyword(GEditor *editor, int style, const char *keyword) {
-    editor->m_data->m_document.m_context.keywords.emplace(AnsiToUnicode(keyword), style);
+    editor->m_data->current().m_context.keywords.emplace(AnsiToUnicode(keyword), style);
 }
 EXPORT_API void WINAPI GEditorSetColor(GEditor *editor, int style, GColor color) {
-    editor->m_data->m_document.m_context.m_styleManager.get(style).setColor(color);
+    editor->m_data->current().m_context.m_styleManager.get(style).setColor(color);
 }
 EXPORT_API void WINAPI GEditorRelayout(GEditor *editor) {
-    editor->m_data->m_document.m_root.relayout();
+    editor->m_data->current().m_root.relayout();
 }
-EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) { return editor->m_data->m_document.m_context.m_caretManager.getEventContext(); }
+EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) { return editor->m_data->current().m_context.m_caretManager.getEventContext(); }
 EXPORT_API EventContext *WINAPI GEditorGetRoot(GEditor *editor) {
-    return &editor->m_data->m_document.m_root;
+    return &editor->m_data->current().m_root;
 }
 EXPORT_API int WINAPI GeditorGetLineCount(GEditor *editor) {
-    return editor->m_data->m_document.m_context.m_textBuffer.getLineCount();
+    return editor->m_data->current().m_context.m_textBuffer.getLineCount();
 }
 EXPORT_API void WINAPI GeditorLineInsert(GEditor *editor, int line, const char *string) {
-    auto viewer = editor->m_data->m_document.m_context.m_textBuffer.insertLine(line);
+    auto viewer = editor->m_data->current().m_context.m_textBuffer.insertLine(line);
     if (string) {
         viewer.append(A2W(string));
     }
 }
 EXPORT_API int WINAPI GeditorLineAppend(GEditor *editor, const char *string) {
-    LineViewer line = editor->m_data->m_document.m_context.m_textBuffer.appendLine();
+    LineViewer line = editor->m_data->current().m_context.m_textBuffer.appendLine();
     line.content().append(A2W(string));
     return line.m_line;
 }
 EXPORT_API void WINAPI GeditorLineDelete(GEditor *editor, int line) {
-    editor->m_data->m_document.m_context.m_textBuffer.deleteLine(line);
+    editor->m_data->current().m_context.m_textBuffer.deleteLine(line);
 }
 EXPORT_API void WINAPI GeditorLineSetString(GEditor *editor, int line, const char *string) {
-    LineViewer viewer = editor->m_data->m_document.m_context.m_textBuffer.getLine(line);
+    LineViewer viewer = editor->m_data->current().m_context.m_textBuffer.getLine(line);
     viewer.content().assign(A2W(string));
 }
 EXPORT_API int WINAPI GeditorLineGetLength(GEditor *editor, int line) {
-    auto &string = editor->m_data->m_document.m_context.m_textBuffer.getLine(line).content();
+    auto &string = editor->m_data->current().m_context.m_textBuffer.getLine(line).content();
     return WideCharToMultiByte(0, 0, &string.front(), string.length(), 0, 0, 0, 0);
 }
 EXPORT_API void WINAPI GeditorLineGetString(GEditor *editor, int line, char *string, int length) {
-    auto &content = editor->m_data->m_document.m_context.m_textBuffer.getLine(line).content();
+    auto &content = editor->m_data->current().m_context.m_textBuffer.getLine(line).content();
     if (content.length() == 0) {
         return;
     }
     WideCharToMultiByte(0, 0, &content.front(), content.length(), string, length, 0, 0);
 }
 EXPORT_API Element *WINAPI GeditorAppendElement(GEditor *editor, Element *element) {
-    return editor->m_data->m_document.append(element);
+    return editor->m_data->current().append(element);
 }
 EXPORT_API EventContext *WINAPI EventContextCopy(EventContext *context) {
     return context->copy();
 }
-EXPORT_API void WINAPI EventContextSetLineString(EventContext *context, int offset, const char *str) {
-    context->getLineViewer(offset).content().assign(A2W(str));
+EXPORT_API void WINAPI EventContextSetLineString(EventContext *context, int offset, const char *str, BOOL pushCommand) {
+    auto &string = context->getLineViewer(offset).content();
+    if (pushCommand) {
+        context->push(CommandType::SetString, CommandData(0, new GString(string)));
+    }
+    string.assign(A2W(str));
 }
 EXPORT_API int WINAPI EventContextGetLineLength(EventContext *context, int offset) {
     auto &string = context->getLineViewer(offset).content();

@@ -5,8 +5,26 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
-
+if (MSVC)
+    set(CompilerFlags
+            CMAKE_CXX_FLAGS
+            CMAKE_CXX_FLAGS_DEBUG
+            CMAKE_CXX_FLAGS_RELEASE
+            CMAKE_C_FLAGS
+            CMAKE_C_FLAGS_DEBUG
+            CMAKE_C_FLAGS_RELEASE)
+    foreach(CompilerFlag ${CompilerFlags})
+        string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+    endforeach()
+endif(MSVC)
 add_definitions(-DUNICODE -D_UNICODE)
+
+add_subdirectory(third_party/lsp)
+#add_subdirectory(third_party/libpng)
+add_subdirectory(third_party/libjpeg)
+include_directories(${lsp_include_dirs})
+#include_directories(${libpng_include_dirs})
+include_directories(${libjpeg_include_dirs})
 
 add_subdirectory(third_party/skia)
 add_subdirectory(third_party/ecode)
@@ -21,7 +39,7 @@ source_group("Source Files" FILES ${sources})
 
 add_library(geditor STATIC ${sources} ${headers})
 
-set(LINK_STATIC_LIB opengl32.lib usp10.lib skia geditor ecode)
+set(LINK_STATIC_LIB opengl32.lib usp10.lib skia geditor ecode jpeg)
 
 add_executable(main example/main.cpp)
 target_link_libraries(main ${LINK_STATIC_LIB})

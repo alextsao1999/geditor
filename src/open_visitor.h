@@ -11,10 +11,6 @@
 #include "visitor.h"
 #include "ast.h"
 
-std::wstring AnsiToUnicode(const char *str);
-std::string UnicodeToAnsi(const wchar_t *str);
-#define A2W(ansi) (AnsiToUnicode((const char *)(ansi)).c_str())
-#define W2A(unicode) (UnicodeToAnsi((const char *)(unicode)).c_str())
 struct SubVisitor : Visitor {
     ECode *code;
     Document *document;

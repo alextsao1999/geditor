@@ -4,23 +4,24 @@
 
 #include "event.h"
 #include "document.h"
+#include "doc_manager.h"
 
 #define OutOfBound() (!element)
 #define CheckBound(ret) if (OutOfBound()) return ret
 
-LineViewer EventContext::getLineViewer(int offset) {
-    return doc->getContext()->m_textBuffer.getLine(getCounter(), offset);
+LineViewer EventContext::getLineViewer(int offset, bool pushCommand) {
+    return doc->context()->m_textBuffer.getLine(getCounter(), offset, pushCommand ? this : nullptr);
 }
-Painter EventContext::getPainter() { return doc->getContext()->m_renderManager->getPainter(this); }
+Painter EventContext::getPainter() { return doc->context()->m_renderManager->getPainter(this); }
 Canvas EventContext::getCanvas(SkPaint *paint) {
-    return doc->getContext()->m_renderManager->getCanvas(this, paint);
+    return doc->context()->m_renderManager->getCanvas(this, paint);
 }
-Canvas EventContext::getCanvas() { return doc->getContext()->m_renderManager->getCanvas(this); }
-bool EventContext::canEnter() { return element && (element->getHead() != nullptr); }
+Canvas EventContext::getCanvas() { return doc->context()->m_renderManager->getCanvas(this); }
+bool EventContext::canEnter() { return element && element->onCanEnter(*this); }
 EventContext EventContext::enter(int idx) { return EventContext(this, idx); }
-RenderManager *EventContext::getRenderManager() { return doc->getContext()->m_renderManager; }
-LayoutManager *EventContext::getLayoutManager() { return &doc->getContext()->m_layoutManager; }
-CaretManager *EventContext::getCaretManager() { return &doc->getContext()->m_caretManager; }
+RenderManager *EventContext::getRenderManager() { return doc->context()->m_renderManager; }
+LayoutManager *EventContext::getLayoutManager() { return &doc->context()->m_layoutManager; }
+CaretManager *EventContext::getCaretManager() { return &doc->context()->m_caretManager; }
 
 int EventContext::count() {
     if (element)
@@ -49,18 +50,19 @@ bool EventContext::next() {
 }
 void EventContext::reflow(bool relayout) {
     doc->m_context.m_layoutManager.reflow(*this, relayout, element->getLogicOffset());
-    doc->getContext()->m_caretManager.update(); // reflow之后更新光标位置
+    doc->context()->m_caretManager.update(); // reflow之后更新光标位置
 }
 void EventContext::relayout() {
     element->onRelayout(*this, getLayoutManager());
 }
-void EventContext::redraw() { doc->getContext()->m_renderManager->redraw(this); }
+void EventContext::redraw() { doc->context()->m_renderManager->redraw(this); }
 void EventContext::focus(bool isCopy, bool force) {
     if (element)
         doc->m_context.m_caretManager.focus(isCopy ? copy() : this, force);
 }
 void EventContext::push(CommandType type, CommandData data) {
-    doc->getContext()->m_queue.push({copy(), pos(), type, data});
+    doc->onContentChange(*this, type, data);
+    doc->context()->m_queue.push({copy(), pos(), type, data});
 }
 void EventContext::notify(int type, NotifyParam param, NotifyValue other) {
     CheckBound(void(0));
@@ -96,11 +98,11 @@ GRect EventContext::viewportRect() {
 }
 Offset EventContext::viewportOffset() {
     CheckBound({});
-    return offset() - caretOffset() - doc->getContext()->m_renderManager->getViewportOffset();
+    return offset() - caretOffset() - doc->context()->m_renderManager->getViewportOffset();
 }
 Offset EventContext::viewportLogicOffset() {
     CheckBound({});
-    return element->getLogicOffset() - doc->getContext()->m_renderManager->getViewportOffset();
+    return element->getLogicOffset() - doc->context()->m_renderManager->getViewportOffset();
 }
 Offset EventContext::offset() {
     CheckBound({});
@@ -138,10 +140,9 @@ void EventContext::timer(long long interval, int id, int count) {
     timer.detach();
 }
 
-Context *EventContext::getDocContext() { return doc->getContext(); }
+Context *EventContext::getDocContext() { return doc->context(); }
 
 StyleManager *EventContext::getStyleManager() { return &getDocContext()->m_styleManager; }
-AutoComplete *EventContext::getAutoComplete() { return &getDocContext()->m_autoComplete; }
 
 SelectionState EventContext::getSelectionState() {
     CheckBound(SelectionNone);

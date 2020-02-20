@@ -163,7 +163,6 @@ struct Context {
     explicit Context(RenderManager *renderManager) :
     m_renderManager(renderManager),
     m_caretManager(renderManager),
-    m_autoComplete(&m_caretManager),
     m_layoutManager(renderManager){}
 };
 struct Tag {
@@ -274,6 +273,7 @@ struct EventContext {
         getCaretManager()->update();
     }
     inline Element *current() { return element; }
+    Position position() { return {getCounter().line, pos().getIndex()}; }
     Painter getPainter();
     Canvas getCanvas(SkPaint *paint);
     Canvas getCanvas();
@@ -281,10 +281,9 @@ struct EventContext {
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
     StyleManager *getStyleManager();
-    AutoComplete *getAutoComplete();
     inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
     Lexer *getLexer();
-    LineViewer getLineViewer(int offset = 0);
+    LineViewer getLineViewer(int offset = 0, bool pushCommand = true);
     void insertLine(int offset = 0, int count = 1) {
         for (int i = 0; i < count; ++i) {
             getDocContext()->m_textBuffer.insertLine(getCounter(), offset);
@@ -295,18 +294,22 @@ struct EventContext {
             getDocContext()->m_textBuffer.deleteLine(getCounter(), offset);
         }
     }
-    void breakLine(int offset, int idx) {
-        auto line = getLineViewer(offset);
-        auto next = getLineViewer(offset + 1);
+
+    void breakLine(int offset, int idx, bool pushCommand = true) {
+        if (pushCommand) {
+            push(CommandType::Break, CommandData(index));
+        }
+        auto line = getLineViewer(offset, false);
+        auto next = getLineViewer(offset + 1, false);
         next.append(line.c_str() + idx, line.length() - idx);
         line.remove(idx, line.length() - idx);
     }
     void combineLine(int offset = 0, bool pushCommand = true) {
-        auto line = getLineViewer(offset);
+        auto line = getLineViewer(offset, false);
         if (pushCommand) {
             push(CommandType::Combine, CommandData(line.length()));
         }
-        auto next = getLineViewer(offset + 1);
+        auto next = getLineViewer(offset + 1, false);
         line.append(next.c_str());
         next.clear();
     }

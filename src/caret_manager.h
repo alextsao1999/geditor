@@ -28,7 +28,6 @@ struct CaretPos {
         offset = value;
     }
 };
-
 class CaretManager {
     friend class RenderManager;
     friend class AutoComplete;

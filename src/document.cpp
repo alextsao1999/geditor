@@ -3,7 +3,7 @@
 //
 
 #include "document.h"
-
+#include "doc_manager.h"
 Offset Element::getOffset(EventContext &context) {
     Offset offset = getLogicOffset();
     EventContext *outer = context.outer;
@@ -74,5 +74,9 @@ void Root::onRedraw(EventContext &context) {
 }
 
 void Root::onRemove(EventContext &context) {
+
+}
+
+Document::Document(DocumentManager *mgr) : m_manager(mgr), m_context(mgr->m_render), m_root(this) {
 
 }

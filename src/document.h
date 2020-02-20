@@ -96,6 +96,7 @@ public:
     virtual void setTail(Element *ele) {}
     virtual Element *getNext() { return nullptr; }
     virtual Element *getPrev(){ return nullptr; }
+    virtual bool onCanEnter(EventContext &context) { return getHead() != nullptr; }
     virtual bool isHead(EventContext &context) { return getPrev() == nullptr; }
     virtual bool isTail(EventContext &context) { return getNext() == nullptr; }
     virtual Element *onNext(EventContext &context) { context.index++;return getNext(); }
@@ -151,6 +152,8 @@ public:
     DEFINE_EVENT(onKeyDown, int code, int status);
     DEFINE_EVENT(onKeyUp, int code, int status);
     DEFINE_EVENT2(onMouseMove);
+    DEFINE_EVENT2(onMouseHover);
+    DEFINE_EVENT2(onMouseLeave);
     DEFINE_EVENT2(onLeftButtonUp);
     DEFINE_EVENT2(onLeftButtonDown);
     DEFINE_EVENT2(onRightButtonUp);
@@ -390,7 +393,7 @@ public:
     }
 };
 
-class LanguageClient;
+class DocumentManager;
 // 根据Children 自动改变宽高
 template <Display D = DisplayBlock>
 class Container : public RelativeElement {
@@ -513,14 +516,39 @@ public:
     Offset m_viewportOffset;
     EventContext m_root;
     EventContext m_begin;
+    DocumentManager *m_manager = nullptr;
 public:
-    explicit Document(RenderManager *renderManager) : m_context(renderManager), m_root(this) {}
+    explicit Document(DocumentManager *mgr);
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
-    virtual LanguageClient *getLanguageClient() { return nullptr; };
+    DocumentManager *getDocumentManager() { return m_manager; };
     virtual string_ref getUri() { return nullptr; };
-    virtual void uploadContent() {};
+    inline Context *context() { return &m_context; };
+    void layout() {
+        setViewportOffset(m_viewportOffset);
+        m_root.relayout();
+    }
+    void undo() {
+        m_context.clearSelect();
+        if (m_context.m_queue.has()) {
+            auto command = m_context.m_queue.pop();
+            if (command.type == CommandType::PushEnd) {
+                CaretPos end = command.pos;
+                while (m_context.m_queue.has()) {
+                    command = m_context.m_queue.pop();
+                    if (command.type == CommandType::PushStart) {
+                        m_context.select(command.pos, end);
+                        return;
+                    }
+                    command.context->current()->onUndo(command);
+                    command.context->free();
+                }
+            } else {
+                command.context->current()->onUndo(command);
+                command.context->free();
+            }
+        }
+    }
     ///////////////////////////////////////////////////////////////////
-    inline Context *getContext() { return &m_context; };
     Offset getLogicOffset() override { return {25, 0}; }
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
@@ -555,31 +583,8 @@ public:
         }
         m_viewportOffset = offset;
     }
-    void undo() {
-        m_context.clearSelect();
-        if (m_context.m_queue.has()) {
-            auto command = m_context.m_queue.pop();
-            if (command.type == CommandType::PushEnd) {
-                CaretPos end = command.pos;
-                while (m_context.m_queue.has()) {
-                    command = m_context.m_queue.pop();
-                    if (command.type == CommandType::PushStart) {
-                        m_context.select(command.pos, end);
-                        return;
-                    }
-                    command.context->current()->onUndo(command);
-                    command.context->free();
-                }
-            } else {
-                command.context->current()->onUndo(command);
-                command.context->free();
-            }
-        }
-    }
-    void layout() {
-        setViewportOffset(m_viewportOffset);
-        m_root.relayout();
-    }
+
+    virtual void onContentChange(EventContext &event, CommandType type, CommandData data) {}
 };
 
 #endif //TEST_DOCUMENT_H

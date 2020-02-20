@@ -16,6 +16,7 @@ enum class CommandType {
     PushStart,
     PushEnd,
     AddChar,
+    AddString,
     SetString,
     DeleteChar,
     DeleteString,

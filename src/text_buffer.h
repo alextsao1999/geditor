@@ -8,6 +8,7 @@
 
 #include "common.h"
 #include "line_index.h"
+#include "command_queue.h"
 #include <vector>
 #include <iostream>
 #define GString std::wstring
@@ -22,45 +23,31 @@ class LineViewer {
 private:
 public:
     int m_line = 0;
+    EventContext *m_context = nullptr;
     LineBuffer *m_buffer = nullptr;
     LineViewer() = default;
-    LineViewer(int line, LineBuffer *buffer) : m_line(line), m_buffer(buffer) {}
+    LineViewer(int line, LineBuffer *buffer, EventContext *ctx = nullptr) :
+    m_line(line), m_buffer(buffer), m_context(ctx) {}
     inline int getLineNumber() { return m_line; }
     inline bool empty() { return content().empty(); }
     inline GString &content() { return (*m_buffer)[m_line].content; }
-    const GChar *c_str() {
-        return (const GChar *) content().c_str();
-    }
-    void insert(int pos, int ch) {
-        auto &&str = content();
-        str.insert(str.begin() + pos, (GChar) ch);
-    }
-    void insert(int pos, const GChar *string) {
-        auto &&str = content();
-        str.insert(pos, string);
-    }
-    void remove(int pos, int length) {
-        auto &&str = content();
-        str.erase(str.begin() + pos, str.begin() + pos + length);
-    }
-    void remove(int pos) {
-        auto &&str = content();
-        str.erase(str.begin() + pos);
-    }
+    inline const GChar *c_str() { return (const GChar *) content().c_str(); }
+    void insert(int pos, int ch);
+    void insert(int pos, const GChar *string);
+    void remove(int pos, int length);
+    void remove(int pos);
     inline int length() { return content().length(); }
     inline size_t size() { return length() * sizeof(GChar); }
-    void append(const GChar *text, int length = 0) {
-        if (length == 0) length = gstrlen(text);
-        content().append(text, length);
-    }
+    void append(const GChar *text, int length = 0);
+    GChar charAt(int pos) { return content()[pos]; }
+    void clear();
+
     template <typename ...Args>
     void format(GChar *text, Args...arg) {
         GChar buf[255];
         gsprintf(buf, text, std::forward<Args>(arg)...);
         append(buf);
     }
-    GChar charAt(int pos) { return content()[pos]; }
-    void clear() { content().clear(); }
 };
 
 class TextBuffer {
@@ -106,7 +93,7 @@ public:
         if (m_buffer.size() == 1) { return; }
         m_buffer.erase(m_buffer.begin() + line);
     }
-    LineViewer getLine(LineCounter counter, int offset) {
+    LineViewer getLine(LineCounter counter, int offset, EventContext *context) {
         int line = counter.line + offset;
         if (line >= m_buffer.size()) {
             int rm = line - (int) m_buffer.size() + 1;
@@ -114,7 +101,7 @@ public:
                 m_buffer.emplace_back();
             }
         }
-        return {line, &m_buffer};
+        return {line, &m_buffer, context};
     }
 };
 

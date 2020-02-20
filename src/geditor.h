@@ -40,7 +40,6 @@ public:
         ASSERT(hwnd, "Create Window Error!");
         m_data = new GEditorData(hwnd);
         SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
-        m_data->m_manager.open(R"(C:/Users/Administrator/Desktop/compiler4e/runtime.c)");
     }
     ~GEditor() { delete m_data; }
 };
@@ -85,10 +84,11 @@ public:
         Document &current = data->current();
         switch (message) {
             case WM_MOUSEMOVE:
+                onTrackMouse(hWnd);
                 current.m_mouse = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset;
                 current.onMouseMove(current.m_root, current.m_mouse.x, current.m_mouse.y);
-                if (current.getContext()->m_selecting) {
-                    current.getContext()->updateSelect();
+                if (current.context()->m_selecting) {
+                    current.context()->updateSelect();
                     data->m_renderManager.invalidate();
                 }
                 break;
@@ -104,14 +104,14 @@ public:
                 break;
             case WM_LBUTTONUP: // 鼠标左键放开
                 DispatchEvent(onLeftButtonUp);
-                data->current().getContext()->endSelect();
+                current.context()->endSelect();
                 ReleaseCapture();
                 break;
             case WM_LBUTTONDOWN: // 鼠标左键按下
                 SetCapture(hWnd);
                 SetFocus(hWnd);
                 DispatchEvent(onLeftButtonDown);
-                data->current().getContext()->startSelect();
+                current.context()->startSelect();
                 break;
             case WM_LBUTTONDBLCLK: // 鼠标左键双击
                 DispatchEvent(onLeftDoubleClick);
@@ -129,21 +129,21 @@ public:
             case WM_IME_CHAR:
             case WM_CHAR:
                 if (wParam == 26 && (GetKeyState(VK_CONTROL) & 0x8000)) {
-                    data->current().undo();
+                    current.undo();
                     return 0;
                 }
                 if (current.m_context.m_caretManager.m_context) {
-                    SelectionState state = current.m_context.m_caretManager.m_context->getSelectionState();
+                    SelectionState state = current.context()->m_caretManager.m_context->getSelectionState();
                     if (state != SelectionNone) {
                         current.m_context.pushStart();
-                        data->current().onSelectionDelete(data->current().m_root, state);
+                        current.onSelectionDelete(current.m_root, state);
                     }
                     MsgCallFocus(onInputChar, state, wParam);
                     if (state != SelectionNone) {
-                        current.m_context.clearSelect();
-                        current.m_context.pushEnd();
+                        current.context()->clearSelect();
+                        current.context()->pushEnd();
+                        current.context()->m_caretManager.update();
                         current.m_root.redraw();
-                        current.m_context.m_caretManager.update();
                     }
                 }
                 break;
@@ -160,14 +160,20 @@ public:
                 PostQuitMessage(0);
                 break;
             case WM_SETFOCUS:
-                data->current().getContext()->m_caretManager.create();
+                current.context()->m_caretManager.create();
                 break;
             case WM_KILLFOCUS:
-                data->current().getContext()->m_caretManager.destroy();
+                current.context()->m_caretManager.destroy();
+                break;
+            case WM_MOUSEHOVER:
+                current.onMouseHover(current.m_root, current.m_mouse.x, current.m_mouse.y);
+                break;
+            case WM_MOUSELEAVE:
+                current.onMouseLeave(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 break;
             case WM_DROPFILES:
                 onDropFiles(hWnd, (HDROP) wParam, data);
-            break;
+                break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
         }
@@ -219,7 +225,7 @@ public:
         }
         SetScrollPos(data->m_hwnd, nBar, prev, true);
         data->m_renderManager.updateViewport();
-        data->current().getContext()->m_caretManager.update();
+        data->current().context()->m_caretManager.update();
     }
     static void onDropFiles(HWND hwnd, HDROP hDropInfo, GEditorData *data) {
         //  UINT  nFileCount = DragQueryFile(hDropInfo, (UINT)-1, NULL, 0);  //查询一共拖拽了几个文件
@@ -255,6 +261,14 @@ public:
         data->m_renderManager.update(&rect);
         data->m_renderManager.copy();
         EndPaint(hWnd, &ps);
+    }
+    static void onTrackMouse(HWND hWnd) {
+        TRACKMOUSEEVENT csTME;
+        csTME.cbSize = sizeof(csTME);
+        csTME.dwFlags = TME_LEAVE | TME_HOVER;
+        csTME.hwndTrack = hWnd;
+        csTME.dwHoverTime = 1000;  // 鼠标停留超过 10ms 认为状态为 HOVER
+        TrackMouseEvent(&csTME);
     }
 
 };

@@ -352,7 +352,7 @@ public:
     GEditorData *m_data = nullptr;
     SkBitmap m_background;
     WindowRenderManager(HWND hwnd, GEditorData *data) : RenderManager(hwnd), m_data(data) {
-        SkImageDecoder::DecodeFile(R"(C:\Users\Administrator\Desktop\back.bmp)", &m_background);
+        //SkImageDecoder::DecodeFile(R"(C:\Users\Administrator\Desktop\back.bmp)", &m_background);
     }
     void updateViewport();
     Offset getViewportOffset() override;

@@ -208,6 +208,13 @@ public:
         m_caret->set(offset);
         m_caret->show();
     }
+
+    static int GetIndex(EventContext &context, Offset offset, int x, int y) {
+        TextCaretService service(offset, &context);
+        Buffer<SkRect> rects;
+        service.breakText(rects);
+        return service.getIndex(rects, x, y);
+    }
 };
 class OffsetCaretService {
 public:
@@ -245,6 +252,7 @@ public:
         Canvas canvas = context.getCanvas();
         canvas->drawBitmap(bitmap, 0, 0);
         canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
+
 /*
         SkPaint style;
         style.setColor(SK_ColorBLACK);
@@ -415,8 +423,6 @@ public:
             if (service.index() >= line.length()) {
                 return;
             }
-            context.push(CommandType::DeleteChar,
-                         CommandData(service.index(), line.charAt(service.index())));
             line.remove(service.index());
             context.redraw();
         }
@@ -460,29 +466,22 @@ public:
                 std::swap(start, end);
             }
             int length = end.index - start.index;
-            context.push(CommandType::DeleteString,
-                         CommandData(start.index, new GString(line.c_str() + start.index, length)));
             line.remove(start.index, length);
             context.setPos(start);
         }
         if (state == SelectionStart) {
             CaretPos start = context.getDocContext()->m_selectStartPos;
             int length = line.length() - start.index;
-            context.push(CommandType::DeleteString,
-                         CommandData(start.index, new GString(line.c_str() + start.index, length)));
             line.remove(start.index, length);
             context.setPos(start);
             //context.focus();
         }
         if (state == SelectionInside || state == SelectionRow) {
-            context.push(CommandType::DeleteString,
-                         CommandData(0, new GString(line.c_str(), line.length())));
+            context.getLineViewer().clear();
             erase(context);
         }
         if (state == SelectionEnd) {
             CaretPos end = context.getDocContext()->m_selectEndPos;
-            context.push(CommandType::DeleteString,
-                         CommandData(0, new GString(line.c_str(), end.index)));
             line.remove(0, end.index);
             EventContext ctx = context.nearby(-1);
             if (ctx.tag().contain(_GT("Line"))) {
@@ -499,26 +498,20 @@ public:
         auto line = context.getLineViewer();
         switch (ch) {
             case VK_BACK:
-                context.getAutoComplete()->hide();
                 if (state == SelectionNone) {
                     if (service.index() > 0) {
-                        context.push(CommandType::DeleteChar,
-                                     CommandData(
-                                             service.index() - 1,
-                                             line.charAt(service.index() - 1)));
                         line.remove(service.index() - 1);
                         service.moveLeft();
                     } else {
                         EventContext prev = context.nearby(-1);
                         if (prev.tag().contain(_GT("Line"))) {
                             auto prevLine = prev.getLineViewer();
-                            int length = prevLine.length();
-                            caret->data().setIndex(length);
+                            caret->data().setIndex(prevLine.length());
                             prev.combineLine();
                             erase(context);
                             prev.reflow();
                             prev.redraw();
-                            prev.focus();
+                            prev.focus(); // 会释放context
                             return;
                         } else {
                             if (!context.getLineViewer().empty() || context.isHead()) {
@@ -542,29 +535,21 @@ public:
                 }
                 break;
             case VK_RETURN: {
-                context.getAutoComplete()->hide();
                 insert(context);
-                int idx = service.index();
-                context.push(CommandType::Break, CommandData(idx));
-                auto next = context.getLineViewer(1);
-                next.append(line.c_str() + idx, line.length() - idx);
-                line.remove(idx, line.length() - idx);
+                context.breakLine(0, service.index());
                 context.reflow();
                 context.redraw();
-                context.pos().setIndex(0);
                 caret->data().setIndex(0);
                 caret->next();
                 return;
             }
             default:
-                context.push(CommandType::AddChar, CommandData(service.index(), ch));
                 line.insert(service.index(), ch);
                 service.moveRight();
                 break;
         }
         service.commit();
         context.redraw();
-        context.getAutoComplete()->show();
     }
     void onFocus(EventContext &context) override {
         context_on_outer(context, Focus);
@@ -614,17 +599,20 @@ public:
         }
     }
     void onUndo(Command command) override {
-        auto line = command.context->getLineViewer();
+        auto line = command.context->getLineViewer(0, false);
         if (command.type == CommandType::Break) {
-            auto next = command.context->getLineViewer(1);
+            auto next = command.context->getLineViewer(1, false);
             line.append(next.c_str());
             next.clear();
         }
         if (command.type == CommandType::Combine) {
-            command.context->breakLine(0, command.data.value);
+            command.context->breakLine(0, command.data.value, false);
         }
         if (command.type == CommandType::AddChar) {
             line.remove(command.data.input.pos);
+        }
+        if (command.type == CommandType::AddString) {
+            line.remove(command.data.input.pos, command.data.input.ch);
         }
         if (command.type == CommandType::SetString) {
             line.content().assign(*command.data.string.string);
@@ -710,11 +698,8 @@ public:
     Element *copy() override { return new AutoLineElement(); }
     void onInputChar(EventContext &context, SelectionState state, int ch) override;
     void onLeftButtonDown(EventContext &context, int x, int y) override;
-
     void onRightButtonDown(EventContext &context, int x, int y) override;
-
     void onRightDoubleClick(EventContext &context, int x, int y) override;
-
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
         if (context.document()->m_onBlur) {
             if (context.document()->m_onBlur(&context, (int) focus, (int) force)) {
@@ -723,6 +708,7 @@ public:
         }
         LineElement::onBlur(context, focus, force);
     }
+    void onMouseHover(EventContext &context, int x, int y) override;
 };
 class TextElement : public RelativeElement {
 private:
@@ -1745,6 +1731,9 @@ public:
     }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.y += 10;
+    }
+    bool onCanEnter(EventContext &context) override {
+        return expand;
     }
 };
 

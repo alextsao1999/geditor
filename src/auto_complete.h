@@ -8,16 +8,15 @@
 #include "caret_manager.h"
 #include <vector>
 #include "paint_manager.h"
+#include "protocol.h"
 class AutoComplete {
 private:
     HWND m_hWnd;
-    WNDPROC OldProc;
+    WNDPROC OldProc{};
     RenderManager m_render;
 public:
-    struct Item {};
-    CaretManager *m_caretManager;
-    std::vector<Item> m_items;
-    explicit AutoComplete(CaretManager *caret) : m_caretManager(caret) {
+    std::vector<CompletionItem> m_items;
+    explicit AutoComplete() {
         int width = 250, height = 300;
         RegisterACClass();
         auto m_owner = CreateWindowEx(WS_EX_TOPMOST | WS_EX_NOACTIVATE, _GT("AutoComplete"), _GT(""),
@@ -36,13 +35,16 @@ public:
     ~AutoComplete() {
         SendMessage(m_hWnd, WM_CLOSE, 0, 0);
     }
-    void addItem(const Item &item) {
+    void set(std::vector<CompletionItem> &items) {
+        m_items = std::move(items);
+    }
+    void add(const CompletionItem &item) {
         m_items.emplace_back(item);
     }
     void clear() {
         m_items.clear();
     }
-    void show();
+    void show(Document *document);
     void hide() {
         return;
         ShowWindow(m_hWnd, SW_HIDE);
@@ -63,7 +65,6 @@ public:
         wcex.hIconSm = nullptr;
         return RegisterClassEx(&wcex);
     }
-
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         auto *ac = (AutoComplete *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (message == WM_DRAWITEM) {

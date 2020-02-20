@@ -38,7 +38,7 @@ EXPORT_API void WINAPI GEditorSetColor(GEditor *editor, int style, GColor color)
 EXPORT_API void WINAPI GEditorRelayout(GEditor *editor) {
     editor->m_data->current().m_root.relayout();
 }
-EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) { return editor->m_data->current().m_context.m_caretManager.getEventContext(); }
+EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) { return editor->m_data->current().m_context.m_caretManager.getEventContext().ptr(); }
 EXPORT_API EventContext *WINAPI GEditorGetRoot(GEditor *editor) {
     return &editor->m_data->current().m_root;
 }

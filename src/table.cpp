@@ -3,7 +3,7 @@
 //
 
 #include "table.h"
-
+#include "doc_manager.h"
 void AutoLineElement::onInputChar(EventContext &context, SelectionState state, int ch) {
     auto line = context.getLineViewer();
     auto caret = context.getCaretManager();
@@ -78,16 +78,12 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                 if (context.isTail()) {
                     insert(context);
                 }
-                int length = line.length();
                 context.replace(replace);
                 context.outer->update();
                 auto newLine = context.getLineViewer();
                 newLine.append(_GT(" ()"));
                 EventContext *inner = context.findInnerFirst(TAG_FOCUS);
                 inner->pos().setIndex(-2);
-                inner->push(CommandType::AddChar, CommandData(length, ' '));
-                inner->push(CommandType::AddChar, CommandData(length + 1, '('));
-                inner->push(CommandType::AddChar, CommandData(length + 2, ')'));
                 inner->focus(false);
                 return;
             }
@@ -110,7 +106,12 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         }
     }
     LineElement::onInputChar(context, state, ch);
-    context.document()->uploadContent();
+    if (ch == '(') {
+        line.insert(context.pos().getIndex(), ')');
+    }
+    if (auto *mgr = context.document()->getDocumentManager()) {
+        mgr->onTrigger(context, ch);
+    }
     if (state == SelectionNone) {
         EventContext *current = caret->getEventContext();
         if (current) {
@@ -129,46 +130,33 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
 }
 
 void AutoLineElement::onLeftButtonDown(EventContext &context, int x, int y) {
-    if (auto *client = context.document()->getLanguageClient()) {
-        static bool isok = false;
-        if (!isok) {
-            isok = true;
-            client->DocumentSymbol(context.document()->getUri());
-        } else {
-            TextCaretService service({4, 6}, &context);
-            Buffer<SkRect> rects;
-            service.breakText(rects);
-            int index = service.getIndex(rects, x, y);
-            client->Hover(context.document()->getUri(), {context.getCounter().line, index});
-        }
-
-    }
     LineElement::onLeftButtonDown(context, x, y);
+    if (auto *mgr = context.document()->getDocumentManager()) {
+        mgr->onSignatureHelp(context.position());
+    }
 
 }
 
 void AutoLineElement::onRightButtonDown(EventContext &context, int x, int y) {
-    if (auto *client = context.document()->getLanguageClient()) {
-        TextCaretService service({4, 6}, &context);
-        Buffer<SkRect> rects;
-        service.breakText(rects);
-        int index = service.getIndex(rects, x, y);
-        client->SignatureHelp(context.document()->getUri(), {context.getCounter().line, index});
+    if (auto *mgr = context.document()->getDocumentManager()) {
+        int index = TextCaretService::GetIndex(context, {4, 6}, x, y);
+        mgr->onGoToDeclaration({context.getCounter().line, index});
     }
 
 }
 
 void AutoLineElement::onRightDoubleClick(EventContext &context, int x, int y) {
-    if (auto *client = context.document()->getLanguageClient()) {
-        TextCaretService service({4, 6}, &context);
-        Buffer<SkRect> rects;
-        service.breakText(rects);
-        int index = service.getIndex(rects, x, y);
-
+    if (auto *mgr = context.document()->getDocumentManager()) {
         CompletionContext ctx;
         ctx.triggerKind = CompletionTriggerKind::Invoked;
-        client->Completion(context.document()->getUri(), {context.getCounter().line, index}, ctx);
-
+        mgr->onComplete(context.position(), ctx);
     }
 
+}
+
+void AutoLineElement::onMouseHover(EventContext &context, int x, int y) {
+    if (auto *mgr = context.document()->getDocumentManager()) {
+        int index = TextCaretService::GetIndex(context, {4, 6}, x, y);
+        mgr->onHover({context.getCounter().line, index});
+    }
 }

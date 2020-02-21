@@ -1,5 +1,5 @@
 //
-// Created by æ›¹é¡º on 2019/5/3.
+// Created by ²ÜË³ on 2019/5/3.
 //
 
 #ifndef PARSE_E_FILE_ECODEPARSER_H
@@ -67,7 +67,7 @@ struct EWindow {
     int f1Help = 0;
     int helpMark = 0;
     int showInTaskbar = 0;
-    int mov = 0; // éšæ„ç§»åŠ¨
+    int mov = 0; // ËæÒâÒÆ¶¯
     int shape = 0;
     int alwaysTop = 0;
     int alwaysActive = 0;
@@ -137,7 +137,7 @@ struct ESub {
     FixedData code[6];
     std::vector<EVar> params;
     std::vector<EVar> locals;
-    EModule *module; // æ‰€å±æ¨¡å—
+    EModule *module; // ËùÊôÄ£¿é
     ASTProgramPtr ast;
 };
 
@@ -161,14 +161,14 @@ struct EDllSub {
 };
 
 struct ECode {
-    BasicInfo info; // æºç ä¿¡æ¯
-    std::vector<EWindow> windows; //çª—å£
-    std::vector<EConst> constants; //å¸¸é‡
-    std::vector<ELibrary> libraries; //æ”¯æŒåº“
-    std::vector<EModule> modules; // ç¨‹åºé›†/ç±»
-    std::vector<ESub> subs; // æ‰€æœ‰å­ç¨‹åº
-    std::vector<EVar> globals; // å…¨å±€å˜é‡
-    std::vector<EStruct> structs; // è‡ªå®šä¹‰æ•°æ®ç±»å‹
+    BasicInfo info; // Ô´ÂëĞÅÏ¢
+    std::vector<EWindow> windows; //´°¿Ú
+    std::vector<EConst> constants; //³£Á¿
+    std::vector<ELibrary> libraries; //Ö§³Ö¿â
+    std::vector<EModule> modules; // ³ÌĞò¼¯/Àà
+    std::vector<ESub> subs; // ËùÓĞ×Ó³ÌĞò
+    std::vector<EVar> globals; // È«¾Ö±äÁ¿
+    std::vector<EStruct> structs; // ×Ô¶¨ÒåÊı¾İÀàĞÍ
     std::vector<EDllSub> dlls; // dll
     std::unordered_map<int, void *> maps;
     template <typename Type>

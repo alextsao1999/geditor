@@ -5,11 +5,30 @@
 #include "table.h"
 #include "doc_manager.h"
 void AutoLineElement::onInputChar(EventContext &context, SelectionState state, int ch) {
+    static const GChar *lchar = _GT("([{\"'");
+    static const GChar *rchar = _GT(")]}\"'");
     auto line = context.getLineViewer();
     auto caret = context.getCaretManager();
     if (state == SelectionNone) {
+        int index = context.pos().getIndex();
         if (ch == VK_BACK) {
-            if (context.isHead() && context.pos().index == 0) {
+            if (line.getSpaceCount() == index) {
+                EventContext prev = context.nearby(-1);
+                if (prev.tag().contain(_GT("Line"))) {
+                    context.getDocContext()->pushStart();
+                    line.remove(0, index);
+                    int prevLength = prev.getLineViewer().length();
+                    context.combineLine(-1);
+                    erase(context);
+                    prev.reflow();
+                    prev.redraw();
+                    caret->data().setIndex(prevLength);
+                    prev.focus(); // 会释放context
+                    context.getDocContext()->pushEnd();
+                    return;
+                }
+            }
+            if (context.isHead() && index == 0) {
                 if (context.outer && context.outer->tag().contain(_GT("CodeBlock"))) {
                     EventContext ctx;
                     if (context.outer->outer && context.outer->outer->tag().contain(_GT("Switch"))) {
@@ -27,7 +46,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                     }
                 }
             }
-            if (context.isTail() && context.pos().index == 0) {
+            if (context.isTail() && index == 0) {
                 if (context.nearby(-1).tag().contain(_GT("Condition"))) {
                     caret->data().setIndex(-1);
                     caret->findPrev(TAG_FOCUS);
@@ -36,7 +55,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
             }
         }
         if (ch == VK_RETURN) {
-            if (context.isHead() && context.pos().index == 0) {
+            if (context.isHead() && index == 0) {
                 if (context.outer && context.outer->tag().contain(_GT("CodeBlock"))) {
                     EventContext ctx;
                     if (context.outer->outer && context.outer->outer->tag().contain(_GT("Switch"))) {
@@ -56,7 +75,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                     return;
                 }
             }
-            if (context.isTail() && context.pos().index == line.length()) {
+            if (context.isTail() && index == line.length()) {
                 if (context.outer && context.outer->tag().contain(_GT("Loop"))) {
                     context.outer->insert(copy());
                     context.outer->update();
@@ -80,53 +99,94 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                 }
                 context.replace(replace);
                 context.outer->update();
-                auto newLine = context.getLineViewer();
-                newLine.append(_GT(" ()"));
                 EventContext *inner = context.findInnerFirst(TAG_FOCUS);
+                auto newLine = inner->getLineViewer();
+                newLine.append(_GT(" ()"));
                 inner->pos().setIndex(-2);
                 inner->focus(false);
                 return;
             }
+            context.getDocContext()->pushStart();
+            int indent = line.getSpaceCount();
+            if (line.back() == _GT('{')) {
+                indent += 4;
+            }
+            bool newLine = false;
+            if (line.charAt(index) == _GT('}')) {
+                newLine = true;
+            }
+            GChar str[255] = {_GT('\0')};
+            for (int i = 0; i < indent; ++i) {
+                gstrcat(str, _GT(" "));
+            }
+            insert(context);
+            context.breakLine(0, context.pos().getIndex());
+            context.nearby(1).getLineViewer().insert(0, str);
+            context.pos().setIndex(indent);
+            if (newLine) {
+                insert(context);
+                context.pos().setIndex(indent + 4);
+                gstrcat(str, _GT("    "));
+                context.nearby(1).getLineViewer().insert(0, str);
+            }
+            context.reflow();
+            context.redraw();
+            context.next();
+            context.focus(false);
+            context.getDocContext()->pushEnd();
+            return;
         }
         if (ch == VK_TAB) {
-            auto index = context.pos().getIndex();
-            static std::set<GChar> sets = {_GT('"'), _GT(','), _GT(')')};
+            static const GChar *jumps = _GT("'\",()<>;{}");
             while (index < line.length()) {
-                if (sets.count(line.charAt(index))) {
+                if (gstrchr(jumps, line.charAt(index))) {
                     context.pos().setIndex(index + 1);
                     context.focus(false);
                     return;
                 }
                 index++;
             }
+            context.getDocContext()->pushStart();
             for (int i = 0; i < 4; ++i) {
                 LineElement::onInputChar(context, state, VK_SPACE);
             }
+            context.getDocContext()->pushEnd();
             return;
         }
-    }
-    LineElement::onInputChar(context, state, ch);
-    if (ch == '(') {
-        line.insert(context.pos().getIndex(), ')');
-    }
-    if (auto *mgr = context.document()->getDocumentManager()) {
-        mgr->onTrigger(context, ch);
-    }
-    if (state == SelectionNone) {
-        EventContext *current = caret->getEventContext();
-        if (current) {
-            line = current->getLineViewer();
-            if (current->isHead() && current->outer && current->outer->tag().contain(_GT("Single"))) {
-                if (line.content().substr(0, 2) != _GT("if")) {
-                    EventContext single = *current->outer;
-                    single.seperate();
-                    single.outer->update();
-                    single.focus(true, true);
-                    return;
-                }
+        if (auto *right = gstrchr(rchar, ch)) {
+            if (line.charAt(context.pos().getIndex()) == ch) {
+                context.pos().setIndex(context.pos().getIndex() + 1);
+                context.focus(false);
+                return;
             }
         }
     }
+    LineElement::onInputChar(context, state, ch);
+    if (state != SelectionNone) {
+        return;
+    }
+    EventContext *current = caret->getEventContext();
+    if (auto *mgr = current->document()->getDocumentManager()) {
+        mgr->onTrigger(context, ch);
+    }
+    if (current) {
+        line = current->getLineViewer();
+        int index = context.pos().getIndex();
+        if (auto *left = gstrchr(lchar, ch)) {
+            size_t char_idx = left - lchar;
+            line.insert(index, rchar[char_idx]);
+            current->focus(false);
+        }
+        if (current->isHead() && current->outer && current->outer->tag().contain(_GT("Single"))) {
+            if (line.content().substr(0, 2) != _GT("if")) {
+                EventContext single = *current->outer;
+                single.seperate();
+                single.outer->update();
+                single.focus(true, true);
+            }
+        }
+    }
+
 }
 
 void AutoLineElement::onLeftButtonDown(EventContext &context, int x, int y) {

@@ -427,7 +427,8 @@ public:
             context.redraw();
         }
         if (code == VK_HOME) {
-            context.pos().setIndex(0);
+            auto line = context.getLineViewer();
+            context.pos().setIndex(line.getSpaceCount());
             context.focus(false);
         }
         if (code == VK_END) {
@@ -485,7 +486,7 @@ public:
             line.remove(0, end.index);
             EventContext ctx = context.nearby(-1);
             if (ctx.tag().contain(_GT("Line"))) {
-                ctx.combineLine();
+                context.combineLine(-1);
                 ctx.focus();
                 erase(context);
             }
@@ -505,12 +506,12 @@ public:
                     } else {
                         EventContext prev = context.nearby(-1);
                         if (prev.tag().contain(_GT("Line"))) {
-                            auto prevLine = prev.getLineViewer();
-                            caret->data().setIndex(prevLine.length());
-                            prev.combineLine();
+                            int prevLength = prev.getLineViewer().length();
+                            context.combineLine(-1);
                             erase(context);
                             prev.reflow();
                             prev.redraw();
+                            caret->data().setIndex(prevLength);
                             prev.focus(); // 会释放context
                             return;
                         } else {
@@ -606,7 +607,7 @@ public:
             next.clear();
         }
         if (command.type == CommandType::Combine) {
-            command.context->breakLine(0, command.data.value, false);
+            command.context->breakLine(-1, command.data.value, false);
         }
         if (command.type == CommandType::AddChar) {
             line.remove(command.data.input.pos);

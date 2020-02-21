@@ -40,11 +40,11 @@ void LineViewer::remove(int pos) {
 }
 
 void LineViewer::append(const GChar *text, int len) {
-    if (m_context) {
-        m_context->push(CommandType::AddString, CommandData(length(), len));
-    }
     if (len == 0) {
         len = gstrlen(text);
+    }
+    if (m_context) {
+        m_context->push(CommandType::AddString, CommandData(length(), len));
     }
     content().append(text, len);
 }

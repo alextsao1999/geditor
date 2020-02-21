@@ -16,6 +16,10 @@
 #include <SkFontMgr.h>
 #include <SkFont.h>
 #include <SkImageDecoder.h>
+#include <SkBlurDrawLooper.h>
+#include <SkLayerDrawLooper.h>
+#include <SkBlurMaskFilter.h>
+#include <SkBlurMask.h>
 #include "SkTextBlob.h"
 #include "common.h"
 #include "layout.h"
@@ -137,6 +141,8 @@ public:
         //paint.setFakeBoldText(true);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
+        //paint->setLooper(getLooper());
+
         add(StyleDeafaultFont, paint);
 
         paint.setColor(SkColorSetRGB(255, 165, 0));
@@ -168,7 +174,6 @@ public:
         paint.setColor(SK_ColorBLACK);
         add(StyleTableFont, paint);
 
-
         paint.reset();
         paint.setStyle(GStyle::kStrokeAndFill_Style);
         paint.setColor(SK_ColorLTGRAY);
@@ -178,6 +183,33 @@ public:
         SkColor color;
         SkParse::FindColor(str, &color);
         return color;
+    }
+
+    static SkDrawLooper *getLooper() {
+        SkLayerDrawLooper::Builder builder; // SkLayerDrawLooper的内部类
+        SkLayerDrawLooper::LayerInfo info;
+        info.fPaintBits = SkLayerDrawLooper::kStyle_Bit | SkLayerDrawLooper::kMaskFilter_Bit;
+        info.fOffset.set(0, 0);
+        info.fColorMode = SkXfermode::kSrc_Mode;
+        if (SkPaint* paint = builder.addLayer(info)) {
+            paint->setColor(SK_ColorWHITE);
+            paint->setStyle(SkPaint::kFill_Style);
+            auto *mf = SkBlurMaskFilter::Create(kNormal_SkBlurStyle, SkBlurMask::ConvertRadiusToSigma(3));
+            paint->setMaskFilter(mf)->unref();
+        }
+
+        info.fColorMode = SkXfermode::kSrc_Mode;
+        if (auto *paint = builder.addLayerOnTop(info)) {
+            paint->setStyle(SkPaint::kStroke_Style);
+            paint->setStrokeWidth(1);
+            paint->setColor(SK_ColorWHITE);
+            paint->setAntiAlias(true);
+        }
+        info.fColorMode = SkXfermode::kDst_Mode;
+        builder.addLayerOnTop(info);
+        return builder.detachLooper();
+        return SkBlurDrawLooper::Create(SK_ColorWHITE, 3, 0, 0, SkBlurDrawLooper::kAll_BlurFlag);
+
     }
     void add(int id, const GStyle& paint) {
         m_map.emplace(std::pair<int, GStyle>(id, paint));
@@ -351,8 +383,10 @@ class WindowRenderManager : public RenderManager {
 public:
     GEditorData *m_data = nullptr;
     SkBitmap m_background;
+    SkPaint m_paint;
     WindowRenderManager(HWND hwnd, GEditorData *data) : RenderManager(hwnd), m_data(data) {
-        //SkImageDecoder::DecodeFile(R"(C:\Users\Administrator\Desktop\back.bmp)", &m_background);
+        //SkImageDecoder::DecodeFile(R"(C:\Users\Administrator\Desktop\back.jpg)", &m_background);
+        //m_paint.setAlpha(30);
     }
     void updateViewport();
     Offset getViewportOffset() override;

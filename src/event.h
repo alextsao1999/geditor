@@ -37,6 +37,10 @@ static const char *SelectionString[] = {
         "SelectionInside",
         "SelectionRow",
 };
+enum PushType : int {
+    None,
+    Select
+};
 struct Context {
     std::map<GString, int> keywords = {
             {_GT("if"),    StyleKeywordFont},
@@ -154,8 +158,9 @@ struct Context {
         rect.set({(SkScalar) start.x, (SkScalar) start.y}, {(SkScalar) end.x, (SkScalar) end.y});
         return rect;
     }
-    void pushStart() {
-        m_queue.push({nullptr, m_selectBasePos, CommandType::PushStart, CommandData(0)});
+
+    void pushStart(PushType type = PushType::None) {
+        m_queue.push({nullptr, m_selectBasePos, CommandType::PushStart, CommandData(type)});
     }
     void pushEnd() {
         m_queue.push({nullptr, m_selectCurrentPos, CommandType::PushEnd, CommandData(0)});

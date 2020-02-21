@@ -135,7 +135,7 @@ public:
                 if (current.m_context.m_caretManager.m_context) {
                     SelectionState state = current.context()->m_caretManager.m_context->getSelectionState();
                     if (state != SelectionNone) {
-                        current.m_context.pushStart();
+                        current.m_context.pushStart(PushType::Select);
                         current.onSelectionDelete(current.m_root, state);
                     }
                     MsgCallFocus(onInputChar, state, wParam);

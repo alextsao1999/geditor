@@ -120,11 +120,10 @@ void WindowRenderManager::setViewportOffset(Offset offset) {
 }
 
 void WindowRenderManager::update(GRect *rect) {
-    if (m_background.empty()) {
-        m_canvas->clear(SK_ColorWHITE);
-    } else {
+    m_canvas->clear(SK_ColorWHITE);
+    if (!m_background.empty()) {
         GRect bound = getViewportRect();
-        m_canvas->drawBitmapRect(m_background, bound);
+        m_canvas->drawBitmapRect(m_background, bound, &m_paint);
     }
     m_data->current().onRedraw(m_data->current().m_root);
 }

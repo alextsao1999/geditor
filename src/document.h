@@ -536,7 +536,9 @@ public:
                 while (m_context.m_queue.has()) {
                     command = m_context.m_queue.pop();
                     if (command.type == CommandType::PushStart) {
-                        m_context.select(command.pos, end);
+                        if (command.data.value == PushType::Select) {
+                            m_context.select(command.pos, end);
+                        }
                         return;
                     }
                     command.context->current()->onUndo(command);

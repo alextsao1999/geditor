@@ -21,10 +21,11 @@ typedef int  (WINAPI *CallBack)(EventContext *, int, int);
 #define GChar _TCHAR
 #define _GT(t) _T(t)
 #define gstrcmp wcscmp
-#define gstrcat wcscat
+#define gstrcat wcscat_s
 #define gsprintf swprintf
 #define gstrlen wcslen
 #define gstrcpy wcscpy
+#define gstrchr wcschr
 #elif (defined(ANSI))
 #define GChar char
 #define _GT(t) t
@@ -33,6 +34,7 @@ typedef int  (WINAPI *CallBack)(EventContext *, int, int);
 #define gsprintf sprintf
 #define gstrlen strlen
 #define gstrcpy strcpy
+#define gstrchr strchr
 
 #endif
 

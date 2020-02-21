@@ -40,7 +40,21 @@ public:
     inline size_t size() { return length() * sizeof(GChar); }
     void append(const GChar *text, int length = 0);
     GChar charAt(int pos) { return content()[pos]; }
+    GChar &front() { return content().front(); }
+    GChar &back() { return content().back(); }
     void clear();
+
+    int getSpaceCount() {
+        int count = 0;
+        for (auto &ch : content()) {
+            if (ch == ' ') {
+                count++;
+            } else {
+                break;
+            }
+        }
+        return count;
+    }
 
     template <typename ...Args>
     void format(GChar *text, Args...arg) {

@@ -1,5 +1,5 @@
 //
-// Created by æ›¹é¡º on 2019/5/3.
+// Created by ²ÜË³ on 2019/5/3.
 //
 
 #ifndef PARSE_E_FILE_FILEBUFFER_H
@@ -58,13 +58,13 @@ public:
     inline bool Good() { return pos < length; }
     inline void Skip(int step) { pos += step; }
     int ReadInt() {
-        // å°ç«¯å­—èŠ‚åº
+        // Ð¡¶Ë×Ö½ÚÐò
         pos += 4;
         return (code[pos - 4] | (code[pos - 3] << 8) | (code[pos - 2] << 16) | (code[pos - 1] << 24));
     }
 
     short ReadShort() {
-        // å°ç«¯å­—èŠ‚åº
+        // Ð¡¶Ë×Ö½ÚÐò
         pos += 2;
         return (code[pos - 2] | (code[pos - 1] << 8));
     }

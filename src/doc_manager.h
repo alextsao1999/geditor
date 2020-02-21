@@ -68,8 +68,20 @@ public:
     int m_current = 0;
 public:
     explicit DocumentManager(RenderManager *render) : m_render(render) {
-        // m_client = std::make_shared<LanguageClient>(R"(F:\LLVM\bin\clangd.exe)");
-        m_client = std::make_shared<LanguageClient>(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
+        init();
+        openFile(R"(C:/Users/Administrator/Desktop/compiler4e/runtime.c)");
+    }
+    ~DocumentManager() {
+        if (m_client) {
+            m_client->Shutdown();
+            m_client->Exit();
+            m_loop.detach();
+        }
+    }
+    void init() {
+        //m_client = std::make_shared<LanguageClient>(R"(F:\LLVM\bin\clangd.exe)");
+        //m_client = std::make_shared<LanguageClient>(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
+        m_client = std::make_shared<LanguageClient>(R"()");
         string_ref ref = "file:///C:/Users/Administrator/Desktop/compiler4e/";
         m_handler.bindResponse(m_client->Initialize(ref), [=](value &value) {
             json &cap = value["capabilities"];
@@ -83,14 +95,8 @@ public:
 
             m_client->Initialized();
         });
-        m_loop = std::thread([&] {
-            m_client->loop(m_handler);
-        });
-        openFile(R"(C:/Users/Administrator/Desktop/compiler4e/runtime.c)");
-    }
-    ~DocumentManager() {
-        m_client->Exit();
-        m_loop.detach();
+        m_loop = std::thread([&] { m_client->loop(m_handler); });
+
     }
     LanguageClient *getLanguageClient() { return m_client.get(); }
     void openFile(DocumentUri uri) {

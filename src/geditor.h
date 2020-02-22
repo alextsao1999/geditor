@@ -12,6 +12,7 @@
 #include "open_visitor.h"
 #include "shellapi.h"
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
+static bool Tracking = false;
 class GEditor;
 struct GEditorData {
     HWND m_hwnd;
@@ -72,17 +73,18 @@ public:
         return {};
     }
     ////////////////////////////////////////////////////
-#define DispatchEvent(EVENT) { \
-    Offset pos = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset; \
-    current.EVENT(current.m_root, pos.x, pos.y);\
-    }
-#define MsgCallFocus(name, ...) context_on_ptr(current.m_context.m_caretManager.m_context, name, ##__VA_ARGS__);
+    #define DispatchEvent(EVENT) { \
+        Offset pos = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset; \
+        current.EVENT(current.m_root, pos.x, pos.y); }
+    #define MsgCallFocus(name, ...) { \
+        auto _context = current.m_context.m_caretManager.m_context; \
+        context_on_ptr(_context.ptr(), name, ##__VA_ARGS__); }
     /////////////////////////////////////////////////////
-    static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    static LRESULT CALLBACK onWndProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam) {
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
-        if (!data) { return DefWindowProc(hWnd, message, wParam, lParam); }
+        if (!data) { return DefWindowProc(hWnd, nMsg, wParam, lParam); }
         Document &current = data->current();
-        switch (message) {
+        switch (nMsg) {
             case WM_MOUSEMOVE:
                 onTrackMouse(hWnd);
                 current.m_mouse = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset;
@@ -132,8 +134,8 @@ public:
                     current.undo();
                     return 0;
                 }
-                if (current.m_context.m_caretManager.m_context) {
-                    SelectionState state = current.context()->m_caretManager.m_context->getSelectionState();
+                if (auto *context = current.m_context.m_caretManager.getEventContext()) {
+                    SelectionState state = context->getSelectionState();
                     if (state != SelectionNone) {
                         current.m_context.pushStart(PushType::Select);
                         current.onSelectionDelete(current.m_root, state);
@@ -166,16 +168,18 @@ public:
                 current.context()->m_caretManager.destroy();
                 break;
             case WM_MOUSEHOVER:
+                Tracking = false;
                 current.onMouseHover(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 break;
             case WM_MOUSELEAVE:
+                Tracking = false;
                 current.onMouseLeave(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 break;
             case WM_DROPFILES:
                 onDropFiles(hWnd, (HDROP) wParam, data);
                 break;
             default:
-                return DefWindowProc(hWnd, message, wParam, lParam);
+                return DefWindowProc(hWnd, nMsg, wParam, lParam);
         }
         return 0;
     }
@@ -263,14 +267,19 @@ public:
         EndPaint(hWnd, &ps);
     }
     static void onTrackMouse(HWND hWnd) {
-        TRACKMOUSEEVENT csTME;
-        csTME.cbSize = sizeof(csTME);
-        csTME.dwFlags = TME_LEAVE | TME_HOVER;
-        csTME.hwndTrack = hWnd;
-        csTME.dwHoverTime = 1000;  // 鼠标停留超过 10ms 认为状态为 HOVER
-        TrackMouseEvent(&csTME);
+        if (!Tracking) {
+            TRACKMOUSEEVENT csTME;
+            csTME.cbSize = sizeof(csTME);
+            csTME.dwFlags = TME_LEAVE | TME_HOVER;
+            csTME.hwndTrack = hWnd;
+            csTME.dwHoverTime = 500;  // 鼠标停留超过 10ms 认为状态为 HOVER
+            if(TrackMouseEvent(&csTME)) {
+                Tracking = true;
+            }
+        }
     }
 
 };
+
 
 #endif //GEDITOR_GEDITOR_H

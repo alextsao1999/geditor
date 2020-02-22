@@ -9,7 +9,38 @@
 #include "table.h"
 #include <codecvt>
 #include <fstream>
+typedef void (CALLBACK *Handler)(const char *, const char *);
+class CallBackMsgHandler : public MessageHandler {
+public:
+    Handler m_onNotify = nullptr;
+    Handler m_onResponse = nullptr;
+    Handler m_onError = nullptr;
+    void onNotify(string_ref method, value &params) override {
+        if (m_onNotify) {
+            auto p = params.dump();
+            m_onNotify(method.c_str(), p.c_str());
+        }
+    }
+    void onResponse(value &ID, value &result) override {
+        auto id = ID.get<std::string>();
+        auto p = result.dump();
+        //printf("id:%s result -> %s\n", id.c_str(), p.c_str());
+        printf("id:%s\n", id.c_str());
+        if (m_onResponse) {
+            m_onResponse(id.c_str(), p.c_str());
+        }
+    }
+    void onError(value &ID, value &error) override {
+        if (m_onError) {
+            auto id = ID.dump();
+            auto p = error.dump();
+            m_onError(id.c_str(), p.c_str());
+        }
+    }
+    void onRequest(string_ref method, value &params, value &ID) override {
 
+    }
+};
 class DocumentManager;
 class NewDocument : public Document {
 public:
@@ -59,7 +90,7 @@ class DocumentManager {
 public:
     AutoComplete m_completion;
     std::shared_ptr<LanguageClient> m_client;
-    MapMessageHandler m_handler;
+    CallBackMsgHandler m_handler;
     std::thread m_loop;
     std::vector<Document *> m_documents;
     std::vector<std::string> m_completionTrigger;
@@ -68,8 +99,9 @@ public:
     int m_current = 0;
 public:
     explicit DocumentManager(RenderManager *render) : m_render(render) {
-        init();
-        openFile(R"(C:/Users/Administrator/Desktop/compiler4e/runtime.c)");
+        //CreateLSP(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
+        openFile("C:/Users/Administrator/Desktop/compiler4e/runtime.c");
+
     }
     ~DocumentManager() {
         if (m_client) {
@@ -78,30 +110,20 @@ public:
             m_loop.detach();
         }
     }
-    void init() {
+
+    void CreateLSP(string_ref path, string_ref cmd = nullptr) {
         //m_client = std::make_shared<LanguageClient>(R"(F:\LLVM\bin\clangd.exe)");
         //m_client = std::make_shared<LanguageClient>(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
-        m_client = std::make_shared<LanguageClient>(R"()");
-        string_ref ref = "file:///C:/Users/Administrator/Desktop/compiler4e/";
-        m_handler.bindResponse(m_client->Initialize(ref), [=](value &value) {
-            json &cap = value["capabilities"];
-            if (cap.contains("completionProvider")) {
-                cap["completionProvider"]["triggerCharacters"].get_to(m_completionTrigger);
-            }
-            if (cap.contains("signatureHelpProvider")) {
-                cap["signatureHelpProvider"]["triggerCharacters"].get_to(m_signatureTrigger);
-            }
-            //capabilities["documentOnTypeFormattingProvider"]["firstTriggerCharacter"];
-
-            m_client->Initialized();
-        });
+        m_client = std::make_shared<LanguageClient>(path.c_str(), (char *) cmd.c_str());
         m_loop = std::thread([&] { m_client->loop(m_handler); });
 
+        string_ref ref = "file:///C:/Users/Administrator/Desktop/compiler4e/";
+        m_client->Initialize(ref);
     }
     LanguageClient *getLanguageClient() { return m_client.get(); }
-    void openFile(DocumentUri uri) {
+    void openFile(string_ref path) {
         m_current = m_documents.size();
-        Document *doc = new FileDocument(this, uri);
+        Document *doc = new FileDocument(this, path);
         m_documents.push_back(doc);
     }
     void openNew() {
@@ -119,7 +141,11 @@ public:
         }
         return nullptr;
     }
-
+    DocumentManager *LSPManager() {
+        if (m_client)
+            return this;
+        return nullptr;
+    }
     void onComplete(Position position, option<CompletionContext> context = {}) {
         m_client->Completion(current()->getUri(), position, context);
     }
@@ -134,28 +160,17 @@ public:
             if (cmp.front() == ch) {
                 CompletionContext ctx;
                 ctx.triggerKind = CompletionTriggerKind::TriggerCharacter;
-                auto id = m_client->Completion(current()->getUri(), context.position(), ctx);
-                m_handler.bindResponse(id, [](value &value) {
-
-                });
-                return;
+                m_client->Completion(current()->getUri(), context.position(), ctx);
             }
         }
         for (auto &cmp : m_signatureTrigger) {
             if (cmp.front() == ch) {
-                auto id = m_client->SignatureHelp(current()->getUri(), context.position());
-                m_handler.bindResponse(id, [](value &value) {
-
-                });
-                return;
+                m_client->SignatureHelp(current()->getUri(), context.position());
             }
         }
     }
     void onHover(Position position) {
-        int id = m_client->Hover(current()->getUri(), position);
-        m_handler.bindResponse(id, [] (value &value) {
-
-        });
+        m_client->Hover(current()->getUri(), position);
     }
     void onSignatureHelp(Position postion) {
         m_client->SignatureHelp(current()->getUri(), postion);

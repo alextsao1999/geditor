@@ -13,8 +13,8 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         int index = context.pos().getIndex();
         if (ch == VK_BACK) {
             if (line.getSpaceCount() == index) {
-                EventContext prev = context.nearby(-1);
-                if (prev.tag().contain(_GT("Line"))) {
+                auto prev = context.nearby(-1);
+                if (prev.tag().contain(TAG_LINE)) {
                     context.getDocContext()->pushStart();
                     line.remove(0, index);
                     int prevLength = prev.getLineViewer().length();
@@ -22,8 +22,8 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                     erase(context);
                     prev.reflow();
                     prev.redraw();
-                    caret->data().setIndex(prevLength);
-                    prev.focus(); // 会释放context
+                    prev.pos().setIndex(prevLength);
+                    prev.focus();
                     context.getDocContext()->pushEnd();
                     return;
                 }
@@ -40,8 +40,9 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                         EventContext prev = ctx.nearby(-1);
                         ctx.remove();
                         prev.update();
-                        EventContext *inner = prev.nearby(1).findInnerFirst(TAG_FOCUS);
-                        inner->focus(false, true);
+                        if (EventContext *inner = prev.nearby(1).findInnerFirst(TAG_FOCUS)) {
+                            inner->focus(false, true);
+                        }
                         return;
                     }
                 }
@@ -70,8 +71,9 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                     }
                     ctx.insert(copy());
                     ctx.update();
-                    EventContext *inner = ctx.nearby(2).findInnerFirst(TAG_FOCUS);
-                    inner->focus(false, true);
+                    if (EventContext *inner = ctx.nearby(2).findInnerFirst(TAG_FOCUS)) {
+                        inner->focus(false, true);
+                    }
                     return;
                 }
             }
@@ -99,42 +101,45 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                 }
                 context.replace(replace);
                 context.outer->update();
-                EventContext *inner = context.findInnerFirst(TAG_FOCUS);
-                auto newLine = inner->getLineViewer();
-                newLine.append(_GT(" ()"));
-                inner->pos().setIndex(-2);
-                inner->focus(false);
+                if (EventContext *inner = context.findInnerFirst(TAG_FOCUS)) {
+                    auto newLine = inner->getLineViewer();
+                    newLine.append(_GT(" ()"));
+                    inner->pos().setIndex(-2);
+                    inner->focus(false);
+                    return;
+                }
+            }
+            if (!line.empty()) {
+                context.getDocContext()->pushStart();
+                int indent = line.getSpaceCount();
+                if (line.back() == _GT('{')) {
+                    indent += 4;
+                }
+                bool newLine = false;
+                if (line.charAt(index) == _GT('}')) {
+                    newLine = true;
+                }
+                GChar str[255] = {_GT('\0')};
+                for (int i = 0; i < indent; ++i) {
+                    gstrcat(str, _GT(" "));
+                }
+                insert(context);
+                context.breakLine(0, context.pos().getIndex());
+                context.nearby(1).getLineViewer().insert(0, str);
+                context.pos().setIndex(indent);
+                if (newLine) {
+                    insert(context);
+                    context.pos().setIndex(indent + 4);
+                    gstrcat(str, _GT("    "));
+                    context.nearby(1).getLineViewer().insert(0, str);
+                }
+                context.reflow();
+                context.redraw();
+                context.next();
+                context.focus(false);
+                context.getDocContext()->pushEnd();
                 return;
             }
-            context.getDocContext()->pushStart();
-            int indent = line.getSpaceCount();
-            if (line.back() == _GT('{')) {
-                indent += 4;
-            }
-            bool newLine = false;
-            if (line.charAt(index) == _GT('}')) {
-                newLine = true;
-            }
-            GChar str[255] = {_GT('\0')};
-            for (int i = 0; i < indent; ++i) {
-                gstrcat(str, _GT(" "));
-            }
-            insert(context);
-            context.breakLine(0, context.pos().getIndex());
-            context.nearby(1).getLineViewer().insert(0, str);
-            context.pos().setIndex(indent);
-            if (newLine) {
-                insert(context);
-                context.pos().setIndex(indent + 4);
-                gstrcat(str, _GT("    "));
-                context.nearby(1).getLineViewer().insert(0, str);
-            }
-            context.reflow();
-            context.redraw();
-            context.next();
-            context.focus(false);
-            context.getDocContext()->pushEnd();
-            return;
         }
         if (ch == VK_TAB) {
             static const GChar *jumps = _GT("'\",()<>;{}");
@@ -165,13 +170,13 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
     if (state != SelectionNone) {
         return;
     }
-    EventContext *current = caret->getEventContext();
-    if (auto *mgr = current->document()->getDocumentManager()) {
+    if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
         mgr->onTrigger(context, ch);
     }
+    EventContext *current = caret->getEventContext();
     if (current) {
         line = current->getLineViewer();
-        int index = context.pos().getIndex();
+        int index = current->pos().getIndex();
         if (auto *left = gstrchr(lchar, ch)) {
             size_t char_idx = left - lchar;
             line.insert(index, rchar[char_idx]);
@@ -191,14 +196,14 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
 
 void AutoLineElement::onLeftButtonDown(EventContext &context, int x, int y) {
     LineElement::onLeftButtonDown(context, x, y);
-    if (auto *mgr = context.document()->getDocumentManager()) {
+    if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
         mgr->onSignatureHelp(context.position());
     }
 
 }
 
 void AutoLineElement::onRightButtonDown(EventContext &context, int x, int y) {
-    if (auto *mgr = context.document()->getDocumentManager()) {
+    if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
         int index = TextCaretService::GetIndex(context, {4, 6}, x, y);
         mgr->onGoToDeclaration({context.getCounter().line, index});
     }
@@ -206,7 +211,7 @@ void AutoLineElement::onRightButtonDown(EventContext &context, int x, int y) {
 }
 
 void AutoLineElement::onRightDoubleClick(EventContext &context, int x, int y) {
-    if (auto *mgr = context.document()->getDocumentManager()) {
+    if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
         CompletionContext ctx;
         ctx.triggerKind = CompletionTriggerKind::Invoked;
         mgr->onComplete(context.position(), ctx);
@@ -215,7 +220,7 @@ void AutoLineElement::onRightDoubleClick(EventContext &context, int x, int y) {
 }
 
 void AutoLineElement::onMouseHover(EventContext &context, int x, int y) {
-    if (auto *mgr = context.document()->getDocumentManager()) {
+    if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
         int index = TextCaretService::GetIndex(context, {4, 6}, x, y);
         mgr->onHover({context.getCounter().line, index});
     }

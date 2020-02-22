@@ -20,6 +20,7 @@
 #include "document.h"
 #include "utils.h"
 #define TAG_FOCUS _GT("Focus")
+#define TAG_LINE _GT("Line")
 #define TAG_HEADER _GT("Header")
 #define TAG_UNEDITABLE _GT("Uneditable")
 #define TAG_UNDELETEABLE _GT("Undeleteable")
@@ -540,6 +541,7 @@ public:
                 context.breakLine(0, service.index());
                 context.reflow();
                 context.redraw();
+                //caret->findNext(TAG_FOCUS);
                 caret->data().setIndex(0);
                 caret->next();
                 return;
@@ -1357,8 +1359,10 @@ public:
         }
         if (clear) {
             if (focus && focus->include(&context)) {
-                context.findPrev(TAG_FOCUS)->focus(false);
-                return;
+                if(auto *prev = context.findPrev(TAG_FOCUS)) {
+                    prev->focus(false);
+                    return;
+                }
             }
             context.replace(new AutoLineElement());
             if (context.outer) {

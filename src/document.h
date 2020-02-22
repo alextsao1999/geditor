@@ -10,11 +10,13 @@
 #include "common.h"
 #include "event.h"
 #include "client.h"
-#define DispatchEvent(NAME) \
-    EventContext ctx = onDispatch(context, x, y); \
-    context_method(ctx, NAME, x, y);
+#define DispatchEvent(NAME)
 #define DEFINE_EVENT(EVENT, ...) virtual void EVENT(EventContext &context, ##__VA_ARGS__) {}
-#define DEFINE_EVENT2(EVENT) virtual void EVENT(EventContext &context, int x, int y) { DispatchEvent(EVENT); }
+#define DEFINE_EVENT2(EVENT) \
+    virtual void EVENT(EventContext &context, int x, int y) { \
+        EventContext ctx = onDispatch(context, x, y);         \
+        context_method(ctx, EVENT, x, y);                      \
+    }
 #define for_context(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
 #define context_on(ctx, method, ...) {auto &&__ctx = (ctx);if (!__ctx.empty())__ctx.current()->on##method(__ctx, ##__VA_ARGS__);}
 #define context_on_ptr(ctx, method, ...) ((ctx) ? ((*(ctx)).current()->method(*(ctx), ##__VA_ARGS__)) : void(0))
@@ -564,6 +566,7 @@ public:
         m_context.m_renderManager->setVertScroll(m_height);
     }
     void setViewportOffset(Offset offset) {
+        /*
         if (m_viewportOffset.y > offset.y) { // œÚ…œ
             while (m_begin.has()) {
                 if (!m_begin.visible()) {
@@ -580,6 +583,7 @@ public:
                 m_begin.next();
             }
         }
+        */
         if (m_begin.empty()) {
             m_begin = m_root.enter();
         }

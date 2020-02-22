@@ -358,7 +358,7 @@ struct EventContext {
         if (outer) {
             outer->dump();
         }
-        printf(" { index = %d, line = %d, cur = %p }", index, counter.line, element);
+        printf("{%d,tag=[%ws]} ", getCounter().line, tag().str);
     }
     std::string path() {
         std::string str;

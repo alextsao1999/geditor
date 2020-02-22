@@ -19,19 +19,19 @@ FileDocument::FileDocument(DocumentManager *mgr, string_ref path) : Document(mgr
         str = &m_context.m_textBuffer.appendLine().content();
 
     } while (std::getline(is, *str));
-    mgr->m_client->DidOpen(uri.str(), text);
+    if (mgr->m_client)
+        mgr->m_client->DidOpen(uri.str(), text);
     is.close();
     layout();
 }
 
 void FileDocument::onContentChange(EventContext &context, CommandType type, CommandData data) {
-    TextDocumentContentChangeEvent s;
-    s.text = getContent();
-    std::vector<TextDocumentContentChangeEvent> events;
-    events.push_back(s);
-    try {
+    if (m_manager->m_client) {
+        TextDocumentContentChangeEvent s;
+        s.text = getContent();
+        std::vector<TextDocumentContentChangeEvent> events;
+        events.push_back(s);
         m_manager->m_client->DidChange(getUri(), events, true);
-    } catch(std::exception &e) {
-        printf("error : %s", e.what());
     }
+
 }

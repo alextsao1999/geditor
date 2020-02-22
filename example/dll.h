@@ -38,6 +38,24 @@ EXPORT_API void WINAPI GEditorSetColor(GEditor *editor, int style, GColor color)
 EXPORT_API void WINAPI GEditorRelayout(GEditor *editor) {
     editor->m_data->current().m_root.relayout();
 }
+EXPORT_API void WINAPI GEditorLSPCreate(GEditor *editor, const char *app, const char *cmd) {
+    editor->m_data->m_manager.CreateLSP(app, cmd);
+}
+EXPORT_API void WINAPI GEditorLSPSetHandler(GEditor *editor, Handler response, Handler notify, Handler error) {
+    editor->m_data->m_manager.m_handler.m_onResponse = response;
+    editor->m_data->m_manager.m_handler.m_onNotify = notify;
+    editor->m_data->m_manager.m_handler.m_onError = error;
+}
+EXPORT_API void WINAPI GEditorLSPInit(GEditor *editor, const char *root) {
+    string_ref uri = root;
+    auto &client = editor->m_data->m_manager.m_client;
+    client->Initialize(uri);
+}
+EXPORT_API void WINAPI GEditorLSPOpen(GEditor *editor, const char *path, const char *text) {
+    auto &client = editor->m_data->m_manager.m_client;
+    client->DidOpen(path, text);
+}
+
 EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) {
     return editor->m_data->current().m_context.m_caretManager.getEventContext();
 }

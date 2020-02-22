@@ -28,6 +28,45 @@ struct CaretPos {
         offset = value;
     }
 };
+class EventContextRef {
+public:
+    constexpr EventContextRef() = default;
+    EventContextRef(EventContext *ptr) : m_ptr(ptr), m_ref(new int(1)) {}
+    EventContextRef(EventContextRef &rhs) {
+        m_ptr = rhs.m_ptr;
+        m_ref = rhs.m_ref;
+        addref();
+    }
+    ~EventContextRef() { unref(); }
+    inline void addref() { if (m_ref) (*m_ref)++; }
+    void unref();
+    inline EventContext *operator->() { return m_ptr; }
+    inline EventContext &operator*() { return *m_ptr; }
+    inline EventContextRef &operator=(EventContext *ptr) noexcept {
+        if (m_ptr == ptr) {
+            return *this;
+        }
+        unref();
+        m_ref = new int(1);
+        m_ptr = ptr;
+        return *this;
+    }
+    inline EventContextRef &operator=(EventContextRef &rhs) noexcept {
+        unref();
+        m_ref = rhs.m_ref;
+        m_ptr = rhs.m_ptr;
+        addref();
+        return *this;
+    }
+    inline EventContextRef &operator=(EventContextRef &&rhs) noexcept {
+        return *this;
+    }
+    inline EventContext *ptr() { return m_ptr; }
+    inline EventContext &ref() { return *m_ptr; }
+    inline bool has() { return m_ref; }
+    int *m_ref = nullptr;
+    EventContext *m_ptr = nullptr;
+};
 class CaretManager {
     friend class RenderManager;
     friend class AutoComplete;
@@ -35,16 +74,16 @@ private:
     RenderManager *m_paintManager;
     CaretPos m_data;
 public:
-    EventContext *m_context = nullptr;
+    EventContextRef m_context;
     Offset m_relative;
     explicit CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();
     Element *getFocus();
-    EventContext *getEventContext() { return m_context; }
+    EventContext *getEventContext() { return m_context.ptr(); }
     inline CaretPos &data() { return m_data; }
     // 实际的光标位置
     Offset current();
-    void create(int width = 2, int height = 18) {
+    void create(int width = 2, int height = 17) {
         CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
     }
     void destroy() {
@@ -68,7 +107,9 @@ public:
     bool findNext(const GChar *tag);
     bool findPrev(const GChar *tag);
     void onErase(EventContext *context);
+    void refocus() {
+        focus(m_context.ptr());
+    }
 };
-
 
 #endif //GEDITOR_CARET_MANAGER_H

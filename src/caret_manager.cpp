@@ -60,7 +60,7 @@ void CaretManager::update() {
         return;
     }
     // 设置光标的位置为实际偏移(光标偏移 减去 可视区偏移)
-    Offset offset = current() - m_paintManager->getViewportOffset();
+    Offset offset = current();
     SetCaretPos(offset.x, offset.y);
 }
 
@@ -112,7 +112,7 @@ bool CaretManager::prev() {
 
 Offset CaretManager::current() {
     if (m_context.has()) {
-        return m_context->offset() - m_context->caretOffset() + m_relative;
+        return m_context->offset() - m_context->caretOffset() + m_relative - m_paintManager->getViewportOffset();
     }
     return m_relative;
 }

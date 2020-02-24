@@ -81,7 +81,7 @@ public:
     Element *getFocus();
     EventContext *getEventContext() { return m_context.ptr(); }
     inline CaretPos &data() { return m_data; }
-    // 实际的光标位置
+    // 可视区光标位置
     Offset current();
     void create(int width = 2, int height = 17) {
         CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
@@ -110,6 +110,7 @@ public:
     void refocus() {
         focus(m_context.ptr());
     }
+
 };
 
 #endif //GEDITOR_CARET_MANAGER_H

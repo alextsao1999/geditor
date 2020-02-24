@@ -11,6 +11,9 @@
 #include "command_queue.h"
 #include <vector>
 #include <iostream>
+#include <codecvt>
+#include <locale>
+
 #define GString std::wstring
 struct TextLine {
     TextLine() = default;
@@ -43,7 +46,17 @@ public:
     GChar &front() { return content().front(); }
     GChar &back() { return content().back(); }
     void clear();
-
+    std::string content_utf8(int length) {
+        std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt;
+        if (content().empty()) {
+            return {};
+        }
+        int total = content().length();
+        if (length > total) {
+            length = total;
+        }
+        return cvt.to_bytes(&content().front(), &content().front() + length);
+    }
     int getSpaceCount() {
         int count = 0;
         for (auto &ch : content()) {

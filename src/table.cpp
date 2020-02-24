@@ -194,34 +194,13 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
 
 }
 
-void AutoLineElement::onLeftButtonDown(EventContext &context, int x, int y) {
-    LineElement::onLeftButtonDown(context, x, y);
-    if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
-        mgr->onSignatureHelp(context.position());
-    }
-
-}
-
-void AutoLineElement::onRightButtonDown(EventContext &context, int x, int y) {
-    if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
-        int index = TextCaretService::GetIndex(context, {4, 6}, x, y);
-        mgr->onGoToDeclaration({context.getCounter().line, index});
-    }
-
-}
-
-void AutoLineElement::onRightDoubleClick(EventContext &context, int x, int y) {
-    if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
-        CompletionContext ctx;
-        ctx.triggerKind = CompletionTriggerKind::Invoked;
-        mgr->onComplete(context.position(), ctx);
-    }
-
-}
-
 void AutoLineElement::onMouseHover(EventContext &context, int x, int y) {
     if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
         int index = TextCaretService::GetIndex(context, {4, 6}, x, y);
         mgr->onHover({context.getCounter().line, index});
     }
+}
+
+void AutoLineElement::onMouseLeave(EventContext &context, int x, int y) {
+    printf("leave\n");
 }

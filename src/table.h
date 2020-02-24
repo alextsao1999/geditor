@@ -25,7 +25,7 @@
 #define TAG_UNEDITABLE _GT("Uneditable")
 #define TAG_UNDELETEABLE _GT("Undeleteable")
 #define context_on_outer(ctx, method, ...) if ((ctx).outer) context_on(*((ctx).outer), method, ##__VA_ARGS__);
-class PathUtil {
+class DrawUtil {
 public:
     inline static float rad(float deg) { return deg * 3.1415926 / 180; }
     static GPath triangleDown(GScalar length, GScalar dx, GScalar dy) {
@@ -66,6 +66,28 @@ public:
         }
         path.close();
         return path;
+    }
+    static void DrawSlection(EventContext &context, Offset start, Offset end) {
+        Canvas canvas = context.getCanvas();
+        GRect rect;
+        rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
+        if (rect.width() == 0 && rect.height() == 0) {
+            return;
+        }
+        rect.fTop -= 2;
+        rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont)->getTextSize() + 7;
+        SkPaint paint;
+        paint.setColor(SkColorSetRGB(218, 227, 233));
+        paint.setAlpha(255);
+        paint.setAntiAlias(true);
+        canvas->drawRect(rect, paint);
+        //canvas->drawRoundRect(rect, 4, 4, paint);
+        paint.setColor(SK_ColorBLACK);
+        paint.setAlpha(30);
+        paint.setStyle(SkPaint::kStroke_Style);
+        rect.inset(0.5f, 0.5f);
+        //canvas->drawRoundRect(rect, 4, 4, paint);
+        canvas->drawRect(rect, paint);
     }
 
 };
@@ -494,6 +516,20 @@ public:
         }
 
     }
+    void onSelectionToString(EventContext &context, SelectionState state, ostream &out) override {
+        if (state == SelectionState::SelectionStart) {
+            CaretPos start = context.getDocContext()->m_selectStartPos;
+            out << context.getLineViewer().content().c_str() + start.getIndex() << std::endl;
+        }
+        if (state == SelectionInside || state == SelectionRow) {
+            out << context.getLineViewer().content() << std::endl;
+        }
+        if (state == SelectionEnd) {
+            CaretPos end = context.getDocContext()->m_selectEndPos;
+            out << context.getLineViewer().content().substr(0, end.getIndex());
+        }
+
+    }
     void onInputChar(EventContext &context, SelectionState state, int ch) override {
         auto* caret = context.getCaretManager();
         TextCaretService service(Offset(4, 6), &context);
@@ -516,7 +552,8 @@ public:
                             prev.focus(); // 会释放context
                             return;
                         } else {
-                            if (!context.getLineViewer().empty() || context.isHead()) {
+                            if (!context.getLineViewer().empty() || context.isHead() ||
+                                prev.tag().contain(_GT("Table"))) {
                                 // 如果当前此行不为空 直接跳到上一行
                                 caret->data().setIndex(-1);
                                 caret->findPrev(TAG_FOCUS);
@@ -575,7 +612,7 @@ public:
         if (state == SelectionSelf) {
             Offset start = context.relOffset(context.getDocContext()->getSelectStart());
             Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
-            DrawSlection(context, start, end);
+            DrawUtil::DrawSlection(context, start, end);
         }
         if (state == SelectionStart) {
             TextCaretService text(Offset(4, 6), &context);
@@ -583,21 +620,21 @@ public:
             text.breakText(rects);
             Offset start = context.relOffset(context.getDocContext()->getSelectStart());
             if (rects.count) {
-                DrawSlection(context, start, Offset(rects.back().right(), rects.back().top()));
+                DrawUtil::DrawSlection(context, start, Offset(rects.back().right(), rects.back().top()));
             }
         }
         if (state == SelectionEnd) {
             Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
-            DrawSlection(context, Offset(4, 6), end);
+            DrawUtil::DrawSlection(context, Offset(4, 6), end);
         }
         if (state == SelectionInside || state == SelectionRow) {
             TextCaretService text(Offset(4, 6), &context);
             Buffer<SkRect> rects;
             text.breakText(rects);
             if (rects.count) {
-                DrawSlection(context, Offset(4, 6), Offset(rects.back().right(), rects.back().top()));
+                DrawUtil::DrawSlection(context, Offset(4, 6), Offset(rects.back().right(), rects.back().top()));
             } else {
-                DrawSlection(context, Offset(4, 6), Offset(10, 6));
+                DrawUtil::DrawSlection(context, Offset(4, 6), Offset(10, 6));
             }
         }
     }
@@ -646,23 +683,6 @@ public:
         canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
         canvas.drawText(viewer.c_str(), viewer.size(), 4, 2, StyleDeafaultFont);
     }
-    static void DrawSlection(EventContext &context, Offset start, Offset end) {
-        Canvas canvas = context.getCanvas();
-        GRect rect;
-        rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
-        rect.fTop -= 2;
-        rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont)->getTextSize() + 8;
-        SkPaint paint;
-        paint.setColor(SkColorSetRGB(218, 227, 233));
-        paint.setAlpha(255);
-        paint.setAntiAlias(true);
-        canvas->drawRoundRect(rect, 4, 4, paint);
-        paint.setColor(SK_ColorBLACK);
-        paint.setAlpha(30);
-        paint.setStyle(SkPaint::kStroke_Style);
-        rect.inset(0.5f, 0.5f);
-        canvas->drawRoundRect(rect, 4, 4, paint);
-    }
 
 };
 class SyntaxLineElement : public LineElement {
@@ -700,9 +720,6 @@ class AutoLineElement : public SyntaxLineElement {
 public:
     Element *copy() override { return new AutoLineElement(); }
     void onInputChar(EventContext &context, SelectionState state, int ch) override;
-    void onLeftButtonDown(EventContext &context, int x, int y) override;
-    void onRightButtonDown(EventContext &context, int x, int y) override;
-    void onRightDoubleClick(EventContext &context, int x, int y) override;
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
         if (context.document()->m_onBlur) {
             if (context.document()->m_onBlur(&context, (int) focus, (int) force)) {
@@ -712,6 +729,8 @@ public:
         LineElement::onBlur(context, focus, force);
     }
     void onMouseHover(EventContext &context, int x, int y) override;
+    void onMouseLeave(EventContext &context, int x, int y) override;
+
 };
 class TextElement : public RelativeElement {
 private:
@@ -720,6 +739,7 @@ public:
     GString m_data;
     int m_width = 0;
     int m_height = 22;
+    GColor m_color = SK_ColorTRANSPARENT;
     explicit TextElement() = default;
     Tag getTag(EventContext &context) override { return {_GT("Text Focus")}; }
     int getMinWidth(EventContext &context) override {
@@ -867,11 +887,16 @@ public:
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
+        if (m_color != SK_ColorTRANSPARENT) {
+            SkPaint paint;
+            paint.setColor(m_color);
+            canvas->drawRect(canvas.bound(0.5, 0.5), paint);
+        }
         canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
         if (context.isSelectedSelf()) {
             Offset start = context.relOffset(context.getDocContext()->getSelectStart());
             Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
-            LineElement::DrawSlection(context, start, end);
+            DrawUtil::DrawSlection(context, start, end);
         }
         canvas.translate(0, context.getStyle(StyleTableFont).getTextSize());
         canvas.drawText(m_data.c_str(), m_data.size() * sizeof(GChar), 6, 2, StyleTableFont);
@@ -914,7 +939,7 @@ public:
 class RowElement : public Container<DisplayRow> {
 public:
     GColor m_color;
-    explicit RowElement(int column, GColor color = SK_ColorWHITE) : m_color(color) {
+    explicit RowElement(int column, GColor color = SK_ColorTRANSPARENT) : m_color(color) {
         for (int i = 0; i < column; ++i) {
             Container::append(new TextElement());
         }
@@ -923,6 +948,9 @@ public:
     TextElement *getColumn(int index) { return (TextElement *) get(index); }
     void setColor(GColor color) {
         m_color = color;
+    }
+    void onNotify(EventContext &context, int type, NotifyParam param, NotifyValue other) override {
+        context.outer->notify(type, param, other);
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
@@ -1056,8 +1084,7 @@ public:
     bool m_undeleteable = false;
     GColor m_color;
     std::vector<FastText> m_items;
-
-    explicit FastRow(int column, int height, GColor color = SkColorSetARGB(0, 0, 0, 0)) : m_color(color) {
+    explicit FastRow(int column, int height, GColor color = SK_ColorTRANSPARENT) : m_color(color) {
         m_height = height;
         m_items.resize(column);
     }
@@ -1306,7 +1333,7 @@ public:
         //paint.setColor(SK_ColorBLACK);
         for_context(ctx, context) {
             Canvas canvas = ctx.getCanvas();
-            GPath sym = PathUtil::star(5, 5, 2);
+            GPath sym = DrawUtil::star(5, 5, 2);
             sym.offset(-8, 10);
             canvas->drawPath(sym, paint);
 //            canvas->drawCircle(-5, 15, 5.5, paint);
@@ -1415,7 +1442,7 @@ public:
             canvas->drawLine(lineLeft, lineBottom, underlineRight, lineBottom, paint); // 下横线
             canvas->drawLine(runawayLeft, ctx.height() - 10, lineRight, ctx.height() - 10, paint);
             // 逃逸线横线
-            GPath path = PathUtil::triangleRight(length, underlineRight, lineBottom);
+            GPath path = DrawUtil::triangleRight(length, underlineRight, lineBottom);
             canvas->drawPath(path, paint);// 下边线三角形
         }
         // 需要绘制逃逸线
@@ -1424,13 +1451,13 @@ public:
             int runawayBottom = context.height() + 12;
             canvas->drawLine(runawayLeft, runawayTop, runawayLeft, runawayBottom, paint); // 逃逸线竖线
             canvas->drawLine(runawayLeft, runawayBottom, runawayRight, runawayBottom, paint); // 逃逸线下横线
-            GPath path = PathUtil::triangleRight(length, runawayRight, runawayBottom); // 右三角
+            GPath path = DrawUtil::triangleRight(length, runawayRight, runawayBottom); // 右三角
             canvas->drawPath(path, paint);
         } else {
             int runawayBottom = context.height() - 2;
             canvas->drawLine(runawayLeft, runawayTop, runawayLeft, context.height(), paint); // 逃逸线竖线
             // 逃逸线向下
-            GPath path = PathUtil::triangleDown(length, runawayLeft, runawayBottom);
+            GPath path = DrawUtil::triangleDown(length, runawayLeft, runawayBottom);
             // 有可能后面还有流程语句 需要连接
             canvas->drawPath(path, paint);
         }
@@ -1496,12 +1523,12 @@ public:
             int lineBottom = context.height() + 12;
             canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
             canvas->drawLine(lineLeft, lineBottom, lineRight, lineBottom, paint); // 下边线
-            GPath path = PathUtil::triangleRight(5.7, lineRight, lineBottom);
+            GPath path = DrawUtil::triangleRight(5.7, lineRight, lineBottom);
             canvas->drawPath(path, paint);
         } else {
             int lineBottom = context.height() - 2;
             canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
-            GPath path = PathUtil::triangleDown(5.7, lineLeft, lineBottom);
+            GPath path = DrawUtil::triangleDown(5.7, lineLeft, lineBottom);
             canvas->drawPath(path, paint);
         }
     }
@@ -1540,7 +1567,7 @@ public:
         canvas->drawLine(lineLeft, lineTop, lineRight, lineTop, paint); // 上横线
         canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
         canvas->drawLine(lineLeft, lineBottom, lineRight, lineBottom, paint); // 下横线
-        GPath path = PathUtil::triangleRight(5.7, lineRight, lineTop);
+        GPath path = DrawUtil::triangleRight(5.7, lineRight, lineTop);
         canvas->drawPath(path, paint);
     }
 };
@@ -1647,10 +1674,10 @@ public:
 
         border.setStyle(SkPaint::kFill_Style);
         if (expand) {
-            canvas->drawPath(PathUtil::triangleDown(8, 9, 8), border);
+            canvas->drawPath(DrawUtil::triangleDown(8, 9, 8), border);
             Root::onRedraw(context);
         } else {
-            canvas->drawPath(PathUtil::triangleRight(8, 7, 10), border);
+            canvas->drawPath(DrawUtil::triangleRight(8, 7, 10), border);
         }
     }
     int getLineNumber() override { return m_lines.count; }
@@ -1728,10 +1755,10 @@ public:
         canvas->drawLine(0, 20, context.width(), 20, border);
         border.setStyle(SkPaint::kFill_Style);
         if (expand) {
-            canvas->drawPath(PathUtil::triangleDown(8, 9, 8), border);
+            canvas->drawPath(DrawUtil::triangleDown(8, 9, 8), border);
             Root::onRedraw(context);
         } else {
-            canvas->drawPath(PathUtil::triangleRight(8, 7, 10), border);
+            canvas->drawPath(DrawUtil::triangleRight(8, 7, 10), border);
         }
     }
     void onEnterReflow(EventContext &context, Offset &offset) override {

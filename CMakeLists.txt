@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1.1)
 project(Geditor)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
@@ -18,6 +18,7 @@ if (MSVC)
         string(APPEND ${CompilerFlag} " /Zc:threadSafeInit-")
     endforeach()
 endif(MSVC)
+
 add_definitions(-DUNICODE -D_UNICODE)
 
 add_subdirectory(third_party/lsp)
@@ -40,7 +41,7 @@ source_group("Source Files" FILES ${sources})
 
 add_library(geditor STATIC ${sources} ${headers})
 
-set(LINK_STATIC_LIB opengl32.lib usp10.lib skia geditor ecode jpeg)
+set(LINK_STATIC_LIB opengl32 usp10 skia geditor ecode jpeg)
 
 add_executable(main example/main.cpp)
 target_link_libraries(main ${LINK_STATIC_LIB})

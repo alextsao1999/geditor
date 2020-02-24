@@ -4,6 +4,9 @@
 
 #include "FileBuffer.h"
 #include "windows.h"
+#include <codecvt>
+#include <locale>
+
 std::wstring FixedData::toUnicode() {
     size_t len = MultiByteToWideChar(0, 0, data, length, 0, 0);
     std::wstring gstr;

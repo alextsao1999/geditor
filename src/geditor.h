@@ -12,7 +12,6 @@
 #include "open_visitor.h"
 #include "shellapi.h"
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
-static bool Tracking = false;
 class GEditor;
 struct GEditorData {
     HWND m_hwnd;
@@ -80,14 +79,28 @@ public:
         auto _context = current.m_context.m_caretManager.m_context; \
         context_on_ptr(_context.ptr(), name, ##__VA_ARGS__); }
     /////////////////////////////////////////////////////
+    static int getDragPosition(HWND hWnd, int nBar) {
+        SCROLLINFO si;
+        si.cbSize = sizeof(SCROLLINFO);
+        si.fMask = SIF_ALL;
+        GetScrollInfo(hWnd, nBar, &si);
+        return si.nTrackPos;
+    }
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam) {
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
-        if (!data) { return DefWindowProc(hWnd, nMsg, wParam, lParam); }
+        if (!data || data->m_manager.m_documents.empty()) {
+            return DefWindowProc(hWnd, nMsg, wParam, lParam);
+        }
         Document &current = data->current();
         switch (nMsg) {
             case WM_MOUSEMOVE:
-                onTrackMouse(hWnd);
-                current.m_mouse = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset;
+                {
+                    Offset offset = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset;
+                    if (offset != current.m_mouse) {
+                        onTrackMouse(hWnd, true);
+                    }
+                    current.m_mouse = offset;
+                }
                 current.onMouseMove(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 if (current.context()->m_selecting) {
                     current.context()->updateSelect();
@@ -130,14 +143,14 @@ public:
                 break;
             case WM_IME_CHAR:
             case WM_CHAR:
-                if (wParam == 26 && (GetKeyState(VK_CONTROL) & 0x8000)) {
+                if (current.context()->m_keyMap.lookUp(wParam) == KeyCommand::Undo) {
                     current.undo();
                     return 0;
                 }
                 if (auto *context = current.m_context.m_caretManager.getEventContext()) {
                     SelectionState state = context->getSelectionState();
                     if (state != SelectionNone) {
-                        current.m_context.pushStart(PushType::Select);
+                        current.m_context.pushStart(PushType::PushTypeSelect);
                         current.onSelectionDelete(current.m_root, state);
                     }
                     MsgCallFocus(onInputChar, state, wParam);
@@ -168,11 +181,12 @@ public:
                 current.context()->m_caretManager.destroy();
                 break;
             case WM_MOUSEHOVER:
-                Tracking = false;
+                onTrackMouse(hWnd, false);
                 current.onMouseHover(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 break;
             case WM_MOUSELEAVE:
-                Tracking = false;
+                onTrackMouse(hWnd, false);
+                current.m_mouse = {-1, -1};
                 current.onMouseLeave(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 break;
             case WM_DROPFILES:
@@ -182,13 +196,6 @@ public:
                 return DefWindowProc(hWnd, nMsg, wParam, lParam);
         }
         return 0;
-    }
-    static int getDragPosition(HWND hWnd, int nBar) {
-        SCROLLINFO si;
-        si.cbSize = sizeof(SCROLLINFO);
-        si.fMask = SIF_ALL;
-        GetScrollInfo(hWnd, nBar, &si);
-        return si.nTrackPos;
     }
     static void onHandleScroll(int nBar, GEditorData *data, WPARAM wParam) {
         int step = (nBar == SB_VERT ? 35 : 1);
@@ -266,20 +273,19 @@ public:
         data->m_renderManager.copy();
         EndPaint(hWnd, &ps);
     }
-    static void onTrackMouse(HWND hWnd) {
-        if (!Tracking) {
+    static void onTrackMouse(HWND hWnd, bool on) {
+        static bool trackedMouseLeave = false;
+        if (on && !trackedMouseLeave) {
             TRACKMOUSEEVENT csTME;
             csTME.cbSize = sizeof(csTME);
             csTME.dwFlags = TME_LEAVE | TME_HOVER;
             csTME.hwndTrack = hWnd;
             csTME.dwHoverTime = 500;  // 鼠标停留超过 10ms 认为状态为 HOVER
-            if(TrackMouseEvent(&csTME)) {
-                Tracking = true;
-            }
+            TrackMouseEvent(&csTME);
         }
+        trackedMouseLeave = on;
     }
 
 };
-
 
 #endif //GEDITOR_GEDITOR_H

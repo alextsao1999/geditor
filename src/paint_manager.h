@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <map>
+#include <memory>
 #include <SkBitmap.h>
 #include <SkCanvas.h>
 #include <SkString.h>

@@ -11,6 +11,8 @@
 #include <cstdlib>
 #include <codecvt>
 #include <windows.h>
+#include <sys/stat.h>
+
 struct FixedData {
     char *data{nullptr};
     int length{0};

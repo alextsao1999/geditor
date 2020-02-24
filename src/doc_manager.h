@@ -7,29 +7,27 @@
 
 #include "document.h"
 #include "table.h"
+#include "open_visitor.h"
 #include <codecvt>
 #include <fstream>
+#include <regex>
+#include <thread>
+class DocumentManager;
 typedef void (CALLBACK *Handler)(const char *, const char *);
 class CallBackMsgHandler : public MessageHandler {
 public:
     Handler m_onNotify = nullptr;
     Handler m_onResponse = nullptr;
     Handler m_onError = nullptr;
+    DocumentManager *m_mgr;
+    CallBackMsgHandler(DocumentManager *mMgr) : m_mgr(mMgr) {}
     void onNotify(string_ref method, value &params) override {
         if (m_onNotify) {
             auto p = params.dump();
             m_onNotify(method.c_str(), p.c_str());
         }
     }
-    void onResponse(value &ID, value &result) override {
-        auto id = ID.get<std::string>();
-        auto p = result.dump();
-        //printf("id:%s result -> %s\n", id.c_str(), p.c_str());
-        printf("id:%s\n", id.c_str());
-        if (m_onResponse) {
-            m_onResponse(id.c_str(), p.c_str());
-        }
-    }
+    void onResponse(value &ID, value &result) override;
     void onError(value &ID, value &error) override {
         if (m_onError) {
             auto id = ID.dump();
@@ -37,14 +35,26 @@ public:
             m_onError(id.c_str(), p.c_str());
         }
     }
-    void onRequest(string_ref method, value &params, value &ID) override {
+    void onRequest(string_ref method, value &params, value &ID) override {}
 
-    }
 };
-class DocumentManager;
 class NewDocument : public Document {
 public:
     explicit NewDocument(DocumentManager *mgr) : Document(mgr) {
+        auto *inc = new FastTable(1, 2);
+        if (auto *col = inc->getItem(0, 0)) {
+            col->m_data = _GT("#include");
+            col->m_color = SK_ColorYELLOW;
+        }
+        Document::append(inc);
+
+        auto *head = new FastTable(1, 2, 10);
+        if (auto *col = head->getItem(0, 0)) {
+            col->m_data = _GT("@Annotation");
+            col->m_color = SK_ColorLTGRAY;
+        }
+        Document::append(head);
+
         auto *table = new SubElement();
         table->addParam(L"test", L"aaaa");
         table->addLocal(L"test", L"aaaa");
@@ -67,13 +77,48 @@ public:
 */
 
     }
+    std::string getContent() {
+        std::string content;
+        std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+        for (auto &line : m_context.m_textBuffer.m_buffer) {
+            content.append(conv.to_bytes(line.content + _GT("\r\n")));
+        }
+        return std::move(content);
+    }
+    void onContentChange(EventContext &context, CommandType type, CommandData data) override;
 
+};
+class EDocument : public Document {
+public:
+    explicit EDocument(DocumentManager *mgr, string_ref file) : Document(mgr) {
+        FileBuffer buffer(file);
+        ECodeParser parser(buffer);
+        parser.Parse();
+        for (auto &mod : parser.code.modules) {
+            auto *module = new ModuleElement();
+            module->name.append(mod.name.toUnicode());
+            Container::append(module);
+            for (auto &key : mod.include) {
+                if (key.type == KeyType::KeyType_Sub) {
+                    auto *sub = parser.code.find<ESub>(key);
+                    if (sub) {
+                        SubVisitor open(&parser.code, this, module, sub);
+                        sub->ast->accept(&open);
+                    }
+                }
+            }
+        }
+        buffer.free();
+        Document::onLineChange(m_root, m_context.m_textBuffer.getLineCount());
+        layout();
+    }
 };
 class FileDocument : public Document {
 private:
     URIForFile uri;
 public:
-    FileDocument(DocumentManager *mgr, string_ref path);
+    FileDocument(DocumentManager *mgr, string_ref path, string_ref languageId);
+    ~FileDocument() override;
     string_ref getUri() override { return uri.str(); }
     std::string getContent() {
         std::string content;
@@ -98,37 +143,61 @@ public:
     RenderManager *m_render;
     int m_current = 0;
 public:
-    explicit DocumentManager(RenderManager *render) : m_render(render) {
-        //CreateLSP(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
-        openFile("C:/Users/Administrator/Desktop/compiler4e/runtime.c");
+    explicit DocumentManager(RenderManager *render) : m_render(render), m_handler(this) {
 
+/*
+        CreateLSP(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
+        string_ref ref = "file:///C:/Users/Administrator/Desktop/compiler4e/";
+        m_client->Initialize(ref);
+        openFile("C:/Users/Administrator/Desktop/compiler4e/runtime.c");
+*/
+        //open(new EDocument(this, R"(C:\Users\Administrator\Desktop\edit\f.e)"));
+        openNew();
     }
     ~DocumentManager() {
+        for (auto &doc : m_documents) {
+            delete doc;
+        }
         if (m_client) {
             m_client->Shutdown();
             m_client->Exit();
             m_loop.detach();
         }
     }
-
     void CreateLSP(string_ref path, string_ref cmd = nullptr) {
         //m_client = std::make_shared<LanguageClient>(R"(F:\LLVM\bin\clangd.exe)");
         //m_client = std::make_shared<LanguageClient>(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
         m_client = std::make_shared<LanguageClient>(path.c_str(), (char *) cmd.c_str());
         m_loop = std::thread([&] { m_client->loop(m_handler); });
-
-        string_ref ref = "file:///C:/Users/Administrator/Desktop/compiler4e/";
-        m_client->Initialize(ref);
     }
     LanguageClient *getLanguageClient() { return m_client.get(); }
-    void openFile(string_ref path) {
+    int open(Document *document) {
         m_current = m_documents.size();
-        Document *doc = new FileDocument(this, path);
-        m_documents.push_back(doc);
+        m_documents.push_back(document);
+        return m_current;
     }
-    void openNew() {
+    int openFile(string_ref path, string_ref languageId = "cpp") {
+        m_current = m_documents.size();
+        Document *doc = new FileDocument(this, path, languageId);
+        m_documents.push_back(doc);
+        return m_current;
+    }
+    int openNew() {
         m_current = m_documents.size();
         m_documents.push_back(new NewDocument(this));
+        return m_current;
+    }
+    void close(int index) {
+        auto *closed = m_documents[index];
+        m_documents.erase(m_documents.begin() + index);
+        delete closed;
+        m_current = 0;
+        if (m_documents.empty()) {
+            openNew();
+        }
+    }
+    void change(int index) {
+        m_current = index;
     }
     Document *current() {
         return m_documents[m_current];
@@ -156,6 +225,8 @@ public:
         m_client->GoToDeclaration(current()->getUri(), position);
     }
     void onTrigger(EventContext &context, int ch) {
+        printf("ch : %d\n", ch);
+
         for (auto &cmp : m_completionTrigger) {
             if (cmp.front() == ch) {
                 CompletionContext ctx;
@@ -168,6 +239,12 @@ public:
                 m_client->SignatureHelp(current()->getUri(), context.position());
             }
         }
+        if (&context == context.getCaretManager()->getEventContext()) {
+            CompletionContext ctx;
+            ctx.triggerKind = CompletionTriggerKind::TriggerTriggerForIncompleteCompletions;
+            m_client->Completion(current()->getUri(), context.position(-1), ctx);
+        }
+
     }
     void onHover(Position position) {
         m_client->Hover(current()->getUri(), position);
@@ -175,6 +252,7 @@ public:
     void onSignatureHelp(Position postion) {
         m_client->SignatureHelp(current()->getUri(), postion);
     }
+
 };
 
 

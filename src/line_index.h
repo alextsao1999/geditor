@@ -16,6 +16,9 @@ public:
     inline LineCounter operator-(const LineCounter &rv) { return {line - rv.line, offset - rv.offset}; }
     void increase(EventContext *context, int num);
     void decrease(EventContext *context, int num);
+    void increase(EventContext *context);
+    void decrease(EventContext *context);
+
 };
 
 

@@ -81,6 +81,7 @@ public:
         None,
         Update,
     };
+    using ostream = std::wostream;
     Element() = default;
     Offset getOffset(EventContext &context) override;
     virtual int getChildCount() {
@@ -209,6 +210,14 @@ public:
         command.context->redraw();
     }
     virtual void onUndoDiscard(Command command) {}
+    virtual void onSelectionToString(EventContext &context, SelectionState state, ostream &out) {
+        for_context(ctx, context) {
+            SelectionState selection = ctx.getSelectionState();
+            if (selection != SelectionNone) {
+                ctx.current()->onSelectionToString(ctx, selection, out);
+            }
+        }
+    }
     virtual void onSelectionDelete(EventContext &context, SelectionState state) {
         for_context(ctx, context) {
             SelectionState selection = ctx.getSelectionState();
@@ -519,6 +528,9 @@ public:
     EventContext m_root;
     EventContext m_begin;
     DocumentManager *m_manager = nullptr;
+    int m_lineWidth = 0;
+    int m_charWidth = 0;
+    int m_folderWidth = 0;
 public:
     explicit Document(DocumentManager *mgr);
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
@@ -538,7 +550,7 @@ public:
                 while (m_context.m_queue.has()) {
                     command = m_context.m_queue.pop();
                     if (command.type == CommandType::PushStart) {
-                        if (command.data.value == PushType::Select) {
+                        if (command.data.value == PushType::PushTypeSelect) {
                             m_context.select(command.pos, end);
                         }
                         return;
@@ -552,8 +564,9 @@ public:
             }
         }
     }
+    GString getSelectionString();
     ///////////////////////////////////////////////////////////////////
-    Offset getLogicOffset() override { return {25, 0}; }
+    Offset getLogicOffset() override { return {m_lineWidth + m_folderWidth, 0}; }
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
     }
@@ -590,6 +603,19 @@ public:
         m_viewportOffset = offset;
     }
 
+    void onRedraw(EventContext &context) override  {
+        Root::onRedraw(context);
+
+        SkPaint paint;
+        paint.setColor(SK_ColorLTGRAY);
+        auto &canvas = m_context.m_renderManager->m_canvas;
+        canvas->drawLine(m_lineWidth, 0, m_lineWidth, m_context.m_renderManager->getViewportSize().height, paint);
+    }
+
+    virtual void onLineChange(EventContext &event, int num) {
+        int count = m_context.m_textBuffer.getLineCount();
+        m_lineWidth = (int(std::log10(count)) + 1) * m_charWidth + 10;
+    }
     virtual void onContentChange(EventContext &event, CommandType type, CommandData data) {}
 };
 

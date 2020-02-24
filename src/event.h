@@ -14,6 +14,7 @@
 #include "caret_manager.h"
 #include "auto_complete.h"
 #include "lexer.h"
+#include "keymap.h"
 typedef void *NotifyParam;
 typedef int32_t NotifyValue;
 struct Context;
@@ -38,8 +39,8 @@ static const char *SelectionString[] = {
         "SelectionRow",
 };
 enum PushType : int {
-    None,
-    Select
+    PushTypeNone,
+    PushTypeSelect
 };
 struct Context {
     std::map<GString, int> keywords = {
@@ -56,6 +57,7 @@ struct Context {
             {_GT("false"), StyleKeywordFont},
             {_GT("null"), StyleKeywordFont},
     };
+    KeyMap m_keyMap;
     AutoComplete m_autoComplete;
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
@@ -66,11 +68,6 @@ struct Context {
     TextBuffer m_textBuffer;
     //////////////////////////
     bool m_selecting = false;
-/*
-    Offset m_selectBase;
-    Offset m_selectStart;
-    Offset m_selectEnd;
-*/
     CaretPos m_selectBasePos;
     CaretPos m_selectCurrentPos;
     CaretPos m_selectStartPos;
@@ -140,12 +137,10 @@ struct Context {
             }
         }
     }
-
     inline Offset getSelectStart() {
 //        return m_selectStart;
         return m_selectStartPos.offset;
     }
-
     inline Offset getSelectEnd() {
 //        return m_selectEnd;
         return m_selectEndPos.offset;
@@ -158,8 +153,7 @@ struct Context {
         rect.set({(SkScalar) start.x, (SkScalar) start.y}, {(SkScalar) end.x, (SkScalar) end.y});
         return rect;
     }
-
-    void pushStart(PushType type = PushType::None) {
+    void pushStart(PushType type = PushType::PushTypeNone) {
         m_queue.push({nullptr, m_selectBasePos, CommandType::PushStart, CommandData(type)});
     }
     void pushEnd() {
@@ -278,7 +272,7 @@ struct EventContext {
         getCaretManager()->update();
     }
     inline Element *current() { return element; }
-    Position position() { return {getCounter().line, pos().getIndex()}; }
+    Position position(int offset = 0) { return {getCounter().line, pos().getIndex() + offset}; }
     Painter getPainter();
     Canvas getCanvas(SkPaint *paint);
     Canvas getCanvas();
@@ -286,43 +280,19 @@ struct EventContext {
     LayoutManager *getLayoutManager();
     CaretManager *getCaretManager();
     StyleManager *getStyleManager();
-    inline GStyle &getStyle(int id) { return getStyleManager()->get(id); }
+    inline GStyle &getStyle(int id = StyleDeafaultFont) { return getStyleManager()->get(id); }
     Lexer *getLexer();
     LineViewer getLineViewer(int offset = 0, bool pushCommand = true);
-    void insertLine(int offset = 0, int count = 1) {
-        for (int i = 0; i < count; ++i) {
-            getDocContext()->m_textBuffer.insertLine(getCounter(), offset);
-        }
-    }
-    void deleteLine(int offset = 0, int count = 1) {
-        for (int i = 0; i < count; ++i) {
-            getDocContext()->m_textBuffer.deleteLine(getCounter(), offset);
-        }
-    }
-
-    void breakLine(int offset, int idx, bool pushCommand = true) {
-        if (pushCommand) {
-            push(CommandType::Break, CommandData(index));
-        }
-        auto line = getLineViewer(offset, false);
-        auto next = getLineViewer(offset + 1, false);
-        next.append(line.c_str() + idx, line.length() - idx);
-        line.remove(idx, line.length() - idx);
-    }
-    void combineLine(int offset = 0, bool pushCommand = true) {
-        auto line = getLineViewer(offset, false);
-        if (pushCommand) {
-            push(CommandType::Combine, CommandData(line.length()));
-        }
-        auto next = getLineViewer(offset + 1, false);
-        line.append(next.c_str());
-        next.clear();
-    }
+    void insertLine(int offset = 0, int count = 1);
+    void deleteLine(int offset = 0, int count = 1);
+    void breakLine(int offset, int idx, bool pushCommand = true);
+    void combineLine(int offset = 0, bool pushCommand = true);
     EventContext() = default;
     explicit EventContext(Document *doc);
     explicit EventContext(EventContext *out, int idx);
     explicit EventContext(const EventContext *context, EventContext *new_out); // copy context with new outer
     bool canEnter();
+    bool hasChild();
     EventContext begin() { return EventContext(outer, 0); }
     EventContext end() { return EventContext(outer, -1); }
     EventContext nearby(int value) {
@@ -358,7 +328,7 @@ struct EventContext {
         if (outer) {
             outer->dump();
         }
-        printf("{%d,tag=[%ws]} ", getCounter().line, tag().str);
+        printf("{%d,tag=[%ws]} ", index, tag().str);
     }
     std::string path() {
         std::string str;
@@ -480,6 +450,29 @@ struct EventContext {
         }
         return nullptr;
     }
+    EventContext *findOuter(GChar *tag) {
+        auto *start = outer;
+        while (start) {
+            if (start->tag().contain(tag)) {
+                return start;
+            }
+            start = start->outer;
+        }
+        return nullptr;
+    }
+    EventContext *findLine(int line) {
+        for (EventContext ctx = enter(); ctx.has(); ctx.next()) {
+            if (ctx.contains(line)) {
+                if (ctx.hasChild()) {
+                    return ctx.findLine(line - ctx.counter.line);
+                } else {
+                    return ctx.copy();
+                }
+            }
+        }
+        return nullptr;
+    }
+    bool contains(int line);
 
     template <typename Type>
     inline Type *cast() { return (Type *) element; }

@@ -32,7 +32,11 @@
 
 #include "SkTypes.h"
 #include <tchar.h>
+#ifdef  USE_MINGW
+#include <usp10_dy.h>
+#else
 #include <usp10.h>
+#endif
 #include <objbase.h>
 static void (*gEnsureLOGFONTAccessibleProc)(const LOGFONT&);
 

@@ -38,6 +38,7 @@ EXPORT_API void WINAPI GEditorSetColor(GEditor *editor, int style, GColor color)
 EXPORT_API void WINAPI GEditorRelayout(GEditor *editor) {
     editor->m_data->current().m_root.relayout();
 }
+
 EXPORT_API void WINAPI GEditorLSPCreate(GEditor *editor, const char *app, const char *cmd) {
     editor->m_data->m_manager.CreateLSP(app, cmd);
 }
@@ -51,11 +52,64 @@ EXPORT_API void WINAPI GEditorLSPInit(GEditor *editor, const char *root) {
     auto &client = editor->m_data->m_manager.m_client;
     client->Initialize(uri);
 }
-EXPORT_API void WINAPI GEditorLSPOpen(GEditor *editor, const char *path, const char *text) {
-    auto &client = editor->m_data->m_manager.m_client;
-    client->DidOpen(path, text);
+EXPORT_API int WINAPI GEditorDocumentOpenFile(GEditor *editor, const char *path) {
+    return editor->m_data->m_manager.openFile(path);
+}
+EXPORT_API int WINAPI GEditorDocumentOpenE(GEditor *editor, const char *path) {
+    return editor->m_data->m_manager.open(new EDocument(&editor->m_data->m_manager, path));
+}
+EXPORT_API int WINAPI GEditorDocumentOpenNew(GEditor *editor) {
+    return editor->m_data->m_manager.openNew();
+}
+EXPORT_API void WINAPI GEditorDocumentClose(GEditor *editor, int index) {
+    editor->m_data->m_manager.close(index);
+}
+EXPORT_API void WINAPI GEditorDocumentChange(GEditor *editor, int index) {
+    editor->m_data->m_manager.change(index);
+}
+EXPORT_API void WINAPI GEditorDocumentGoToDefination(GEditor *editor, Position &pos) {
+    editor->m_data->m_manager.onGoToDefinition(pos);
+}
+EXPORT_API void WINAPI GEditorDocumentGoToDeclaration(GEditor *editor, Position &pos) {
+    editor->m_data->m_manager.onGoToDeclaration(pos);
+}
+EXPORT_API void WINAPI GEditorDocumentHover(GEditor *editor, Position &pos) {
+    editor->m_data->m_manager.onHover(pos);
+}
+EXPORT_API void WINAPI GEditorDocumentSignatureHelp(GEditor *editor, Position &pos) {
+    editor->m_data->m_manager.onSignatureHelp(pos);
+}
+EXPORT_API void WINAPI GEditorDocumentComplete(GEditor *editor, Position &pos) {
+    CompletionContext ctx;
+    ctx.triggerKind = CompletionTriggerKind::Invoked;
+    editor->m_data->m_manager.onComplete(pos, ctx);
 }
 
+CaretPos PositionToCaretPos(GEditor *editor, Position &positon, bool focus = false) {
+    EventContext *ctx = editor->m_data->current().m_root.findLine(positon.line);
+    TextCaretService service({4, 6}, ctx);
+    Buffer<SkRect> buffer;
+    service.breakText(buffer);
+    CaretPos pos = service.getIndexPos(buffer, positon.character);
+    if (focus) {
+        ctx->pos().setIndex(positon.character);
+        ctx->focus(false);
+    } else {
+        ctx->free();
+    }
+    return pos;
+}
+EXPORT_API void WINAPI GeditorSelect(GEditor *editor, Position &start, Position &end) {
+    //offset = editor->m_data->current().context()->m_caretManager.current();
+    auto &caret = editor->m_data->current().context()->m_caretManager;
+    CaretPos from = PositionToCaretPos(editor, start);
+    CaretPos to = PositionToCaretPos(editor, end, true);
+    editor->m_data->current().context()->select(from, to);
+}
+
+EXPORT_API void WINAPI GeditorCaretOffset(GEditor *editor, Offset &offset) {
+    offset = editor->m_data->current().context()->m_caretManager.current();
+}
 EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) {
     return editor->m_data->current().m_context.m_caretManager.getEventContext();
 }
@@ -96,6 +150,13 @@ EXPORT_API void WINAPI GeditorLineGetString(GEditor *editor, int line, char *str
 }
 EXPORT_API Element *WINAPI GeditorAppendElement(GEditor *editor, Element *element) {
     return editor->m_data->current().append(element);
+}
+
+EXPORT_API EventContext *WINAPI EventContextFindLine(EventContext *context, int line) {
+    return context->findLine(line);
+}
+EXPORT_API void WINAPI EventContextGetPosition(EventContext *context, Position *position) {
+    *position = context->position();
 }
 EXPORT_API EventContext *WINAPI EventContextCopy(EventContext *context) {
     return context->copy();

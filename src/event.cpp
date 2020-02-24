@@ -18,6 +18,7 @@ Canvas EventContext::getCanvas(SkPaint *paint) {
 }
 Canvas EventContext::getCanvas() { return doc->context()->m_renderManager->getCanvas(this); }
 bool EventContext::canEnter() { return element && element->onCanEnter(*this); }
+bool EventContext::hasChild() { return element && element->getHead() != nullptr; }
 EventContext EventContext::enter(int idx) { return EventContext(this, idx); }
 RenderManager *EventContext::getRenderManager() { return doc->context()->m_renderManager; }
 LayoutManager *EventContext::getLayoutManager() { return &doc->context()->m_layoutManager; }
@@ -312,13 +313,51 @@ bool EventContext::isFocusIn() {
 
 void EventContext::gutter() {
     GString &&string = std::to_wstring(getCounter().line + 1);
-    auto style = getStyle(StyleDeafaultFont).paint();
-    style.setColor(SkColorSetRGB(69,145,245));
+    auto style = getStyle().paint();
+    //style.setColor(SkColorSetRGB(69,145,245));
+    style.setColor(SK_ColorLTGRAY);
     Offset view = viewportOffset();
-    view.x = 5;
+    view.x = document()->m_lineWidth - 5;
     view.y += style.getTextSize() + 8;
+    style.setTextAlign(SkPaint::Align::kRight_Align);
     doc->m_context.m_renderManager->m_canvas->drawText(string.c_str(), string.size() * 2, view.x, view.y, style);
 
 }
 
+bool EventContext::contains(int line) {
+    return line >= counter.line && line - counter.line < element->getLineNumber();
+}
 
+void EventContext::insertLine(int offset, int count) {
+    for (int i = 0; i < count; ++i) {
+        getDocContext()->m_textBuffer.insertLine(getCounter(), offset);
+    }
+    document()->onLineChange(*this, count);
+}
+
+void EventContext::deleteLine(int offset, int count) {
+    for (int i = 0; i < count; ++i) {
+        getDocContext()->m_textBuffer.deleteLine(getCounter(), offset);
+    }
+    document()->onLineChange(*this, -count);
+}
+
+void EventContext::breakLine(int offset, int idx, bool pushCommand) {
+    if (pushCommand) {
+        push(CommandType::Break, CommandData(index));
+    }
+    auto line = getLineViewer(offset, false);
+    auto next = getLineViewer(offset + 1, false);
+    next.append(line.c_str() + idx, line.length() - idx);
+    line.remove(idx, line.length() - idx);
+}
+
+void EventContext::combineLine(int offset, bool pushCommand) {
+    auto line = getLineViewer(offset, false);
+    if (pushCommand) {
+        push(CommandType::Combine, CommandData(line.length()));
+    }
+    auto next = getLineViewer(offset + 1, false);
+    line.append(next.c_str());
+    next.clear();
+}

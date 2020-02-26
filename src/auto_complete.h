@@ -13,7 +13,7 @@ class AutoComplete {
 private:
     HWND m_hWnd;
     WNDPROC OldProc{};
-    RenderManager m_render;
+    RenderManager *m_render;
 public:
     std::vector<CompletionItem> m_items;
     explicit AutoComplete() {
@@ -26,7 +26,7 @@ public:
                                 0, 0, width, height, m_owner, nullptr, nullptr, nullptr);
         SetWindowLongPtr(m_hWnd, GWLP_USERDATA, (LONG_PTR) this);
         //OldProc = WNDPROC(SetWindowLongPtr(m_owner, GWLP_WNDPROC, (LONG_PTR) onWndProc));
-        m_render = RenderManager(m_hWnd);
+        //m_render = new WindowRenderManager(m_hWnd, nullptr);
         SendMessage(m_hWnd, LB_SETITEMHEIGHT, 0, 35);
         SendMessage(m_hWnd, LB_ADDSTRING, 0, (LPARAM) _GT("test"));
         SendMessage(m_hWnd, LB_ADDSTRING, 0, (LPARAM) _GT("my test"));

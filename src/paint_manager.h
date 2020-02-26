@@ -76,8 +76,6 @@ public:
     ~GStyle() {
         DeleteObject(fFont);
     }
-    explicit operator SkPaint() { return m_paint; }
-    inline SkPaint *operator->() { return &m_paint; }
     inline SkPaint &paint() { return m_paint; }
     inline void attach(HDC hdc) {
         HGDIOBJ obj;
@@ -268,6 +266,7 @@ public:
     Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint);
     Canvas(EventContext *context, SkCanvas *canvas);
     ~Canvas();
+    Canvas &operator=(const Canvas &) = delete;
     void save();
     void save(SkPaint *paint);
     void restore() {
@@ -288,12 +287,35 @@ public:
 };
 class RenderManager {
 public:
-    static HBITMAP CreateBitmap(int nWid, int nHei, void **ppBits) {
+    RenderManager() = default;
+    virtual ~RenderManager() = default;
+    virtual void refresh() = 0;
+    virtual void invalidate() = 0;
+    virtual void update(GRect *rect) = 0;
+    virtual void resize() = 0;
+    virtual void redraw(EventContext *ctx);
+    virtual Painter getPainter(EventContext *ctx) = 0;
+    virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) = 0;
+    virtual Canvas getCanvas(EventContext *ctx) = 0;
+    virtual Offset getViewportOffset() { return {}; }
+    virtual void setViewportOffset(Offset offset) = 0;
+    virtual void setVertScroll(uint32_t height) = 0;
+    virtual Size getViewportSize() = 0;
+    virtual GRect getViewportRect() {
+        Size size = getViewportSize();
+        return {0, 0, SkIntToScalar(size.width), SkIntToScalar(size.height)};
+    }
+    virtual bool copy() = 0;
+
+};
+class WindowRenderManager : public RenderManager {
+public:
+    static HBITMAP CreateBitmap(int nWidth, int nHeight, void **ppBits) {
         BITMAPINFO bmi;
         memset(&bmi, 0, sizeof(bmi));
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bmi.bmiHeader.biWidth = nWid;
-        bmi.bmiHeader.biHeight = -nHei;
+        bmi.bmiHeader.biWidth = nWidth;
+        bmi.bmiHeader.biHeight = -nHeight;
         bmi.bmiHeader.biPlanes = 1;
         bmi.bmiHeader.biBitCount = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
@@ -304,28 +326,29 @@ public:
         ReleaseDC(nullptr, hdc);
         return hBmp;
     }
+public:
     HWND m_hWnd = nullptr;
     HDC m_hMemDC = nullptr;
     HDC m_hWndDC = nullptr;
     HBITMAP m_hBitmap = nullptr;
     SkBitmap m_bitmap;
     std::shared_ptr<SkCanvas> m_canvas;
-public:
-    RenderManager() = default;
-    explicit RenderManager(HWND hwnd) : m_hWnd(hwnd) {
+    GEditorData *m_data = nullptr;
+    SkBitmap m_background;
+    SkPaint m_paint;
+    WindowRenderManager(HWND hwnd, GEditorData *data) : m_hWnd(hwnd), m_data(data) {
         m_hWndDC = GetDC(hwnd);
         m_hMemDC = CreateCompatibleDC(m_hWndDC);
-        RenderManager::resize();
-    };
-    ~RenderManager() {
-        if (m_hBitmap)
-            DeleteObject(m_hBitmap);
-        ////////////////////////////////
+        WindowRenderManager::resize();
+        //SkImageDecoder::DecodeFile(R"(C:\Users\Administrator\Desktop\back.jpg)", &m_background);
+        //m_paint.setAlpha(30);
     }
-    virtual void refresh() { InvalidateRect(m_hWnd, nullptr, false); }
-    virtual void invalidate() { InvalidateRect(m_hWnd, nullptr, false); }
-    virtual void update(GRect *rect) {}
-    virtual void resize() {
+    ~WindowRenderManager() override {
+        if (m_hBitmap) DeleteObject(m_hBitmap);
+    }
+    void refresh() override { InvalidateRect(m_hWnd, nullptr, false); }
+    void invalidate() override { InvalidateRect(m_hWnd, nullptr, false); }
+    void resize() override {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);
         int w = rect.right - rect.left, h = rect.bottom - rect.top;
@@ -338,19 +361,14 @@ public:
         m_bitmap.installPixels(info, bits, info.minRowBytes());
         m_canvas = std::make_shared<SkCanvas>(m_bitmap);
     }
-    virtual void redraw(EventContext *ctx);
-    virtual Painter getPainter(EventContext *ctx) { return Painter(m_hMemDC, ctx); }
-    virtual Canvas getCanvas(EventContext *ctx, SkPaint *paint) {
-        //return Canvas(ctx, m_canvas.get(), paint);
+    Painter getPainter(EventContext *ctx) override { return Painter(m_hMemDC, ctx); }
+    Canvas getCanvas(EventContext *ctx, SkPaint *paint) override {
         return Canvas(ctx, new SkCanvas(m_bitmap), paint);
     }
-    virtual Canvas getCanvas(EventContext *ctx) {
-//        return Canvas(ctx, m_canvas.get());
+    Canvas getCanvas(EventContext *ctx) override {
         return Canvas(ctx, new SkCanvas(m_bitmap));
     }
-    virtual Offset getViewportOffset() { return {}; }
-    virtual void setViewportOffset(Offset offset) {}
-    virtual void setVertScroll(uint32_t height) {
+    void setVertScroll(uint32_t height) override {
         SCROLLINFO info;
         info.cbSize = sizeof(SCROLLINFO);
         info.fMask = SIF_ALL;
@@ -363,35 +381,18 @@ public:
         info.fMask = SIF_ALL;
         SetScrollInfo(m_hWnd, SB_VERT, &info, true);
     }
-    virtual Size getViewportSize() {
+    Size getViewportSize() override {
         RECT rect;
         GetClientRect(m_hWnd, &rect);
         return {rect.right - rect.left, rect.bottom - rect.top};
     }
-    virtual GRect getViewportRect() {
-        RECT rect;
-        GetClientRect(m_hWnd, &rect);
-        return {0, 0,
-                SkIntToScalar(rect.right - rect.left),
-                SkIntToScalar(rect.bottom - rect.top)};
-    }
-    bool copy() {
-        Size size = getViewportSize();
-        return (bool) BitBlt(m_hWndDC, 0, 0, size.width, size.height, m_hMemDC, 0, 0, SRCCOPY);
-    }
-};
-class WindowRenderManager : public RenderManager {
-public:
-    GEditorData *m_data = nullptr;
-    SkBitmap m_background;
-    SkPaint m_paint;
-    WindowRenderManager(HWND hwnd, GEditorData *data) : RenderManager(hwnd), m_data(data) {
-        //SkImageDecoder::DecodeFile(R"(C:\Users\Administrator\Desktop\back.jpg)", &m_background);
-        //m_paint.setAlpha(30);
-    }
+    bool copy() override;
+
     void updateViewport();
     Offset getViewportOffset() override;
     void setViewportOffset(Offset offset) override;
     void update(GRect *rect) override;
+
 };
+
 #endif //TEST_PAINT_MANAGER_H

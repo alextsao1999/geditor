@@ -77,11 +77,9 @@ void Root::onRemove(EventContext &context) {
 
 }
 
-Document::Document(DocumentManager *mgr) : m_manager(mgr), m_context(mgr->m_render), m_root(this) {
-    m_charWidth = m_root.getStyle().measureText(_GT("0"), sizeof(GChar));
-}
+Document::Document(DocumentManager *mgr) :
+m_manager(mgr), m_context(mgr->m_render), m_root(this), m_margin(this) {}
 
-#include <sstream>
 GString Document::getSelectionString() {
     std::wstringbuf buf;
     std::wostream stream(&buf);

@@ -7,14 +7,18 @@
 
 #include <queue>
 #include <mutex>
+#include <sstream>
+
 #include "common.h"
 #include "event.h"
 #include "client.h"
-#define DispatchEvent(NAME)
+#include "parser.h"
+#include "margin.h"
+
 #define DEFINE_EVENT(EVENT, ...) virtual void EVENT(EventContext &context, ##__VA_ARGS__) {}
 #define DEFINE_EVENT2(EVENT) \
     virtual void EVENT(EventContext &context, int x, int y) { \
-        EventContext ctx = onDispatch(context, x, y);         \
+        EventContext ctx = this->onDispatch(context, x, y);         \
         context_method(ctx, EVENT, x, y);                      \
     }
 #define for_context(new_ctx, ctx) for (auto new_ctx = (ctx).enter(); new_ctx.has(); new_ctx.next())
@@ -82,6 +86,7 @@ public:
         Update,
     };
     using ostream = std::wostream;
+    using istream = std::wistream;
     Element() = default;
     Offset getOffset(EventContext &context) override;
     virtual int getChildCount() {
@@ -226,6 +231,23 @@ public:
             }
         }
         context.relayout();
+    }
+    virtual void onSelectionReplace(EventContext &context, SelectionState state, Range &range, istream &in) {
+        for_context(ctx, context) {
+            SelectionState selection = ctx.getSelectionState();
+            if (selection != SelectionNone) {
+                ctx.current()->onSelectionDelete(ctx, selection);
+            }
+        }
+        context.relayout();
+    }
+    virtual void onSelectionRange(EventContext &context, SelectionState state, Range &range) {
+        for_context(ctx, context) {
+            SelectionState selection = ctx.getSelectionState();
+            if (selection != SelectionNone) {
+                ctx.current()->onSelectionRange(ctx, selection, range);
+            }
+        }
     }
     virtual Element *onReplace(EventContext &context, Element *element) { return nullptr; }
     virtual void onNotify(EventContext &context, int type, NotifyParam param, NotifyValue other) {
@@ -528,15 +550,15 @@ public:
     EventContext m_root;
     EventContext m_begin;
     DocumentManager *m_manager = nullptr;
-    int m_lineWidth = 0;
-    int m_charWidth = 0;
-    int m_folderWidth = 0;
+    SimpleParser m_parser;
+    Margin m_margin;
 public:
     explicit Document(DocumentManager *mgr);
     Tag getTag(EventContext &context) override { return {_GT("Document")}; }
-    DocumentManager *getDocumentManager() { return m_manager; };
-    virtual string_ref getUri() { return nullptr; };
-    inline Context *context() { return &m_context; };
+    DocumentManager *getDocumentManager() { return m_manager; }
+    virtual string_ref getUri() { return nullptr; }
+    inline Context *context() { return &m_context; }
+    inline Margin *margin() { return &m_margin; }
     void layout() {
         setViewportOffset(m_viewportOffset);
         m_root.relayout();
@@ -564,9 +586,21 @@ public:
             }
         }
     }
+    void copy() {
+        auto str = getSelectionString();
+        OpenClipboard(nullptr);
+        EmptyClipboard();
+        HGLOBAL pRes = GlobalAlloc(GMEM_MOVEABLE, (str.length() + 1) * sizeof(GChar));
+        auto *pStr = (GChar *) GlobalLock(pRes);
+        gstrcpy(pStr, str.c_str());
+        pStr[str.length()] = _GT('\0');
+        GlobalUnlock(pRes);
+        SetClipboardData(CF_UNICODETEXT, pRes);
+        CloseClipboard();
+    }
     GString getSelectionString();
     ///////////////////////////////////////////////////////////////////
-    Offset getLogicOffset() override { return {m_lineWidth + m_folderWidth, 0}; }
+    Offset getLogicOffset() override { return {m_margin.width(), 0}; }
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
     }
@@ -602,21 +636,48 @@ public:
         }
         m_viewportOffset = offset;
     }
-
     void onRedraw(EventContext &context) override  {
         Root::onRedraw(context);
-
-        SkPaint paint;
-        paint.setColor(SK_ColorLTGRAY);
-        auto &canvas = m_context.m_renderManager->m_canvas;
-        canvas->drawLine(m_lineWidth, 0, m_lineWidth, m_context.m_renderManager->getViewportSize().height, paint);
+        m_margin.draw();
     }
-
     virtual void onLineChange(EventContext &event, int num) {
-        int count = m_context.m_textBuffer.getLineCount();
-        m_lineWidth = (int(std::log10(count)) + 1) * m_charWidth + 10;
+        m_margin.update();
     }
     virtual void onContentChange(EventContext &event, CommandType type, CommandData data) {}
+    virtual void onKeyCommand(KeyState key) {
+        auto command = m_context.m_keyMap.lookUp(key);
+        if (command == KeyCommand::Undo) {
+            undo();
+        }
+        if (command == KeyCommand::Paste) {
+            OpenClipboard(nullptr);
+            HGLOBAL pRes = GetClipboardData(CF_UNICODETEXT);
+            auto *pStr = (GChar *) GlobalLock(pRes);
+            GString str(pStr);
+            GlobalUnlock(pRes);
+            CloseClipboard();
+            std::wistringstream wis(str);
+            context()->pushStart();
+            m_parser.parse(m_context.m_caretManager.getEventContext(), wis);
+            context()->pushEnd();
+            m_root.redraw();
+        }
+        if (!m_context.hasSelection()) {
+            return;
+        }
+        if (command == KeyCommand::Copy) {
+            copy();
+        }
+        if (command == KeyCommand::Cut) {
+            copy();
+            context()->pushStart(PushTypeSelect);
+            onSelectionDelete(m_root, SelectionNone);
+            context()->pushEnd();
+            context()->clearSelect();
+            m_root.redraw();
+        }
+
+    }
 };
 
 #endif //TEST_DOCUMENT_H

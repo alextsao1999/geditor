@@ -62,7 +62,6 @@ void OpenEFile(Document *document) {
     document->m_context.m_renderManager->invalidate();
 }
 int main() {
-    //system("chcp 65001 > nul");
 /*
     auto *cvt = new std::codecvt_byname<wchar_t, char, std::mbstate_t>("Chinese");
     std::wcout.imbue(std::locale(std::locale("Chinese"), cvt));

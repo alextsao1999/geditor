@@ -14,16 +14,34 @@
 enum class KeyCommand {
     None,
     Undo,
+    Copy,
+    Paste,
+    Cut,
+    Delete,
 };
-
+typedef uint32_t KeyState;
 class KeyMap {
 public:
-    std::map<unsigned, KeyCommand> m_maps = {{0x1A | KEY_CTRL, KeyCommand::Undo}};
-    KeyCommand lookUp(unsigned key) {
+    std::map<KeyState, KeyCommand> m_maps = {
+            {'C' | KEY_CTRL, KeyCommand::Copy},
+            {'V' | KEY_CTRL, KeyCommand::Paste},
+            {'X' | KEY_CTRL, KeyCommand::Cut},
+            {'Z' | KEY_CTRL, KeyCommand::Undo},
+    };
+    KeyCommand lookUp(KeyState key) {
+        return m_maps[GetState(key)];
+    }
+    static KeyState GetState(KeyState state = 0) {
         if (GetKeyState(VK_CONTROL) & 0x8000) {
-            key |= KEY_CTRL;
+            state |= KEY_CTRL;
         }
-        return m_maps[key];
+        if (GetKeyState(VK_SHIFT) & 0x8000) {
+            state |= KEY_SHIFT;
+        }
+        if (GetKeyState(VK_MENU) & 0x8000) {
+            state |= KEY_ALT;
+        }
+        return state;
     }
 
 };

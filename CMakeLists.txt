@@ -41,7 +41,7 @@ source_group("Source Files" FILES ${sources})
 
 add_library(geditor STATIC ${sources} ${headers})
 
-set(LINK_STATIC_LIB opengl32 usp10 skia geditor ecode jpeg)
+set(LINK_STATIC_LIB opengl32 usp10 skia geditor ecode jpeg CACHE INTERNAL "")
 
 add_executable(main example/main.cpp)
 target_link_libraries(main ${LINK_STATIC_LIB})
@@ -51,3 +51,5 @@ add_library(editor
         example/dll.h
         example/dll.cpp)
 target_link_libraries(editor ${LINK_STATIC_LIB})
+
+add_subdirectory(platform/qt)

@@ -8,6 +8,7 @@
 #include "document.h"
 #include "table.h"
 #include "open_visitor.h"
+#include "auto_complete.h"
 #include <codecvt>
 #include <fstream>
 #include <regex>
@@ -61,6 +62,11 @@ public:
         table->append(new AutoLineElement());
         Document::append(table);
         m_context.m_textBuffer.appendLine();
+
+        Document::append(new AutoLineElement());
+        m_context.m_textBuffer.appendLine();
+
+
         layout();
     }
     void Open () {
@@ -133,7 +139,7 @@ public:
 };
 class DocumentManager {
 public:
-    AutoComplete m_completion;
+    //AutoComplete m_completion;
     std::shared_ptr<LanguageClient> m_client;
     CallBackMsgHandler m_handler;
     std::thread m_loop;

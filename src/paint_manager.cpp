@@ -96,8 +96,7 @@ void RenderManager::redraw(EventContext *ctx) {
     rect.top = offset.y;
     rect.right = rect.left + ctx->width();
     rect.bottom = rect.top + ctx->height();
-    //InvalidateRect(m_hWnd, &rect, false);
-    InvalidateRect(m_hWnd, nullptr, false);
+    invalidate();
 }
 
 void WindowRenderManager::updateViewport() {
@@ -126,4 +125,9 @@ void WindowRenderManager::update(GRect *rect) {
         m_canvas->drawBitmapRect(m_background, bound, &m_paint);
     }
     m_data->current().onRedraw(m_data->current().m_root);
+}
+
+bool WindowRenderManager::copy() {
+    Size size = getViewportSize();
+    return BitBlt(m_hWndDC, 0, 0, size.width, size.height, m_hMemDC, 0, 0, SRCCOPY);
 }

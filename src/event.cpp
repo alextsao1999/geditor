@@ -312,16 +312,7 @@ bool EventContext::isFocusIn() {
 }
 
 void EventContext::gutter() {
-    GString &&string = std::to_wstring(getCounter().line + 1);
-    auto style = getStyle().paint();
-    //style.setColor(SkColorSetRGB(69,145,245));
-    style.setColor(SK_ColorLTGRAY);
-    Offset view = viewportOffset();
-    view.x = document()->m_lineWidth - 5;
-    view.y += style.getTextSize() + 8;
-    style.setTextAlign(SkPaint::Align::kRight_Align);
-    doc->m_context.m_renderManager->m_canvas->drawText(string.c_str(), string.size() * 2, view.x, view.y, style);
-
+    document()->m_margin.drawGutter(this);
 }
 
 bool EventContext::contains(int line) {

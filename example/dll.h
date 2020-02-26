@@ -17,7 +17,7 @@ EXPORT_API GEditor *WINAPI CreateGeditor(HWND hWnd, int x, int y, int width, int
 EXPORT_API void WINAPI DeleteGeditor(GEditor *editor) {
     delete editor;
 }
-EXPORT_API HWND WINAPI GEditorGetHWnd(GEditor *editor) { return editor->m_data->m_hwnd; }
+EXPORT_API HWND WINAPI GEditorGetHWnd(GEditor *editor) { return editor->m_hWnd; }
 EXPORT_API void WINAPI GEditorSetOnBlur(GEditor *editor, CallBack callback) {
     editor->m_data->current().m_onBlur = callback;
 }

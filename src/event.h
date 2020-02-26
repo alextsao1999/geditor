@@ -5,6 +5,7 @@
 #ifndef GEDITOR_EVENT_H
 #define GEDITOR_EVENT_H
 
+#include <protocol.h>
 #include "common.h"
 #include "line_index.h"
 #include "command_queue.h"
@@ -12,7 +13,6 @@
 #include "paint_manager.h"
 #include "text_buffer.h"
 #include "caret_manager.h"
-#include "auto_complete.h"
 #include "lexer.h"
 #include "keymap.h"
 typedef void *NotifyParam;
@@ -58,7 +58,6 @@ struct Context {
             {_GT("null"), StyleKeywordFont},
     };
     KeyMap m_keyMap;
-    AutoComplete m_autoComplete;
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
     StyleManager m_styleManager;
@@ -92,13 +91,6 @@ struct Context {
     }
     void startSelect() {
         m_selecting = true;
-
-/*
-        m_selectBase = m_caretManager.current();
-        m_selectStart = m_selectBase;
-        m_selectEnd = m_selectBase;
-*/
-
         m_selectBasePos = m_caretManager.data();
         m_selectStartPos = m_selectBasePos;
         m_selectEndPos = m_selectBasePos;
@@ -107,22 +99,10 @@ struct Context {
         m_selecting = false;
     }
     void clearSelect() {
-//        m_selectBase = m_selectStart = m_selectEnd = Offset(0, 0);
         m_selectBasePos = m_selectStartPos = m_selectEndPos = {};
         m_selecting = false;
     }
     void updateSelect() {
-/*
-        Offset current = m_caretManager.current();
-        if (m_selectBase.y > current.y) {
-            m_selectStart = current;
-            m_selectEnd = m_selectBase;
-        } else {
-            m_selectStart = m_selectBase;
-            m_selectEnd = current;
-        }
-*/
-
         m_selectCurrentPos = m_caretManager.data();
         if (m_selectCurrentPos.offset.y > m_selectBasePos.offset.y) {
             m_selectStartPos = m_selectBasePos;
@@ -137,14 +117,9 @@ struct Context {
             }
         }
     }
-    inline Offset getSelectStart() {
-//        return m_selectStart;
-        return m_selectStartPos.offset;
-    }
-    inline Offset getSelectEnd() {
-//        return m_selectEnd;
-        return m_selectEndPos.offset;
-    }
+    inline bool hasSelection() { return m_selectBasePos.offset != m_selectCurrentPos.offset; }
+    inline Offset getSelectStart() { return m_selectStartPos.offset; }
+    inline Offset getSelectEnd() { return m_selectEndPos.offset; }
     inline GRect getSelectRect() {
         Offset start = getSelectStart();
         Offset end = getSelectEnd();

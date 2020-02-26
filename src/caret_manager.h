@@ -83,14 +83,10 @@ public:
     inline CaretPos &data() { return m_data; }
     // 可视区光标位置
     Offset current();
-    void create(int width = 2, int height = 17) {
-        CreateCaret(m_paintManager->m_hWnd, nullptr, width, height);
-    }
-    void destroy() {
-        DestroyCaret();
-    }
+/*
     void show() { ShowCaret(m_paintManager->m_hWnd); }
     void hide() { SetCaretPos(-1, -1); }
+*/
     void focus(EventContext *context, bool force = false);
     void set(Offset pos) {
         m_relative = pos;

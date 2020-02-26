@@ -68,14 +68,14 @@ public:
         return path;
     }
     static void DrawSlection(EventContext &context, Offset start, Offset end) {
+        if (!context.getDocContext()->hasSelection()) {
+            return;
+        }
         Canvas canvas = context.getCanvas();
         GRect rect;
         rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
-        if (rect.width() == 0 && rect.height() == 0) {
-            return;
-        }
         rect.fTop -= 2;
-        rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont)->getTextSize() + 7;
+        rect.fBottom = rect.fTop + context.getStyle(StyleDeafaultFont).getTextSize() + 7;
         SkPaint paint;
         paint.setColor(SkColorSetRGB(218, 227, 233));
         paint.setAlpha(255);
@@ -89,7 +89,6 @@ public:
         //canvas->drawRoundRect(rect, 4, 4, paint);
         canvas->drawRect(rect, paint);
     }
-
 };
 class TextCaretService {
 protected:
@@ -229,9 +228,7 @@ public:
         CaretManager *m_caret = m_context->getCaretManager();
         m_caret->data().set(index, m_context->absOffset(offset));
         m_caret->set(offset);
-        m_caret->show();
     }
-
     static int GetIndex(EventContext &context, Offset offset, int x, int y) {
         TextCaretService service(offset, &context);
         Buffer<SkRect> rects;
@@ -402,6 +399,13 @@ public:
         context.focus();
         context.redraw();
     }
+
+    void onLeftButtonUp(EventContext &context, int x, int y) override {
+        if (auto index = context.document()->margin()->index(context.absolute(x, y))) {
+            printf("click margin index:%d \n", index);
+        }
+    }
+
     void onLeftDoubleClick(EventContext &context, int x, int y) override {
         TextCaretService service({4, 6}, &context);
         auto line = context.getLineViewer();
@@ -517,7 +521,13 @@ public:
 
     }
     void onSelectionToString(EventContext &context, SelectionState state, ostream &out) override {
-        if (state == SelectionState::SelectionStart) {
+        if (state == SelectionSelf) {
+            CaretPos start = context.getDocContext()->m_selectStartPos;
+            CaretPos end = context.getDocContext()->m_selectEndPos;
+            int length = end.index - start.index;
+            out.write(context.getLineViewer().content().c_str() + start.getIndex(), length);
+        }
+        if (state == SelectionStart) {
             CaretPos start = context.getDocContext()->m_selectStartPos;
             out << context.getLineViewer().content().c_str() + start.getIndex() << std::endl;
         }
@@ -526,7 +536,7 @@ public:
         }
         if (state == SelectionEnd) {
             CaretPos end = context.getDocContext()->m_selectEndPos;
-            out << context.getLineViewer().content().substr(0, end.getIndex());
+            out.write(context.getLineViewer().content().c_str(), end.getIndex());
         }
 
     }

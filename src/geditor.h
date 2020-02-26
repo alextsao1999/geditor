@@ -14,32 +14,26 @@
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
 class GEditor;
 struct GEditorData {
-    HWND m_hwnd;
-    WindowRenderManager m_renderManager;
-    bool m_dragging = false;
+    WindowRenderManager m_render;
     DocumentManager m_manager;
-    explicit GEditorData(HWND hwnd) :
-    m_hwnd(hwnd),
-    m_manager(&m_renderManager),
-    m_renderManager(hwnd, this){}
-    inline Document &current() {
-        return *m_manager.current();
-    }
+    bool m_dragging[2] = {false};
+    explicit GEditorData(HWND hwnd) : m_manager(&m_render), m_render(hwnd, this){}
+    inline Document &current() { return *m_manager.current(); }
+
 };
 class GEditor {
 public:
+    HWND m_hWnd;
     GEditorData *m_data;
 public:
-    GEditor() :
-    m_data(nullptr) {}
     explicit GEditor(HWND parent, int x, int y, int nWidth, int nHeight) {
-        HWND hwnd = CreateWindowEx(WS_EX_ACCEPTFILES, GEDITOR_CLASSNAME, _GT("GEditor"),
+        m_hWnd = CreateWindowEx(WS_EX_ACCEPTFILES, GEDITOR_CLASSNAME, _GT("GEditor"),
                                    WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL | WS_BORDER,
                                    x, y, nWidth, nHeight, parent,
                                    nullptr, nullptr, nullptr);
-        ASSERT(hwnd, "Create Window Error!");
-        m_data = new GEditorData(hwnd);
-        SetWindowLongPtr(m_data->m_hwnd, GWLP_USERDATA, (LONG_PTR) m_data);
+        ASSERT(m_hWnd, "Create Window Error!");
+        m_data = new GEditorData(m_hWnd);
+        SetWindowLongPtr(m_hWnd, GWLP_USERDATA, (LONG_PTR) m_data);
     }
     ~GEditor() { delete m_data; }
 };
@@ -79,7 +73,7 @@ public:
         auto _context = current.m_context.m_caretManager.m_context; \
         context_on_ptr(_context.ptr(), name, ##__VA_ARGS__); }
     /////////////////////////////////////////////////////
-    static int getDragPosition(HWND hWnd, int nBar) {
+    static int GetDragPosition(HWND hWnd, int nBar) {
         SCROLLINFO si;
         si.cbSize = sizeof(SCROLLINFO);
         si.fMask = SIF_ALL;
@@ -104,18 +98,18 @@ public:
                 current.onMouseMove(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 if (current.context()->m_selecting) {
                     current.context()->updateSelect();
-                    data->m_renderManager.invalidate();
+                    data->m_render.invalidate();
                 }
                 break;
             case WM_MOUSEWHEEL:
             case WM_VSCROLL:
-                onHandleScroll(SB_VERT, data, wParam);
+                onHandleScroll(hWnd, SB_VERT, data, wParam);
                 break;
             case WM_HSCROLL:
-                onHandleScroll(SB_HORZ, data, wParam);
+                onHandleScroll(hWnd, SB_HORZ, data, wParam);
                 break;
             case WM_SIZE:
-                data->m_renderManager.resize();
+                data->m_render.resize();
                 break;
             case WM_LBUTTONUP: // 鼠标左键放开
                 DispatchEvent(onLeftButtonUp);
@@ -141,10 +135,8 @@ public:
             case WM_RBUTTONDBLCLK:
                 DispatchEvent(onRightDoubleClick);
                 break;
-            case WM_IME_CHAR:
             case WM_CHAR:
-                if (current.context()->m_keyMap.lookUp(wParam) == KeyCommand::Undo) {
-                    current.undo();
+                if (KeyMap::GetState() & KEY_CTRL) {
                     return 0;
                 }
                 if (auto *context = current.m_context.m_caretManager.getEventContext()) {
@@ -163,6 +155,10 @@ public:
                 }
                 break;
             case WM_KEYDOWN:
+                if (KeyMap::GetState()) {
+                    current.onKeyCommand(wParam);
+                    return 0;
+                }
                 MsgCallFocus(onKeyDown, wParam, lParam);
                 break;
             case WM_KEYUP:
@@ -175,10 +171,12 @@ public:
                 PostQuitMessage(0);
                 break;
             case WM_SETFOCUS:
-                current.context()->m_caretManager.create();
+                CreateCaret(hWnd, nullptr, 2, 17);
+                SetCaretPos(-2, -2);
+                ShowCaret(hWnd);
                 break;
             case WM_KILLFOCUS:
-                current.context()->m_caretManager.destroy();
+                DestroyCaret();
                 break;
             case WM_MOUSEHOVER:
                 onTrackMouse(hWnd, false);
@@ -197,9 +195,9 @@ public:
         }
         return 0;
     }
-    static void onHandleScroll(int nBar, GEditorData *data, WPARAM wParam) {
+    static void onHandleScroll(HWND hWnd, int nBar, GEditorData *data, WPARAM wParam) {
         int step = (nBar == SB_VERT ? 35 : 1);
-        int prev = GetScrollPos(data->m_hwnd, nBar);
+        int prev = GetScrollPos(hWnd, nBar);
         int movement = (((int16_t) HIWORD(wParam)) / -60) * step;
         prev += movement;
         switch (LOWORD(wParam)) {
@@ -207,35 +205,31 @@ public:
                 prev -= step;
                 break;
             case SB_LINEDOWN:
-                data->m_dragging = false;
+                data->m_dragging[nBar] = false;
                 prev += step;
                 break;
             case SB_PAGEUP:
-                data->m_dragging = false;
+                data->m_dragging[nBar] = false;
                 prev -= step;
                 break;
             case SB_PAGEDOWN:
                 prev += step;
                 break;
             case SB_THUMBTRACK:
-                data->m_dragging = true;
-                prev = getDragPosition(data->m_hwnd, SB_VERT);
+                data->m_dragging[nBar] = true;
+                prev = GetDragPosition(hWnd, nBar);
                 break;
             case SB_ENDSCROLL:
-                if (data->m_dragging) {
-                    prev = getDragPosition(data->m_hwnd, SB_VERT);
-                }
-                break;
             case SB_THUMBPOSITION:
-                if (data->m_dragging) {
-                    prev = getDragPosition(data->m_hwnd, SB_VERT);
+                if (data->m_dragging[nBar]) {
+                    prev = GetDragPosition(hWnd, nBar);
                 }
                 break;
             default:
                 break;
         }
-        SetScrollPos(data->m_hwnd, nBar, prev, true);
-        data->m_renderManager.updateViewport();
+        SetScrollPos(hWnd, nBar, prev, true);
+        data->m_render.updateViewport();
         data->current().context()->m_caretManager.update();
     }
     static void onDropFiles(HWND hwnd, HDROP hDropInfo, GEditorData *data) {
@@ -261,7 +255,7 @@ public:
         }
         buffer.free();
         data->current().layout();
-        data->m_renderManager.invalidate();
+        data->m_render.invalidate();
         //完成拖入文件操作，系统释放缓冲区 
         DragFinish(hDropInfo);
     }
@@ -269,8 +263,8 @@ public:
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
         GRect rect = GRect::MakeLTRB(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
-        data->m_renderManager.update(&rect);
-        data->m_renderManager.copy();
+        data->m_render.update(&rect);
+        data->m_render.copy();
         EndPaint(hWnd, &ps);
     }
     static void onTrackMouse(HWND hWnd, bool on) {

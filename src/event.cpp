@@ -110,7 +110,7 @@ Offset EventContext::offset() {
     return current()->getOffset(*this);
 }
 Offset EventContext::relative(int x, int y) { return Offset{x, y}  - offset(); }
-Display EventContext::display() { CheckBound(DisplayNone);return current()->getDisplay(); }
+Display EventContext::display() { CheckBound(DisplayNone);return current()->getDisplay(*this); }
 int EventContext::height() { CheckBound(0);return current()->getHeight(*this); }
 int EventContext::width() { CheckBound(0);return current()->getWidth(*this); }
 int EventContext::logicHeight() { CheckBound(0);return current()->getLogicHeight(*this); }

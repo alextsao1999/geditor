@@ -15,8 +15,6 @@ Offset Element::getOffset(EventContext &context) {
 }
 
 int Element::getLineNumber() {
-    if (getDisplay() == DisplayLine)
-        return 1;
     int line = 0;
     Element *next = getHead();
     while (next) {
@@ -27,7 +25,7 @@ int Element::getLineNumber() {
 }
 
 int Element::getWidth(EventContext &context) {
-    if (getDisplay() == DisplayBlock || getDisplay() == DisplayLine) {
+    if (context.display() == DisplayBlock) {
         if (context.outer) {
             return context.outer->width() - getLogicOffset().x;
         }

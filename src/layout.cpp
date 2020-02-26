@@ -15,7 +15,7 @@ void LayoutManager::reflow(EventContext context, bool relayout, Offset offset) {
     LayoutContext layoutContext;
     Element *current = context.current();
     Offset self = offset;
-    Display display = current->getDisplay();
+    Display display = context.display();
     if (relayout) current->onRelayout(context, this);
     m_layouts[display](context, this, display, layoutContext, self, offset);
     current->setLogicOffset(self);
@@ -26,7 +26,7 @@ void LayoutManager::reflow(EventContext context, bool relayout, Offset offset) {
         current = context.current();
         current->onEnterReflow(context, offset);
         self = offset;
-        display = current->getDisplay();
+        display = context.display();
         if (relayout) current->onRelayout(context, this);
         m_layouts[display](context, this, display, layoutContext, self, offset);
         current->setLogicOffset(self);
@@ -61,9 +61,6 @@ Layout(LayoutDisplayBlock) {
     }
     //next.x = 0;
     next.y += context.height();
-}
-Layout(LayoutDisplayLine) {
-    UseDisplayFunc(LayoutDisplayBlock);
 }
 Layout(LayoutDisplayTable) {
     if (context.parent().display() == DisplayRow) {

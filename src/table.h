@@ -265,7 +265,7 @@ public:
         draw(0, 0, 0,
              SkColorSetRGB(191, 191, 191), SkColorSetRGB(242, 242, 242));
     }
-    Display getDisplay() override { return DisplayBlock; }
+    Display getDisplay(EventContext &context) override { return DisplayBlock; }
     int getLogicHeight(EventContext &context) override { return 100; }
     int getLogicWidth(EventContext &context) override { return 200; }
     void onRedraw(EventContext &context) override {
@@ -357,7 +357,7 @@ public:
 };
 class MoveElement : public RelativeElement {
 public:
-    Display getDisplay() override { return DisplayBlock; }
+    Display getDisplay(EventContext &context) override { return DisplayBlock; }
     int getLogicHeight(EventContext &context) override { return 100; }
     int getLogicWidth(EventContext &context) override { return 200; }
     bool is_moving = false;
@@ -388,7 +388,8 @@ public:
     LineElement() = default;
     int getLogicHeight(EventContext &context) override { return 25; }
     //int getLogicWidth(EventContext &context) override { return 25; }
-    Display getDisplay() override { return DisplayLine; }
+    Display getDisplay(EventContext &context) override { return DisplayBlock; }
+    int getLineNumber() override { return 1; }
     Tag getTag(EventContext &context) override {
         Tag tag = {_GT("Line Focus")};
         tag.append(_GT("(")).append(context.getCounter().line + 1).append(_GT(")"));
@@ -765,7 +766,7 @@ public:
     }
     void setLogicWidth(EventContext &context, int width) override { m_width = width; }
     void setLogicHeight(EventContext &context, int height) override { m_height = height; }
-    Display getDisplay() override { return DisplayInline; }
+    Display getDisplay(EventContext &context) override { return DisplayInline; }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         context.pos().setOffset(context.absolute(x, y));
         context.focus();
@@ -1151,7 +1152,7 @@ public:
         }
         context.enter().focus();
     }
-    Display getDisplay() override { return DisplayBlock; }
+    Display getDisplay(EventContext &context) override { return DisplayBlock; }
     Element *getHead() override { return &m_items.front(); }
     Element *getTail() override { return &m_items.back(); }
     void onEnter(EventContext &context, EventContext &enter, int idx) override {
@@ -1635,7 +1636,6 @@ private:
     public:
         int count = 6;
         Tag getTag(EventContext &context) override { return {_GT("SingleLine Focus")}; }
-        Display getDisplay() override { return DisplayLine; }
         Element *onNext(EventContext &context) override {
             if (++context.index >= count) return nullptr;
             return this;
@@ -1670,7 +1670,7 @@ private:
 public:
     Element *getHead() override {if (!expand) return nullptr; return &m_lines; }
     Element *getTail() override {if (!expand) return nullptr; return &m_lines; }
-    Display getDisplay() override { return DisplayBlock; }
+    Display getDisplay(EventContext &context) override { return DisplayBlock; }
     int getLogicHeight(EventContext &context) override { return m_lines.count * 25; }
     bool expand = true;
     void onRedraw(EventContext &context) override {

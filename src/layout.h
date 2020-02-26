@@ -64,7 +64,6 @@ Layout(LayoutDisplayNone);
 Layout(LayoutDisplayAbsolute);
 Layout(LayoutDisplayInline);
 Layout(LayoutDisplayBlock);
-Layout(LayoutDisplayLine);
 Layout(LayoutDisplayTable);
 Layout(LayoutDisplayRow);
 Layout(LayoutDisplayCustom);
@@ -79,7 +78,6 @@ public:
             LayoutDisplayAbsolute,
             LayoutDisplayInline,
             LayoutDisplayBlock,
-            LayoutDisplayLine,
             LayoutDisplayTable,
             LayoutDisplayRow,
             LayoutDisplayCustom,

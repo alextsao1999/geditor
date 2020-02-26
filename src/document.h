@@ -144,7 +144,7 @@ public:
     virtual void setNext(Element *next){}
     virtual void setPrev(Element *prev){}
     virtual void setLogicOffset(Offset offset) {}
-    virtual Display getDisplay() { return DisplayNone; };
+    virtual Display getDisplay(EventContext &context) { return DisplayNone; };
     // Display为Custom的时候才会调用这个方法
     virtual void onReflow(LayoutArgs()) {}
     virtual void onRelayout(EventContext &context, LayoutManager *sender) {
@@ -382,8 +382,7 @@ public:
     Offset getLogicOffset() override { return m_offset; }
     void setLogicOffset(Offset offset) override { m_offset = offset; }
     void dump() override {
-        const char *string[] = {"None", "Inline", "Block", "Line", "Table", "Row"};
-        printf("{ display: %s,  offset-x: %d, offset-y: %d }\n", string[getDisplay()], m_offset.x, m_offset.y);
+        printf("{[%d, %d]}\n", m_offset.x, m_offset.y);
     }
 };
 class AbsoluteElement : public LinkedElement {
@@ -395,7 +394,7 @@ public:
     AbsoluteElement(int left, int top, int right, int bottom) : m_left(left), m_top(top), m_right(right), m_bottom(bottom) {}
 private:
 public:
-    Display getDisplay() override { return DisplayAbsolute; }
+    Display getDisplay(EventContext &context) override { return DisplayAbsolute; }
     Offset getLogicOffset() override { return {m_left, m_top}; }
     Offset getOffset(EventContext &context) override {
         Offset offset = getLogicOffset();
@@ -466,7 +465,7 @@ public:
             m_height = offset.y;
         }
     }
-    Display getDisplay() override { return D; }
+    Display getDisplay(EventContext &context) override { return D; }
     virtual Element *append(Element *element) {
         if (m_tail == nullptr) {
             m_tail = m_head = element;

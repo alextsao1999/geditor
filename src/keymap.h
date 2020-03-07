@@ -18,6 +18,9 @@ enum class KeyCommand {
     Paste,
     Cut,
     Delete,
+    CD,
+    CF,
+    CG
 };
 typedef uint32_t KeyState;
 class KeyMap {
@@ -27,7 +30,13 @@ public:
             {'V' | KEY_CTRL, KeyCommand::Paste},
             {'X' | KEY_CTRL, KeyCommand::Cut},
             {'Z' | KEY_CTRL, KeyCommand::Undo},
+            {'D' | KEY_CTRL, KeyCommand::CD},
+            {'F' | KEY_CTRL, KeyCommand::CF},
+            {'G' | KEY_CTRL, KeyCommand::CG},
     };
+    bool hasKey(KeyState key) {
+        return m_maps.count(GetState(key));
+    }
     KeyCommand lookUp(KeyState key) {
         return m_maps[GetState(key)];
     }

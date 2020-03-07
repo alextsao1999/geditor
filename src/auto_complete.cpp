@@ -6,10 +6,11 @@
 #include "event.h"
 #include "document.h"
 void AutoComplete::show(Document *document) {
-    return;
-/*
-    auto &caret = document->context()->m_caretManager;
+    //auto &caret = document->context()->m_caretManager;
     RECT rect;
+    ShowWindow(m_hWnd, SW_SHOW);
+    SetFocus(m_hWnd);
+/*
     GetWindowRect(caret.m_paintManager->m_hWnd, &rect);
     Offset offset = caret.current();
     offset.y += caret.getEventContext()->height() - 5;
@@ -17,4 +18,43 @@ void AutoComplete::show(Document *document) {
     ShowWindow(m_hWnd, SW_SHOW);
     SetFocus(caret.m_paintManager->m_hWnd);
 */
+
+}
+class CompleteItem : public RelativeElement {
+public:
+    int getLogicWidth(EventContext &context) override {
+        return 200;
+    }
+
+    int getLogicHeight(EventContext &context) override {
+        return 50;
+    }
+
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        SkPaint paint;
+        paint.setStyle(SkPaint::kStroke_Style);
+        paint.setColor(SK_ColorBLACK);
+        canvas->drawRect(context.bound(), paint);
+        printf("redraw!\n");
+    }
+};
+class CompleteList : public Container<> {
+public:
+    CompleteList() {
+        Container::append(new CompleteItem());
+        Container::append(new CompleteItem());
+        Container::append(new CompleteItem());
+        Container::append(new CompleteItem());
+    }
+
+    void onRedraw(EventContext &context) override {
+        printf("list redraw\n");
+        Root::onRedraw(context);
+    }
+
+};
+CompleteDocument::CompleteDocument(RenderManager *render, DocumentManager *mgr) : Document(render, mgr) {
+    Container::append(new CompleteList());
+    layout();
 }

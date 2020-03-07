@@ -73,7 +73,7 @@ private:
     RenderManager *m_renderManager;
 public:
     explicit LayoutManager(RenderManager *renderManager);
-    LayoutFunc m_layouts[8] = {
+    LayoutFunc m_layouts[7] = {
             LayoutDisplayNone,
             LayoutDisplayAbsolute,
             LayoutDisplayInline,

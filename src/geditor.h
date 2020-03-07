@@ -12,9 +12,15 @@
 #include "open_visitor.h"
 #include "shellapi.h"
 static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
+class EditorRender : public WindowRenderManager {
+public:
+    GEditorData *m_data = nullptr;
+    EditorRender(HWND hwnd, GEditorData *data) : WindowRenderManager(hwnd), m_data(data) {}
+    Document &target() override;
+};
 class GEditor;
 struct GEditorData {
-    WindowRenderManager m_render;
+    EditorRender m_render;
     DocumentManager m_manager;
     bool m_dragging[2] = {false};
     explicit GEditorData(HWND hwnd) : m_manager(&m_render), m_render(hwnd, this){}
@@ -155,7 +161,7 @@ public:
                 }
                 break;
             case WM_KEYDOWN:
-                if (KeyMap::GetState()) {
+                if (current.context()->m_keyMap.hasKey(wParam)) {
                     current.onKeyCommand(wParam);
                     return 0;
                 }

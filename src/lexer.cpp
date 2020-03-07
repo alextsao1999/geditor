@@ -4,6 +4,7 @@
 
 #include "lexer.h"
 #include "document.h"
+#include "doc_manager.h"
 bool IsSpace(GChar ch){
     return ch == _HM_C(' ') || ch == _HM_C('\r');
 }
@@ -45,9 +46,11 @@ void Lexer::ParseIdentifier() {
     } while (IsCodeChar(CURRENT_CHAR) || IsNumber(CURRENT_CHAR));
     TOKEN_END(TokenIdentifier, StyleDeafaultFont);
     GString identifier(current.start, current.length);
+    if (auto *mgr = context->document()->getDocumentManager()) {
+        current.style = mgr->m_keywords.count(identifier) ?
+                        mgr->m_keywords[identifier] : StyleDeafaultFont;
 
-    current.style = context->getDocContext()->keywords.count(identifier) ?
-                    context->getDocContext()->keywords[identifier] : StyleDeafaultFont;
+    }
 }
 
 void Lexer::ParseString() {

@@ -117,7 +117,7 @@ Offset CaretManager::current() {
     return m_relative;
 }
 
-bool CaretManager::findNext(const GChar *tag) {
+bool CaretManager::findNext(char *tag) {
     EventContext *next = m_context->findNext(tag);
     if (next != nullptr) {
         focus(next);
@@ -128,7 +128,7 @@ bool CaretManager::findNext(const GChar *tag) {
     return false;
 }
 
-bool CaretManager::findPrev(const GChar *tag) {
+bool CaretManager::findPrev(char *tag) {
     EventContext *prev = m_context->findPrev(tag);
     if (prev != nullptr) {
         focus(prev);

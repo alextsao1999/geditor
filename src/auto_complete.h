@@ -8,29 +8,43 @@
 #include "caret_manager.h"
 #include <vector>
 #include "paint_manager.h"
-#include "protocol.h"
+#include "document.h"
+class CompleteDocument : public Document {
+public:
+    CompleteDocument(RenderManager *render, DocumentManager *mgr);
+
+    void onRedraw(EventContext &context) override {
+
+        Root::onRedraw(context);
+    }
+};
+
+class CompleterRender : public WindowRenderManager {
+public:
+    CompleteDocument *m_doc = nullptr;
+    CompleterRender(HWND hwnd, CompleteDocument *doc) : WindowRenderManager(hwnd), m_doc(doc) {}
+    Document &target() override { return *m_doc; }
+};
+struct AutoCompleteContext {
+    CompleteDocument m_completer;
+    CompleterRender m_render;
+    explicit AutoCompleteContext(HWND hWnd) :
+    m_completer(&m_render, nullptr), m_render(hWnd, &m_completer) {}
+};
 class AutoComplete {
 private:
     HWND m_hWnd;
-    WNDPROC OldProc{};
-    RenderManager *m_render;
-public:
+    std::unique_ptr<AutoCompleteContext> m_context;
     std::vector<CompletionItem> m_items;
+public:
     explicit AutoComplete() {
         int width = 250, height = 300;
         RegisterACClass();
-        auto m_owner = CreateWindowEx(WS_EX_TOPMOST | WS_EX_NOACTIVATE, _GT("AutoComplete"), _GT(""),
-                                      WS_POPUP, 0, 0, width, height, 0, nullptr, nullptr, nullptr);
-        m_hWnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_NOACTIVATE, _GT("ListBox"), _GT("AutoComplete"),
-                                LBS_STANDARD | LBS_OWNERDRAWVARIABLE | WS_VSCROLL,
-                                0, 0, width, height, m_owner, nullptr, nullptr, nullptr);
+        m_hWnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_NOACTIVATE, _GT("AutoComplete"), _GT(""),
+                                WS_POPUP, 0, 0, width, height, 0, nullptr, nullptr, nullptr);
         SetWindowLongPtr(m_hWnd, GWLP_USERDATA, (LONG_PTR) this);
-        //OldProc = WNDPROC(SetWindowLongPtr(m_owner, GWLP_WNDPROC, (LONG_PTR) onWndProc));
-        //m_render = new WindowRenderManager(m_hWnd, nullptr);
-        SendMessage(m_hWnd, LB_SETITEMHEIGHT, 0, 35);
-        SendMessage(m_hWnd, LB_ADDSTRING, 0, (LPARAM) _GT("test"));
-        SendMessage(m_hWnd, LB_ADDSTRING, 0, (LPARAM) _GT("my test"));
-        SendMessage(m_hWnd, LB_ADDSTRING, 0, (LPARAM) _GT("ok"));
+        m_context = std::make_unique<AutoCompleteContext>(m_hWnd);
+        show(nullptr);
     };
     ~AutoComplete() {
         SendMessage(m_hWnd, WM_CLOSE, 0, 0);
@@ -65,16 +79,34 @@ public:
         wcex.hIconSm = nullptr;
         return RegisterClassEx(&wcex);
     }
-    static LRESULT CALLBACK onWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    static LRESULT CALLBACK onWndProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam) {
         auto *ac = (AutoComplete *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
-        if (message == WM_DRAWITEM) {
-            auto *dis = (DRAWITEMSTRUCT *) lParam;
-            printf("%d\n", dis->itemID);
-            if (dis->CtlType == ODT_LISTBOX) {
-            }
+        if (!ac || !ac->m_context) {
+            return DefWindowProc(hWnd, nMsg, wParam, lParam);
         }
-        return DefWindowProc(hWnd, message, wParam, lParam);
-        //return CallWindowProc(ac->OldProc, hWnd, message, wParam, lParam);
+        switch (nMsg) {
+            case WM_SIZE:
+                ac->m_context->m_render.resize();
+                break;
+            case WM_PAINT:
+                onPaint(hWnd, ac);
+                break;
+            case WM_DESTROY:
+                PostQuitMessage(0);
+                break;
+            default:
+                return DefWindowProc(hWnd, nMsg, wParam, lParam);
+
+        }
+        return 0;
+    }
+    static void onPaint(HWND hWnd, AutoComplete *ac) {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+        GRect rect = GRect::MakeLTRB(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
+        ac->m_context->m_render.update(&rect);
+        ac->m_context->m_render.copy();
+        EndPaint(hWnd, &ps);
     }
 
 };

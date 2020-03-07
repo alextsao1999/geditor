@@ -39,9 +39,10 @@ public:
     void onRequest(string_ref method, value &params, value &ID) override {}
 
 };
-class NewDocument : public Document {
+class NewDocument : public MarginDocument {
 public:
-    explicit NewDocument(DocumentManager *mgr) : Document(mgr) {
+    explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
+/*
         auto *inc = new FastTable(1, 2);
         if (auto *col = inc->getItem(0, 0)) {
             col->m_data = _GT("#include");
@@ -63,11 +64,8 @@ public:
         Document::append(table);
         m_context.m_textBuffer.appendLine();
 
-        Document::append(new AutoLineElement());
-        m_context.m_textBuffer.appendLine();
-
-
         layout();
+*/
     }
     void Open () {
         /*
@@ -94,9 +92,9 @@ public:
     void onContentChange(EventContext &context, CommandType type, CommandData data) override;
 
 };
-class EDocument : public Document {
+class EDocument : public MarginDocument {
 public:
-    explicit EDocument(DocumentManager *mgr, string_ref file) : Document(mgr) {
+    explicit EDocument(DocumentManager *mgr, string_ref file) : MarginDocument(mgr) {
         FileBuffer buffer(file);
         ECodeParser parser(buffer);
         parser.Parse();
@@ -119,7 +117,7 @@ public:
         layout();
     }
 };
-class FileDocument : public Document {
+class FileDocument : public MarginDocument {
 private:
     URIForFile uri;
 public:
@@ -148,6 +146,20 @@ public:
     std::vector<std::string> m_signatureTrigger;
     RenderManager *m_render;
     int m_current = 0;
+    std::map<GString, int> m_keywords = {
+            {_GT("if"),    StyleKeywordFont},
+            {_GT("while"), StyleKeywordFont},
+            {_GT("var"),   StyleKeywordFont},
+            {_GT("this"),  StyleKeywordFont},
+            {_GT("break"), StyleKeywordFont},
+            {_GT("do"),    StyleKeywordFont},
+            {_GT("class"), StyleKeywordFont},
+            {_GT("int"), StyleKeywordFont},
+            {_GT("switch"), StyleKeywordFont},
+            {_GT("true"), StyleKeywordFont},
+            {_GT("false"), StyleKeywordFont},
+            {_GT("null"), StyleKeywordFont},
+    };
 public:
     explicit DocumentManager(RenderManager *render) : m_render(render), m_handler(this) {
 

@@ -312,7 +312,7 @@ bool EventContext::isFocusIn() {
 }
 
 void EventContext::gutter() {
-    document()->m_margin.drawGutter(this);
+    document()->margin()->drawGutter(this);
 }
 
 bool EventContext::contains(int line) {

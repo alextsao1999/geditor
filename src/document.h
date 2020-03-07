@@ -33,8 +33,7 @@ public:
     ///////////////////////////////////////////////////////////////////
     virtual void dump() {}
     virtual void free() {}
-    virtual Tag getTag(EventContext &context) { return {_GT("Element")}; }
-
+    virtual Tag getTag(EventContext &context) { return TAG("Element"); }
     // 获取对于父元素的相对偏移
     virtual Offset getLogicOffset() { return {0, 0}; }
     // 获取实际的偏移
@@ -260,7 +259,11 @@ public:
     }
     virtual EventContext onDispatch(EventContext &context, int x, int y) {
         for_context(ctx, context) {
-            if (ctx.display() == Display::DisplayInline) {
+            auto display = ctx.display();
+            if (display == Display::DisplayNone) {
+                continue;
+            }
+            if (display == Display::DisplayInline) {
                 if (ctx.current()->contain(ctx, x, y)) {
                     return ctx;
                 }
@@ -540,6 +543,36 @@ public:
         pe->setNext(element);
     }
 };
+template <Display D = DisplayBlock>
+class ScrollContainer : public Container<D> {
+public:
+    int m_contentWidth = 0;
+    int m_contentHeight = 0;
+    Offset m_viewport;
+    ScrollContainer(int width, int height) {
+        this->m_width = width;
+        this->m_height = height;
+
+    }
+    void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
+        if (layout.lineMaxHeight) {
+            m_contentWidth = offset.x;
+            m_contentHeight = layout.lineMaxHeight;
+        }
+        if (layout.blockMaxWidth) {
+            m_contentWidth = layout.blockMaxWidth;
+            m_contentHeight = offset.y;
+        }
+
+    }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        Root::onRedraw(context);
+    }
+    EventContext onDispatch(EventContext &context, int x, int y) override {
+        return Element::onDispatch(context, x + m_viewport.x, y + m_viewport.y);
+    }
+};
 class Document : public Container<DisplayBlock> {
 public:
     CallBack m_onBlur = nullptr;
@@ -549,15 +582,13 @@ public:
     EventContext m_root;
     EventContext m_begin;
     DocumentManager *m_manager = nullptr;
-    SimpleParser m_parser;
-    Margin m_margin;
 public:
-    explicit Document(DocumentManager *mgr);
-    Tag getTag(EventContext &context) override { return {_GT("Document")}; }
+    explicit Document(RenderManager *render, DocumentManager *mgr);
+    Tag getTag(EventContext &context) override { return TAG("Document"); }
     DocumentManager *getDocumentManager() { return m_manager; }
     virtual string_ref getUri() { return nullptr; }
+    virtual Margin *margin() { return nullptr; }
     inline Context *context() { return &m_context; }
-    inline Margin *margin() { return &m_margin; }
     void layout() {
         setViewportOffset(m_viewportOffset);
         m_root.relayout();
@@ -599,7 +630,7 @@ public:
     }
     GString getSelectionString();
     ///////////////////////////////////////////////////////////////////
-    Offset getLogicOffset() override { return {m_margin.width(), 0}; }
+    Offset getLogicOffset() override { return {0, 0}; }
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
     }
@@ -635,16 +666,38 @@ public:
         }
         m_viewportOffset = offset;
     }
-    void onRedraw(EventContext &context) override  {
-        Root::onRedraw(context);
-        m_margin.draw();
-    }
-    virtual void onLineChange(EventContext &event, int num) {
+    virtual void onLineChange(EventContext &event, int num) {}
+    virtual void onContentChange(EventContext &event, CommandType type, CommandData data) {}
+    virtual void onKeyCommand(KeyState key) {}
+};
+class MarginDocument : public Document {
+public:
+    SimpleParser m_parser;
+    Margin m_margin;
+    explicit MarginDocument(DocumentManager *mgr);
+    Offset getLogicOffset() override { return {m_margin.width(), 0}; }
+    void onLineChange(EventContext &event, int num) override {
         m_margin.update();
     }
-    virtual void onContentChange(EventContext &event, CommandType type, CommandData data) {}
-    virtual void onKeyCommand(KeyState key) {
+    void onKeyCommand(KeyState key) override {
         auto command = m_context.m_keyMap.lookUp(key);
+        EventContext *ctx = m_context.m_caretManager.getEventContext();
+        if (command == KeyCommand::CD) {
+            ctx->getLineViewer().flags() |= LineFlagFold;
+            ctx->redraw();
+            return;
+        }
+        if (command == KeyCommand::CF) {
+            ctx->getLineViewer().flags() |= LineFlagLineVert;
+            ctx->redraw();
+            return;
+        }
+        if (command == KeyCommand::CG) {
+            ctx->getLineViewer().flags() |= LineFlagLineHorz;
+            ctx->redraw();
+            return;
+        }
+
         if (command == KeyCommand::Undo) {
             undo();
         }
@@ -677,6 +730,11 @@ public:
         }
 
     }
-};
+    Margin *margin() override { return &m_margin; }
+    void onRedraw(EventContext &context) override {
+        Root::onRedraw(context);
+        m_margin.draw();
+    }
 
+};
 #endif //TEST_DOCUMENT_H

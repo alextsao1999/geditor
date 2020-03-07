@@ -27,6 +27,7 @@
 
 struct EventContext;
 class GEditorData;
+class Document;
 typedef SkColor GColor;
 typedef SkRect GRect;
 typedef SkPath GPath;
@@ -333,10 +334,9 @@ public:
     HBITMAP m_hBitmap = nullptr;
     SkBitmap m_bitmap;
     std::shared_ptr<SkCanvas> m_canvas;
-    GEditorData *m_data = nullptr;
     SkBitmap m_background;
     SkPaint m_paint;
-    WindowRenderManager(HWND hwnd, GEditorData *data) : m_hWnd(hwnd), m_data(data) {
+    explicit WindowRenderManager(HWND hwnd) : m_hWnd(hwnd) {
         m_hWndDC = GetDC(hwnd);
         m_hMemDC = CreateCompatibleDC(m_hWndDC);
         WindowRenderManager::resize();
@@ -346,6 +346,7 @@ public:
     ~WindowRenderManager() override {
         if (m_hBitmap) DeleteObject(m_hBitmap);
     }
+    virtual Document &target() = 0;
     void refresh() override { InvalidateRect(m_hWnd, nullptr, false); }
     void invalidate() override { InvalidateRect(m_hWnd, nullptr, false); }
     void resize() override {
@@ -387,7 +388,6 @@ public:
         return {rect.right - rect.left, rect.bottom - rect.top};
     }
     bool copy() override;
-
     void updateViewport();
     Offset getViewportOffset() override;
     void setViewportOffset(Offset offset) override;

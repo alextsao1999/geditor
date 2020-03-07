@@ -139,39 +139,60 @@ struct Context {
     m_caretManager(renderManager),
     m_layoutManager(renderManager){}
 };
+#define TAG(t) (char *)(t)
+typedef char *TagId;
 struct Tag {
-    GChar str[255]{_GT('\0')};
-    Tag() = default;
-    Tag(const GChar* string) { gstrcpy(str, string); }
-    bool empty() { return gstrlen(str) == 0; }
-    bool operator==(const Tag &rvalue) { return gstrcmp(str, rvalue.str); }
-    bool operator==(const GChar *rvalue) { return gstrcmp(str, rvalue) == 0; }
-    bool contain(const GChar *item) {
-        for (int i = 0; str[i] != _GT('\0'); ++i) {
-            if (item[0] != str[i])
-                continue;
-            int j;
-            for (j = 0; item[j] != _GT('\0') && str[i + j] != _GT('\0'); ++j) {
-                if (item[j] != str[i + j]) {
-                    break;
-                }
-            }
-            if (item[j] == _GT('\0')) {
+    char str[256] = {'\0'};
+    constexpr Tag() = default;
+    Tag(TagId string) { strcpy(str, string); }
+    bool empty() { return strlen(str) == 0; }
+    bool operator==(const Tag &rvalue) { return strcmp(str, rvalue.str); }
+    bool operator==(TagId rvalue) { return strcmp(str, rvalue) == 0; }
+    bool contain(TagId value) {
+        int s_len = strlen(value);
+        int length = int(strlen(str) - s_len);
+        for (int i = 0; i <= length; ++i) {
+            if (memcmp(str + i, value, s_len) == 0) {
                 return true;
             }
         }
         return false;
     }
-    Tag &append(const GChar *value) {
-        gstrcat(str, value);
+    Tag &append(TagId value) {
+        ASSERT(strlen(str) < 255, "Length >= 256!");
+        strcat(str, value);
         return *this;
     }
-    Tag &append(const int value) {
-        gsprintf(str + gstrlen(str), _GT("%d"), value);
+    Tag &append(int value) {
+        ASSERT(strlen(str) < 255, "Length >= 256!");
+        sprintf(str + strlen(str), TAG("%d"), value);
         return *this;
+    }
+    void remove(TagId value) {
+        int s_len = strlen(value);
+        int length = int(strlen(str) - s_len);
+        for (int i = 0; i <= length; ++i) {
+            if (memcmp(str + i, value, s_len) == 0) {
+                memcpy(str + i, str + i + s_len, length - i + 1);
+            }
+        }
+    }
+    void clear() {
+        memset(str, 0, 255);
     }
     void dump() {
-        printf("Tag [%ws]\n", str);
+        printf("Tag [%s]\n", str);
+    }
+    template <typename ...Args>
+    void format(const char *format, Args...args) {
+        sprintf(str, format, std::forward(args)...);
+    }
+
+    template <typename ...Args>
+    static Tag Format(char *format, Args...args) {
+        Tag tag;
+        sprintf(tag.str, format, args...);
+        return tag;
     }
 };
 struct ReverseContext {
@@ -303,7 +324,7 @@ struct EventContext {
         if (outer) {
             outer->dump();
         }
-        printf("{%d,tag=[%ws]} ", index, tag().str);
+        printf("{%d,tag=[%s]} ", index, tag().str);
     }
     std::string path() {
         std::string str;
@@ -311,7 +332,7 @@ struct EventContext {
             str.append(outer->path());
         }
         char buf[255] = {"\0"};
-        sprintf(buf, "/%d", index);
+        sprintf(buf, "/%d[%s]", index, tag().str);
         str.append(buf);
         return str;
     }
@@ -344,14 +365,14 @@ struct EventContext {
     bool visible();
     bool isHead();
     bool isTail();
-    EventContext *findNext(const GChar *tag) {
+    EventContext *findNext(TagId tag) {
         EventContext *res = findNextBrother(tag);
         if (res == nullptr && outer) {
             return outer->findNext(tag);
         }
         return res;
     }
-    EventContext *findNextBrother(const GChar *tag, bool skipSelf = true) {
+    EventContext *findNextBrother(TagId tag, bool skipSelf = true) {
         EventContext context = *this;
         if (skipSelf) {
             context.next();
@@ -371,14 +392,14 @@ struct EventContext {
         }
         return nullptr;
     }
-    EventContext *findPrev(const GChar *tag) {
+    EventContext *findPrev(TagId tag) {
         EventContext *res = findPrevBrother(tag);
         if (res == nullptr && outer) {
             return outer->findPrev(tag);
         }
         return res;
     }
-    EventContext *findPrevBrother(const GChar *tag, bool skipSelf = true) {
+    EventContext *findPrevBrother(TagId tag, bool skipSelf = true) {
         EventContext context = *this;
         if (skipSelf) {
             context.prev();
@@ -398,7 +419,7 @@ struct EventContext {
         }
         return nullptr;
     }
-    EventContext *findInnerFirst(const GChar *tag) {
+    EventContext *findInnerFirst(TagId tag) {
         for (EventContext inner = enter(); inner.has(); inner.next()) {
             if (inner.tag().contain(tag)) {
                 return inner.copy();
@@ -413,7 +434,7 @@ struct EventContext {
         }
         return nullptr;
     }
-    EventContext *findInnerLast(const GChar *tag) {
+    EventContext *findInnerLast(TagId tag) {
         if (this->tag().contain(tag)) {
             return copy();
         }
@@ -425,7 +446,7 @@ struct EventContext {
         }
         return nullptr;
     }
-    EventContext *findOuter(GChar *tag) {
+    EventContext *findOuter(TagId tag) {
         auto *start = outer;
         while (start) {
             if (start->tag().contain(tag)) {

@@ -30,13 +30,14 @@ EXPORT_API void WINAPI GEditorSetStyle(GEditor *editor, int style_id, GColor col
     editor->m_data->current().m_context.m_styleManager.set(style_id, style);
 }
 EXPORT_API void WINAPI GEditorAddKeyword(GEditor *editor, int style, const char *keyword) {
-    editor->m_data->current().m_context.keywords.emplace(AnsiToUnicode(keyword), style);
+    editor->m_data->m_manager.m_keywords.emplace(AnsiToUnicode(keyword), style);
 }
 EXPORT_API void WINAPI GEditorSetColor(GEditor *editor, int style, GColor color) {
     editor->m_data->current().m_context.m_styleManager.get(style).setColor(color);
 }
 EXPORT_API void WINAPI GEditorRelayout(GEditor *editor) {
     editor->m_data->current().m_root.relayout();
+    editor->m_data->current().m_root.redraw();
 }
 
 EXPORT_API void WINAPI GEditorLSPCreate(GEditor *editor, const char *app, const char *cmd) {
@@ -116,6 +117,10 @@ EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) {
 EXPORT_API EventContext *WINAPI GEditorGetRoot(GEditor *editor) {
     return &editor->m_data->current().m_root;
 }
+EXPORT_API Document *WINAPI GEditorGetDocument(GEditor *editor) {
+    return &editor->m_data->current();
+}
+
 EXPORT_API int WINAPI GeditorGetLineCount(GEditor *editor) {
     return editor->m_data->current().m_context.m_textBuffer.getLineCount();
 }
@@ -151,15 +156,22 @@ EXPORT_API void WINAPI GeditorLineGetString(GEditor *editor, int line, char *str
 EXPORT_API Element *WINAPI GeditorAppendElement(GEditor *editor, Element *element) {
     return editor->m_data->current().append(element);
 }
+EXPORT_API void WINAPI EventContextDump(EventContext *context) {
+    auto str = context->path();
+    MessageBoxA(nullptr, str.c_str(), "Dump Result", 0);
+}
 
-EXPORT_API EventContext *WINAPI EventContextFindLine(EventContext *context, int line) {
-    return context->findLine(line);
+EXPORT_API void WINAPI EventContextLineStringInsert(EventContext *context, int offset, int pos, const char *str) {
+    context->getLineViewer(offset).insert(pos, A2W(str));
 }
-EXPORT_API void WINAPI EventContextGetPosition(EventContext *context, Position *position) {
-    *position = context->position();
+EXPORT_API void WINAPI EventContextLineStringAppend(EventContext *context, int offset, const char *str) {
+    context->getLineViewer(offset).append(A2W(str));
 }
-EXPORT_API EventContext *WINAPI EventContextCopy(EventContext *context) {
-    return context->copy();
+EXPORT_API void WINAPI EventContextLineStringRemove(EventContext *context, int offset, int pos, int length) {
+    context->getLineViewer(offset).remove(pos, length);
+}
+EXPORT_API void WINAPI EventContextLineStringClear(EventContext *context, int offset) {
+    context->getLineViewer(offset).clear();
 }
 EXPORT_API void WINAPI EventContextSetLineString(EventContext *context, int offset, const char *str, BOOL pushCommand) {
     auto &string = context->getLineViewer(offset).content();
@@ -178,6 +190,16 @@ EXPORT_API void WINAPI EventContextGetLineString(EventContext *context, int offs
         return;
     }
     WideCharToMultiByte(0, 0, &content.front(), content.length(), string, length, 0, 0);
+}
+
+EXPORT_API EventContext *WINAPI EventContextFindLine(EventContext *context, int line) {
+    return context->findLine(line);
+}
+EXPORT_API void WINAPI EventContextGetPosition(EventContext *context, Position *position) {
+    *position = context->position();
+}
+EXPORT_API EventContext *WINAPI EventContextCopy(EventContext *context) {
+    return context->copy();
 }
 EXPORT_API void WINAPI EventContextInsert(EventContext *context, Element *element, BOOL push) {
     context->insert(element, push);
@@ -198,7 +220,7 @@ EXPORT_API BOOL WINAPI EventContextPrev(EventContext *context) {
     return context->prev();
 }
 EXPORT_API void WINAPI EventContextTag(EventContext *context, char *string) {
-    sprintf(string, "%s", UnicodeToAnsi(context->tag().str).c_str());
+    strcpy(string, context->tag().str);
 }
 EXPORT_API void WINAPI EventContextRelayout(EventContext *context) {
     context->relayout();
@@ -222,7 +244,7 @@ EXPORT_API BOOL WINAPI EventContextIsHead(EventContext *context) {
     return context->isHead();
 }
 EXPORT_API BOOL WINAPI EventContextIsTail(EventContext *context) {
-    return context->isTail();
+    return context->element->getNext() == nullptr;
 }
 EXPORT_API int WINAPI EventContextGetLine(EventContext *context) {
     return context->getLineViewer().m_line;
@@ -240,14 +262,14 @@ EXPORT_API void WINAPI EventContextSetPos(EventContext *context, CaretPos *pos) 
     context->setPos(*pos);
     context->getDocContext()->m_caretManager.update();
 }
-EXPORT_API EventContext *WINAPI EventContextFindPrev(EventContext *context, const char *tag) {
-    return context->findPrev(A2W(tag));
+EXPORT_API EventContext *WINAPI EventContextFindPrev(EventContext *context, char *tag) {
+    return context->findPrev(tag);
 }
-EXPORT_API EventContext *WINAPI EventContextFindNext(EventContext *context, const char *tag) {
-    return context->findNext(A2W(tag));
+EXPORT_API EventContext *WINAPI EventContextFindNext(EventContext *context, char *tag) {
+    return context->findNext(tag);
 }
-EXPORT_API EventContext *WINAPI EventContextFindInner(EventContext *context, const char *tag) {
-    return context->findInnerFirst(A2W(tag));
+EXPORT_API EventContext *WINAPI EventContextFindInner(EventContext *context, char *tag) {
+    return context->findInnerFirst(tag);
 }
 EXPORT_API void WINAPI EventContextFree(EventContext *context) {
     context->free();
@@ -255,6 +277,7 @@ EXPORT_API void WINAPI EventContextFree(EventContext *context) {
 EXPORT_API void WINAPI FreeElement(Element *element) {
     element->free();
 }
+
 EXPORT_API Element *WINAPI CreateModuleElement(const char *string) {
     auto *ret = new ModuleElement();
     ret->name.assign(A2W(string));
@@ -284,6 +307,7 @@ EXPORT_API Element *WINAPI CreateTableElement(int row, int column, int top) {
 EXPORT_API Element *WINAPI CreateRowElement(int column, int height) {
     return new FastRow(column, height);
 }
+
 EXPORT_API void WINAPI RowSetColumnString(FastRow *row, int column, const char *string) {
     row->getColumn(column)->m_data.assign(A2W(string));
 }

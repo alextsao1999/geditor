@@ -12,26 +12,10 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
     if (state == SelectionNone) {
         int index = context.pos().getIndex();
         if (ch == VK_BACK) {
-            if (line.getSpaceCount() == index) {
-                auto prev = context.nearby(-1);
-                if (prev.tag().contain(TAG_LINE)) {
-                    context.getDocContext()->pushStart();
-                    line.remove(0, index);
-                    int prevLength = prev.getLineViewer().length();
-                    context.combineLine(-1);
-                    erase(context);
-                    prev.reflow();
-                    prev.redraw();
-                    prev.pos().setIndex(prevLength);
-                    prev.focus();
-                    context.getDocContext()->pushEnd();
-                    return;
-                }
-            }
             if (context.isHead() && index == 0) {
-                if (context.outer && context.outer->tag().contain(_GT("CodeBlock"))) {
+                if (context.outer && context.outer->tag().contain(TAG("CodeBlock"))) {
                     EventContext ctx;
-                    if (context.outer->outer && context.outer->outer->tag().contain(_GT("Switch"))) {
+                    if (context.outer->outer && context.outer->outer->tag().contain(TAG("Switch"))) {
                         ctx = context.outer->outer->nearby(-1);
                     } else {
                         ctx = context.outer->nearby(-1);
@@ -48,18 +32,44 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                 }
             }
             if (context.isTail() && index == 0) {
-                if (context.nearby(-1).tag().contain(_GT("Condition"))) {
+                if (context.nearby(-1).tag().contain(TAG("Condition"))) {
                     caret->data().setIndex(-1);
                     caret->findPrev(TAG_FOCUS);
                     return;
                 }
             }
+            if (line.getSpaceCount() == index) {
+                auto *prev = context.findPrev(TAG_FOCUS);
+                if (!prev) {
+                    return;
+                }
+                if (prev->tag().contain(TAG_LINE)) {
+                    context.getDocContext()->pushStart();
+                    line.remove(0, index);
+                    int prevLength = prev->getLineViewer().length();
+                    context.combineLine(-1);
+                    erase(context);
+                    prev->reflow();
+                    prev->redraw();
+                    prev->pos().setIndex(prevLength);
+                    prev->focus(false);
+                    context.getDocContext()->pushEnd();
+                } else {
+                    prev->focus(false);
+                }
+                return;
+            }
         }
         if (ch == VK_RETURN) {
+            if (line.flags() & LineFlagExpand) {
+                caret->data().setIndex(0);
+                caret->findNext(TAG_FOCUS);
+                return;
+            }
             if (context.isHead() && index == 0) {
-                if (context.outer && context.outer->tag().contain(_GT("CodeBlock"))) {
+                if (context.outer && context.outer->tag().contain(TAG("CodeBlock"))) {
                     EventContext ctx;
-                    if (context.outer->outer && context.outer->outer->tag().contain(_GT("Switch"))) {
+                    if (context.outer->outer && context.outer->outer->tag().contain(TAG("Switch"))) {
                         if (context.outer->isHead()) {
                             ctx = context.outer->outer->nearby(-1);
                         } else {
@@ -78,7 +88,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                 }
             }
             if (context.isTail() && index == line.length()) {
-                if (context.outer && context.outer->tag().contain(_GT("Loop"))) {
+                if (context.outer && context.outer->tag().contain(TAG("Loop"))) {
                     context.outer->insert(copy());
                     context.outer->update();
                     context.outer->nearby(1).focus();
@@ -174,21 +184,13 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         mgr->onTrigger(context, ch);
     }
     EventContext *current = caret->getEventContext();
-    if (current) {
+    if (current) { // (<current>) 跳过右括号
         line = current->getLineViewer();
         int index = current->pos().getIndex();
         if (auto *left = gstrchr(lchar, ch)) {
             size_t char_idx = left - lchar;
             line.insert(index, rchar[char_idx]);
             current->focus(false);
-        }
-        if (current->isHead() && current->outer && current->outer->tag().contain(_GT("Single"))) {
-            if (line.content().substr(0, 2) != _GT("if")) {
-                EventContext single = *current->outer;
-                single.seperate();
-                single.outer->update();
-                single.focus(true, true);
-            }
         }
     }
 

@@ -19,11 +19,12 @@
 #include <iostream>
 #include "document.h"
 #include "utils.h"
-#define TAG_FOCUS _GT("Focus")
-#define TAG_LINE _GT("Line")
-#define TAG_HEADER _GT("Header")
-#define TAG_UNEDITABLE _GT("Uneditable")
-#define TAG_UNDELETEABLE _GT("Undeleteable")
+#define TAG_FOCUS TAG("Focus")
+#define TAG_LINE TAG("Line")
+#define TAG_TABLE TAG("Table")
+#define TAG_HEADER TAG("Header")
+#define TAG_UNEDITABLE TAG("Uneditable")
+#define TAG_UNDELETEABLE TAG("Undeleteable")
 #define context_on_outer(ctx, method, ...) if ((ctx).outer) context_on(*((ctx).outer), method, ##__VA_ARGS__);
 class DrawUtil {
 public:
@@ -387,26 +388,60 @@ class LineElement : public RelativeElement {
 public:
     LineElement() = default;
     int getLogicHeight(EventContext &context) override { return 25; }
-    //int getLogicWidth(EventContext &context) override { return 25; }
-    Display getDisplay(EventContext &context) override { return DisplayBlock; }
+    int getLogicWidth(EventContext &context) override {
+        auto line = context.getLineViewer();
+        return (int) context.getStyle().measureText(line.c_str(), line.size()) + 8;
+    }
+    Display getDisplay(EventContext &context) override {
+        if (context.getLineViewer().flags() & LineFlagHide) {
+            return DisplayNone;
+        }
+        return DisplayBlock;
+    }
     int getLineNumber() override { return 1; }
     Tag getTag(EventContext &context) override {
-        Tag tag = {_GT("Line Focus")};
-        tag.append(_GT("(")).append(context.getCounter().line + 1).append(_GT(")"));
-        return tag;
+        if (context.getLineViewer().flags() & LineFlagHide) {
+            return Tag::Format(TAG("Line (%d)"), context.getCounter().line + 1);
+        }
+        return Tag::Format(TAG("Line Focus (%d)"), context.getCounter().line + 1);
+    }
+    static void OnFold(EventContext &context) {
+        EventContext ctx = context;
+        auto line = ctx.getLineViewer();
+        if (line.flags() & LineFlagFold) {
+            line.flags() ^= LineFlagFold;
+            line.flags() |= LineFlagExpand;
+        } else {
+            line.flags() ^= LineFlagExpand;
+            line.flags() |= LineFlagFold;
+        }
+        do {
+            ctx.next();
+            auto now = ctx.getLineViewer();
+            if ((now.flags() & LineFlagLineVert) || (now.flags() & LineFlagLineHorz)) {
+                now.flags() ^= LineFlagHide;
+            } else {
+                break;
+            }
+        } while (ctx.has());
+        context.reflow();
+        context.redraw();
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
+        if (auto index = context.document()->margin()->index(context.absolute(x, y))) {
+            auto line = context.getLineViewer();
+            if (index == 2) {
+                line.flags() ^= LineFlagBP;
+            }
+            if (index == 3 && ((line.flags() & LineFlagFold) || (line.flags() & LineFlagExpand))) {
+                OnFold(context);
+            }
+
+        }
         context.pos().setOffset(context.absolute(x, y));
         context.focus();
         context.redraw();
     }
-
-    void onLeftButtonUp(EventContext &context, int x, int y) override {
-        if (auto index = context.document()->margin()->index(context.absolute(x, y))) {
-            printf("click margin index:%d \n", index);
-        }
-    }
-
     void onLeftDoubleClick(EventContext &context, int x, int y) override {
         TextCaretService service({4, 6}, &context);
         auto line = context.getLineViewer();
@@ -513,7 +548,7 @@ public:
             CaretPos end = context.getDocContext()->m_selectEndPos;
             line.remove(0, end.index);
             EventContext ctx = context.nearby(-1);
-            if (ctx.tag().contain(_GT("Line"))) {
+            if (ctx.tag().contain(TAG("Line"))) {
                 context.combineLine(-1);
                 ctx.focus();
                 erase(context);
@@ -552,35 +587,21 @@ public:
                         line.remove(service.index() - 1);
                         service.moveLeft();
                     } else {
-                        EventContext prev = context.nearby(-1);
-                        if (prev.tag().contain(_GT("Line"))) {
-                            int prevLength = prev.getLineViewer().length();
-                            context.combineLine(-1);
-                            erase(context);
-                            prev.reflow();
-                            prev.redraw();
-                            caret->data().setIndex(prevLength);
-                            prev.focus(); // 会释放context
-                            return;
-                        } else {
-                            if (!context.getLineViewer().empty() || context.isHead() ||
-                                prev.tag().contain(_GT("Table"))) {
-                                // 如果当前此行不为空 直接跳到上一行
-                                caret->data().setIndex(-1);
-                                caret->findPrev(TAG_FOCUS);
-                                return;
-                            }
-                            EventContext *last = context.findPrev(TAG_FOCUS);
-                            if (!last) {
-                                return;
-                            }
-                            context.remove();
-                            last->reflow();
-                            last->redraw();
-                            last->pos().setIndex(-1);
-                            last->focus(false);
+                        EventContext *prev = context.findPrev(TAG_FOCUS);
+                        if (!prev) {
                             return;
                         }
+                        if (prev->tag().contain(TAG_LINE)) {
+                            int prevLength = prev->getLineViewer().length();
+                            context.combineLine(-1);
+                            erase(context);
+                            prev->reflow();
+                            prev->redraw();
+                        } else {
+                            prev->pos().setIndex(-1);
+                        }
+                        prev->focus(false);
+                        return;
                     }
                 }
                 break;
@@ -589,7 +610,6 @@ public:
                 context.breakLine(0, service.index());
                 context.reflow();
                 context.redraw();
-                //caret->findNext(TAG_FOCUS);
                 caret->data().setIndex(0);
                 caret->next();
                 return;
@@ -612,8 +632,22 @@ public:
     }
     virtual void insert(EventContext &context) {
         context.insert(copy());
+        int flags = context.getLineViewer().flags();
+        if ((flags & LineFlagLineVert) || (flags & LineFlagFold)) {
+            context.getLineViewer(1).flags() |= LineFlagLineVert;
+        }
     }
     virtual void erase(EventContext &context) {
+        int flags = context.getLineViewer().flags();
+        if (flags & LineFlagLineHorz) {
+            int &prev = context.getLineViewer(-1).flags();
+            if (prev & LineFlagLineVert) {
+                prev &= ~LineFlagLineVert;
+                prev |= LineFlagLineHorz;
+            } else {
+                prev &= ~LineFlagFold;
+            }
+        }
         context.remove();
 //        context.prevLine(getLineNumber());
     }
@@ -742,6 +776,18 @@ public:
     void onMouseHover(EventContext &context, int x, int y) override;
     void onMouseLeave(EventContext &context, int x, int y) override;
 
+    void onRedraw(EventContext &context) override {
+        SyntaxLineElement::onRedraw(context);
+        if (context.getLineViewer().flags() & LineFlagExpand) {
+            Canvas canvas = context.getCanvas();
+            SkPaint paint;
+            paint.setStyle(SkPaint::kStroke_Style);
+            SkRect rect = SkRect::MakeWH(context.logicWidth(), context.height());
+            rect.inset(0.5, 4);
+            rect.offset(0, 3);
+            canvas->drawRect(rect, paint);
+        }
+    }
 };
 class TextElement : public RelativeElement {
 private:
@@ -752,7 +798,7 @@ public:
     int m_height = 22;
     GColor m_color = SK_ColorTRANSPARENT;
     explicit TextElement() = default;
-    Tag getTag(EventContext &context) override { return {_GT("Text Focus")}; }
+    Tag getTag(EventContext &context) override { return {TAG("Text Focus")}; }
     int getMinWidth(EventContext &context) override {
         int width = (int) context.getStyle(StyleTableFont)
                 .measureText(m_data.c_str(), m_data.length() * sizeof(GChar)) + 15;
@@ -832,7 +878,7 @@ public:
         if (code == VK_UP) {
             if (context.outer->isHead()) { // 判断是否为行首
                 EventContext *real = context.getOuter(3);
-                if (real && real->tag().contain(_GT("Row"))) {
+                if (real && real->tag().contain(TAG("Row"))) {
                     real->nearby(-1).focus();
                     return;
                 }
@@ -955,7 +1001,7 @@ public:
             Container::append(new TextElement());
         }
     }
-    Tag getTag(EventContext &context) override { return {_GT("Row Focus")}; }
+    Tag getTag(EventContext &context) override { return {TAG("Row Focus")}; }
     TextElement *getColumn(int index) { return (TextElement *) get(index); }
     void setColor(GColor color) {
         m_color = color;
@@ -1002,7 +1048,7 @@ public:
             Container::append(new RowElement(column));
         }
     }
-    Tag getTag(EventContext &context) override { return {_GT("Table Focus")}; }
+    Tag getTag(EventContext &context) override { return {TAG("Table Focus")}; }
     RowElement *addRow(int column) {
         auto *row = new RowElement(column);
         append(row);
@@ -1100,12 +1146,12 @@ public:
         m_items.resize(column);
     }
     Tag getTag(EventContext &context) override {
-        Tag tag = {_GT("Row Focus")};
+        Tag tag = {TAG("Row Focus")};
         if (m_header) {
-            tag.append(_GT(" Header Uneditable Undeleteable"));
+            tag.append(TAG(" Header Uneditable Undeleteable"));
         }
         if (m_undeleteable) {
-            tag.append(_GT(" Undeleteable"));
+            tag.append(TAG(" Undeleteable"));
         }
         return tag;
     }
@@ -1230,7 +1276,7 @@ public:
             Container::append(new FastRow(column, m_rowHeight));
         }
     }
-    Tag getTag(EventContext &context) override { return {_GT("Table")}; }
+    Tag getTag(EventContext &context) override { return TAG("Table"); }
     FastRow *addRow(int column) {
         if (column > m_column) {
             m_column = column;
@@ -1325,7 +1371,7 @@ public:
     void onRelayout(EventContext &context, LayoutManager *sender) override {
         sender->reflow(context.enter(), true, {25, 0});
     }
-    Tag getTag(EventContext &context) override { return _GT("CodeBlock"); }
+    Tag getTag(EventContext &context) override { return TAG("CodeBlock"); }
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
         context_on_outer(context, Blur, focus, force);
@@ -1376,7 +1422,7 @@ public:
             Container::append(new CodeBlockElement(2));
         }
     }
-    Tag getTag(EventContext &context) override { return {_GT("Switch Condition CodeBlock")}; }
+    Tag getTag(EventContext &context) override { return {TAG("Switch Condition CodeBlock")}; }
     CodeBlockElement *addBlock(int num) { return (CodeBlockElement *) append(new CodeBlockElement(num)); }
 private:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
@@ -1426,8 +1472,8 @@ public:
             int lineTop = 0;
             if (ctx.isHead()) {
                 lineTop = 15;
-                if (context.nearby(-1).tag().contain(_GT("Condition"))
-                    || (context.parent().tag() == _GT("CodeBlock") && context.isHead())) {
+                if (context.nearby(-1).tag().contain(TAG("Condition"))
+                    || (context.parent().tag() == TAG("CodeBlock") && context.isHead())) {
                     lineTop = runawayTop = 20;
                 }
                 if (ctx.isTail()) {
@@ -1445,7 +1491,7 @@ public:
             }
             int lineBottom = ctx.height() + 15;
             int underlineRight = lineRight;
-            if (ctx.nearby(1).enter().tag().contain(_GT("CodeBlock"))) {
+            if (ctx.nearby(1).enter().tag().contain(TAG("CodeBlock"))) {
                 underlineRight += 25;
             }
             canvas->drawLine(lineLeft, lineTop, lineRight, lineTop, paint); // 上横线
@@ -1458,7 +1504,7 @@ public:
         }
         // 需要绘制逃逸线
         Canvas canvas = context.getCanvas();
-        if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
+        if (context.nearby(1).tag().contain(TAG("CodeBlock"))) {
             int runawayBottom = context.height() + 12;
             canvas->drawLine(runawayLeft, runawayTop, runawayLeft, runawayBottom, paint); // 逃逸线竖线
             canvas->drawLine(runawayLeft, runawayBottom, runawayRight, runawayBottom, paint); // 逃逸线下横线
@@ -1487,7 +1533,7 @@ public:
 class SingleBlockElement : public CodeBlockElement {
 public:
     using CodeBlockElement::CodeBlockElement;
-    Tag getTag(EventContext &context) override { return _GT("Single Condition CodeBlock"); }
+    Tag getTag(EventContext &context) override { return TAG("Single Condition CodeBlock"); }
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
         if (context.doc->m_onBlur) {
             if (context.doc->m_onBlur(&context, (int) focus, (int) force)) {
@@ -1525,12 +1571,12 @@ public:
         constexpr int lineRight = 23;
 
         int lineTop = 15;
-        if ((context.parent().tag() == _GT("CodeBlock") && context.isHead()) ||
-            context.nearby(-1).tag().contain(_GT("Condition"))) {
+        if ((context.parent().tag() == TAG("CodeBlock") && context.isHead()) ||
+            context.nearby(-1).tag().contain(TAG("Condition"))) {
             lineTop = 20;
         }
         canvas->drawLine(lineLeft, lineTop, lineRight, lineTop, paint);
-        if (context.nearby(1).tag().contain(_GT("CodeBlock"))) {
+        if (context.nearby(1).tag().contain(TAG("CodeBlock"))) {
             int lineBottom = context.height() + 12;
             canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
             canvas->drawLine(lineLeft, lineBottom, lineRight, lineBottom, paint); // 下边线
@@ -1558,7 +1604,7 @@ public:
 class LoopBlockElement : public SingleBlockElement {
 public:
     using SingleBlockElement::SingleBlockElement;
-    Tag getTag(EventContext &context) override { return _GT("Loop CodeBlock"); }
+    Tag getTag(EventContext &context) override { return TAG("Loop CodeBlock"); }
     void onRedraw(EventContext &context) override {
         CodeBlockElement::onRedraw(context);
         Canvas canvas = context.getCanvas();
@@ -1570,8 +1616,8 @@ public:
         constexpr int lineLeft = 5;
         constexpr int lineRight = 23;
         int lineTop = 15;
-        if ((context.parent().tag() == _GT("CodeBlock") && context.isHead()) ||
-            context.nearby(-1).tag().contain(_GT("Condition"))) {
+        if ((context.parent().tag() == TAG("CodeBlock") && context.isHead()) ||
+            context.nearby(-1).tag().contain(TAG("Condition"))) {
             lineTop = 22;
         }
         int lineBottom = context.height() - 10;
@@ -1626,7 +1672,7 @@ public:
         row->getColumn(0)->m_data.append(name);
         row->getColumn(1)->m_data.append(type);
     }
-    Tag getTag(EventContext &context) override { return {_GT("SubElement")}; }
+    Tag getTag(EventContext &context) override { return {TAG("SubElement")}; }
 public:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
 };
@@ -1635,7 +1681,7 @@ private:
     class SingleLine : public SyntaxLineElement {
     public:
         int count = 6;
-        Tag getTag(EventContext &context) override { return {_GT("SingleLine Focus")}; }
+        Tag getTag(EventContext &context) override { return TAG("SingleLine Focus"); }
         Element *onNext(EventContext &context) override {
             if (++context.index >= count) return nullptr;
             return this;
@@ -1726,7 +1772,7 @@ public:
     GString name;
     bool expand = false;
     bool layouted = false;
-    Tag getTag(EventContext &context) override { return {_GT("Module")}; }
+    Tag getTag(EventContext &context) override { return TAG("Module"); }
 public:
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
     int getHeight(EventContext &context) override { return expand ? Container<>::getHeight(context) + 15 : 20; }

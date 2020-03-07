@@ -15,10 +15,22 @@
 #include <locale>
 
 #define GString std::wstring
+enum {
+    LineFlagBP = 1 << 0,
+    LineFlagFold = 1 << 1,
+    LineFlagExpand = 1 << 2,
+    LineFlagHide = 1 << 3,
+    LineFlagLineVert = 1 << 4,
+    LineFlagLineHorz = 1 << 5,
+    LineFlagArrowDownRight = 1 << 6,
+
+
+};
 struct TextLine {
     TextLine() = default;
     ~TextLine() = default;
     GString content;
+    int flags = 0;
 };
 using LineBuffer = std::vector<TextLine>;
 
@@ -33,8 +45,9 @@ public:
     m_line(line), m_buffer(buffer), m_context(ctx) {}
     inline int getLineNumber() { return m_line; }
     inline bool empty() { return content().empty(); }
-    inline GString &content() { return (*m_buffer)[m_line].content; }
     inline const GChar *c_str() { return (const GChar *) content().c_str(); }
+    inline GString &content() { return (*m_buffer)[m_line].content; }
+    inline int &flags() { return (*m_buffer)[m_line].flags; }
     void insert(int pos, int ch);
     void insert(int pos, const GChar *string);
     void remove(int pos, int length);
@@ -69,9 +82,9 @@ public:
         return count;
     }
 
-    template <typename ...Args>
-    void format(GChar *text, Args...arg) {
-        GChar buf[255];
+    template <int Buffer = 255, typename ...Args>
+    void format(const GChar *text, Args...arg) {
+        GChar buf[Buffer];
         gsprintf(buf, text, std::forward<Args>(arg)...);
         append(buf);
     }

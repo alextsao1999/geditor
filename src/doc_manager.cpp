@@ -4,7 +4,7 @@
 
 #include "doc_manager.h"
 
-FileDocument::FileDocument(DocumentManager *mgr, string_ref path, string_ref languageId) : Document(mgr) {
+FileDocument::FileDocument(DocumentManager *mgr, string_ref path, string_ref languageId) : MarginDocument(mgr) {
     uri.from(path);
     std::wifstream is(path);
     std::string text;
@@ -26,7 +26,7 @@ FileDocument::FileDocument(DocumentManager *mgr, string_ref path, string_ref lan
 }
 
 void FileDocument::onContentChange(EventContext &context, CommandType type, CommandData data) {
-    if (m_manager->m_client) {
+    if (m_manager && m_manager->m_client) {
 //        Range range;
 //        range.start = context.position();
 //        range.end = range.start;
@@ -40,7 +40,7 @@ void FileDocument::onContentChange(EventContext &context, CommandType type, Comm
     }
 }
 void NewDocument::onContentChange(EventContext &context, CommandType type, CommandData data) {
-    if (m_manager->m_client) {
+    if (m_manager && m_manager->m_client) {
         std::vector<TextDocumentContentChangeEvent> events;
         TextDocumentContentChangeEvent s;
         s.text = getContent();
@@ -51,7 +51,7 @@ void NewDocument::onContentChange(EventContext &context, CommandType type, Comma
 }
 
 FileDocument::~FileDocument() {
-    if (m_manager->m_client) {
+    if (m_manager && m_manager->m_client) {
         m_manager->m_client->DidClose(uri.str());
     }
 }

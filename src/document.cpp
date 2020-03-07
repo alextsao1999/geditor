@@ -75,8 +75,8 @@ void Root::onRemove(EventContext &context) {
 
 }
 
-Document::Document(DocumentManager *mgr) :
-m_manager(mgr), m_context(mgr->m_render), m_root(this), m_margin(this) {}
+Document::Document(RenderManager *render, DocumentManager *mgr) :
+m_manager(mgr), m_context(render), m_root(this) {}
 
 GString Document::getSelectionString() {
     std::wstringbuf buf;
@@ -84,3 +84,7 @@ GString Document::getSelectionString() {
     onSelectionToString(m_root, SelectionNone, stream);
     return buf.str();
 }
+
+MarginDocument::MarginDocument(DocumentManager *mgr) :
+        Document(mgr->m_render, mgr), m_margin(this) {}
+

@@ -5,3 +5,6 @@
 #include "geditor.h"
 #include "ast.h"
 
+Document &EditorRender::target() {
+    return m_data->current();
+}

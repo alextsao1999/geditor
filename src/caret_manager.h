@@ -100,8 +100,8 @@ public:
     void leave();
     EventContext *include(Element *element);
     EventContext *include(EventContext *context);
-    bool findNext(const GChar *tag);
-    bool findPrev(const GChar *tag);
+    bool findNext(char *tag);
+    bool findPrev(char *tag);
     void onErase(EventContext *context);
     void refocus() {
         focus(m_context.ptr());

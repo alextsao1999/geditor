@@ -76,9 +76,14 @@ void Margin::drawGutter(EventContext *context) {
                 pts[1] = {lineRight + 5, lineTop + 8};
                 path.addPoly(pts, SK_ARRAY_COUNT(pts), false);
             }
+            if (flags & LineFlagLineVert) {
+                pts[0] = {lineRight + 5, lineTop - 10.5f};
+                pts[1] = {lineRight + 5, lineTop};
+                path.addPoly(pts, SK_ARRAY_COUNT(pts), false);
+            }
             render->m_canvas->drawPath(path, style);
         }
-        if (flags & LineFlagLineVert) {
+        if ((flags & LineFlagLineVert) && !(flags & LineFlagFold)) {
             float lineRight = SkIntToScalar(offset(3)) + 11.5f;
             float lineTop = SkIntToScalar(view.y);
             SkPoint pts[] = {{lineRight, lineTop},

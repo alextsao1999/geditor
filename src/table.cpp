@@ -122,7 +122,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
             if (!line.empty()) {
                 context.getDocContext()->pushStart();
                 int indent = line.getSpaceCount();
-                if (line.back() == _GT('{')) {
+                if (line.back() == _GT('{') && index > indent) {
                     indent += 4;
                 }
                 bool newLine = false;

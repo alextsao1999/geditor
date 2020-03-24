@@ -42,6 +42,10 @@ public:
 class NewDocument : public MarginDocument {
 public:
     explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
+        Document::append(new AutoLineElement());
+        m_context.m_textBuffer.appendLine();
+
+        layout();
 /*
         auto *inc = new FastTable(1, 2);
         if (auto *col = inc->getItem(0, 0)) {

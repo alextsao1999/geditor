@@ -177,9 +177,6 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         }
     }
     LineElement::onInputChar(context, state, ch);
-    if (state != SelectionNone) {
-        return;
-    }
     if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
         mgr->onTrigger(context, ch);
     }
@@ -205,4 +202,35 @@ void AutoLineElement::onMouseHover(EventContext &context, int x, int y) {
 
 void AutoLineElement::onMouseLeave(EventContext &context, int x, int y) {
     printf("leave\n");
+}
+
+void TextElement::onRedraw(EventContext &context) {
+    Canvas canvas = context.getCanvas();
+    auto state = context.outer->getSelectionState();
+    auto *table = context.getOuter(2)->cast<FastTable>();
+    int row = context.outer->index, col = context.index;
+    if (GColor color = table->getBackgroundColor(row, col)) {
+        SkPaint paint;
+        paint.setColor(color);
+        canvas->drawRect(canvas.bound(0.5, 0.5), paint);
+    }
+    if (context.isSelectedSelf()) {
+        Offset start = context.relOffset(context.getDocContext()->getSelectStart());
+        Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
+        DrawUtil::DrawSlection(context, start, end);
+    } else {
+        if (state == SelectionSelf && context.outer->selectedCount() > 1) {
+            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
+        }
+        if (state != SelectionNone && state != SelectionSelf) {
+            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
+        }
+    }
+
+    canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
+    SkPaint paint = context.getStyle(StyleTableFont).paint();
+    paint.setColor(table->getForegroundColor(row, col));
+    canvas->translate(0, paint.getTextSize());
+    canvas->drawText(m_data.c_str(), m_data.size() * sizeof(GChar), 6, 2, paint);
+
 }

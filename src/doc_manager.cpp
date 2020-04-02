@@ -58,7 +58,6 @@ FileDocument::~FileDocument() {
 
 void CallBackMsgHandler::onResponse(value &ID, value &result) {
     auto id = ID.get<RequestID>();
-    auto content = result.dump();
     if (id == "initialize") {
         json &cap = result["capabilities"];
         if (cap.contains("completionProvider")) {
@@ -68,10 +67,13 @@ void CallBackMsgHandler::onResponse(value &ID, value &result) {
             cap["signatureHelpProvider"]["triggerCharacters"].get_to(m_mgr->m_signatureTrigger);
         }
     }
-    printf("id:%s result -> %s\n\n", id.c_str(), content.c_str());
-    //printf("id:%s\n", id.c_str());
     if (m_onResponse) {
-        m_onResponse(id.c_str(), content.c_str());
+        m_onResponse(id.c_str(), result);
     }
+    if (id == "textDocument/completion") {
+        return;
+    }
+    //printf("------------------res------------ \n%s\n", result.dump().c_str());
+
 }
 

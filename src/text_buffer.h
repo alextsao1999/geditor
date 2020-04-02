@@ -14,7 +14,6 @@
 #include <codecvt>
 #include <locale>
 
-#define GString std::wstring
 enum {
     LineFlagBP = 1 << 0,
     LineFlagFold = 1 << 1,

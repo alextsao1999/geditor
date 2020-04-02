@@ -148,11 +148,13 @@ public:
         paint.setColor(SkColorSetRGB(255, 165, 0));
         add(StyleErrorFont, paint);
 
-        paint.setColor(SkColorSetRGB(65, 105, 225));
+        paint.setFakeBoldText(true);
+        paint.setColor(SK_ColorBLUE);
         add(StyleKeywordFont, paint);
 
         paint.setColor(SkColorSetRGB(105, 105, 105));
         add(StyleOperatorFont, paint);
+        paint.setFakeBoldText(false);
 
         paint.setColor(SkColorSetRGB(0, 128, 128));
         add(StyleStringFont, paint);
@@ -160,7 +162,7 @@ public:
         paint.setColor(SkColorSetRGB(138, 43, 226));
         add(StyleNumberFont, paint);
 
-        paint.setColor(SkColorSetRGB(160, 82, 45));
+        paint.setColor(SkColorSetRGB(178, 34, 34));
         add(StyleFunctionFont, paint);
 
         paint.setColor(SK_ColorWHITE);
@@ -280,7 +282,7 @@ public:
         m_canvas->translate(x, y);
     }
     void drawRect(const GRect &rect, int style);
-    void drawText(const void* text, size_t byteLength, GScalar x, GScalar y, int style);
+    void drawText(const void* text, size_t byteLength, GScalar x, GScalar y, int style = StyleDeafaultFont);
     inline SkCanvas *operator->() { return m_canvas; }
     inline SkCanvas &operator*() { return *m_canvas; };
     GRect bound(Offset inset = Offset());

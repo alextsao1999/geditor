@@ -9,7 +9,7 @@
 class EventContext;
 class Parser {
 public:
-    typedef std::wistream istream;
+    using istream = std::wistream;
     virtual void parse(EventContext *, istream &in) = 0;
 };
 

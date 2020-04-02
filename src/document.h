@@ -84,10 +84,11 @@ public:
         None,
         Update,
     };
-    using ostream = std::wostream;
-    using istream = std::wistream;
+    using ostream = std::basic_ostream<GChar>;
+    using istream = std::basic_istream<GChar>;
     Element() = default;
     Offset getOffset(EventContext &context) override;
+    virtual CaretPos getCaretPos(EventContext &context, Offset &offset) { return {}; }
     virtual int getChildCount() {
         int count = 0;
         Element *start = getHead();
@@ -173,6 +174,7 @@ public:
     DEFINE_EVENT(onEnterReflow, Offset &offset);
     DEFINE_EVENT(onLeaveReflow, Offset &offset);
     DEFINE_EVENT(onFinishReflow, Offset &offset, LayoutContext &layout);
+    virtual void onClone(EventContext &context) {}
     virtual void onUndo(Command command) {
         if (command.type == CommandType::AddElement) {
             Element *next = command.data.element->getNext();
@@ -697,7 +699,6 @@ public:
             ctx->redraw();
             return;
         }
-
         if (command == KeyCommand::Undo) {
             undo();
         }
@@ -708,7 +709,7 @@ public:
             GString str(pStr);
             GlobalUnlock(pRes);
             CloseClipboard();
-            std::wistringstream wis(str);
+            GIStringStream wis(str);
             context()->pushStart();
             m_parser.parse(m_context.m_caretManager.getEventContext(), wis);
             context()->pushEnd();

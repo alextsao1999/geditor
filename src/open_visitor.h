@@ -21,8 +21,8 @@ struct SubVisitor : Visitor {
     code(code), document(document), parent(parent), current(sub) {}
     Container<> *create() {
         auto *subs = new SubElement();
-        subs->content(0).append(current->name.toUnicode().c_str());
-        subs->content(1).append(getType(current->type));
+        subs->setContent(1, 0, current->name.toUnicode().c_str());
+        subs->setContent(1, 1, getType(current->type).c_str());
         if (!current->params.empty()) {
             for (auto &param : current->params) {
                 subs->addParam(param.name.toUnicode().c_str(), getType(param.type).c_str());
@@ -35,7 +35,7 @@ struct SubVisitor : Visitor {
         }
         return subs;
     }
-    std::wstring getType(Key key) {
+    GString getType(Key key) {
         static std::map<int, const GChar *> maps = {
                 {SDT_BYTE, _GT("byte")},
                 {SDT_SHORT, _GT("short")},
@@ -73,14 +73,14 @@ struct SubVisitor : Visitor {
                 return find->name.toUnicode();
             }
         }
-        return std::to_wstring(key.value);
+        return ToGString(key.value);
     }
     void process(ASTFunCall *node) override {
-        lineViewer = document->m_context.m_textBuffer.appendLine();
+        lineViewer = document->context()->m_textBuffer.appendLine();
         processing->current->append(ge_new(AutoLineElement));
     }
     void process(ASTVariable *node) override {
-        lineViewer = document->m_context.m_textBuffer.appendLine();
+        lineViewer = document->context()->m_textBuffer.appendLine();
         processing->current->append(ge_new(AutoLineElement));
     }
     void visit(ASTProgram *node) override {
@@ -97,7 +97,7 @@ struct SubVisitor : Visitor {
         }
     }
     void visit(ASTFunCall *node) override {
-        static std::map<std::string, std::wstring> binarys = {
+        static std::map<std::string, GString> binarys = {
                 {"相加", _GT(" + ")},
                 {"相乘", _GT(" * ")},
                 {"赋值", _GT(" = ")},
@@ -115,7 +115,7 @@ struct SubVisitor : Visitor {
                 node->args->args[1]->accept(this);
                 return;
             }
-            lineViewer.append(A2W(code->libraries[node->lib].info->m_pBeginCmdInfo[node->key.value].m_szName));
+            lineViewer.append(A2W(str));
             node->args->accept(this);
             return;
         }

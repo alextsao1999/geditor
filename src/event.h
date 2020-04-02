@@ -148,7 +148,8 @@ struct Tag {
     bool empty() { return strlen(str) == 0; }
     bool operator==(const Tag &rvalue) { return strcmp(str, rvalue.str); }
     bool operator==(TagId rvalue) { return strcmp(str, rvalue) == 0; }
-    bool contain(TagId value) {
+    const char *c_str() { return str; }
+    bool contain(const TagId value) {
         int s_len = strlen(value);
         int length = int(strlen(str) - s_len);
         for (int i = 0; i <= length; ++i) {
@@ -291,7 +292,7 @@ struct EventContext {
     bool hasChild();
     EventContext begin() { return EventContext(outer, 0); }
     EventContext end() { return EventContext(outer, -1); }
-    EventContext nearby(int value) {
+    EventContext nearby(int value = 1) {
         //return EventContext(outer, index + value);
         EventContext context = *this;
         int count = value >= 0 ? value : -value;
@@ -476,11 +477,20 @@ struct EventContext {
         if (rvalue == nullptr) {
             return false;
         }
-        if (outer && rvalue->outer) {
-            return element == rvalue->element && index == rvalue->index && outer->compare(rvalue->outer);
-        } else {
-            return element == rvalue->element && index == rvalue->index;
+        if (element == rvalue->element) {
+            if (outer) {
+                return outer->compare(rvalue->outer);
+            }
+            return rvalue->outer == nullptr;
         }
+/*
+        if (outer && rvalue->outer) {
+            return element == rvalue->element && outer->compare(rvalue->outer);
+        } else {
+            return element == rvalue->element;
+        }
+*/
+        return false;
     }
     EventContext *include(EventContext *rvalue) {
         if (rvalue) {

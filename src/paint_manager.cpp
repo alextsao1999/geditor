@@ -16,7 +16,7 @@ void Painter::drawText(const void *text, size_t byteLength, GScalar x, GScalar y
     gstyle.attach(m_HDC);
     SetTextColor(m_HDC, gstyle.paint().getColor() << 8);
     SetBkMode(m_HDC, TRANSPARENT);
-    TextOut(m_HDC, m_offset.x + x, m_offset.y + y, (const GChar *) text, gstyle.countText(text, byteLength));
+    TextOut(m_HDC, m_offset.x + x, m_offset.y + y, (LPTSTR) text, gstyle.countText(text, byteLength));
 }
 
 Canvas::Canvas(EventContext *context, SkCanvas *canvas) : m_canvas(canvas), m_context(context) {

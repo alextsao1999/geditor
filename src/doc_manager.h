@@ -14,7 +14,7 @@
 #include <regex>
 #include <thread>
 class DocumentManager;
-typedef void (CALLBACK *Handler)(const char *, const char *);
+typedef void (CALLBACK *Handler)(const char *, json &);
 class CallBackMsgHandler : public MessageHandler {
 public:
     Handler m_onNotify = nullptr;
@@ -24,27 +24,33 @@ public:
     CallBackMsgHandler(DocumentManager *mMgr) : m_mgr(mMgr) {}
     void onNotify(string_ref method, value &params) override {
         if (m_onNotify) {
-            auto p = params.dump();
-            m_onNotify(method.c_str(), p.c_str());
+            m_onNotify(method.c_str(), params);
         }
     }
     void onResponse(value &ID, value &result) override;
     void onError(value &ID, value &error) override {
         if (m_onError) {
             auto id = ID.dump();
-            auto p = error.dump();
-            m_onError(id.c_str(), p.c_str());
+            m_onError(id.c_str(), error);
         }
     }
     void onRequest(string_ref method, value &params, value &ID) override {}
-
 };
 class NewDocument : public MarginDocument {
 public:
     explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
-        Document::append(new AutoLineElement());
-        m_context.m_textBuffer.appendLine();
-
+        auto *doc = new ClassElement();
+        for (int i = 0; i < 1; ++i) {
+            auto *sub = new SubElement();
+            sub->content(0).assign(_GT("main"));
+            sub->content(1).assign(_GT("int"));
+            sub->addParam(_GT("argv"), _GT("char **"));
+            sub->addLocal(_GT("temp"), _GT("int"));
+            sub->append(new AutoLineElement());
+            doc->append(sub);
+            m_context.m_textBuffer.appendLine().append(_GT("return 0;"));
+        }
+        Document::append(doc);
         layout();
 /*
         auto *inc = new FastTable(1, 2);
@@ -91,7 +97,7 @@ public:
         for (auto &line : m_context.m_textBuffer.m_buffer) {
             content.append(conv.to_bytes(line.content + _GT("\r\n")));
         }
-        return std::move(content);
+        return content;
     }
     void onContentChange(EventContext &context, CommandType type, CommandData data) override;
 
@@ -117,7 +123,6 @@ public:
             }
         }
         buffer.free();
-        Document::onLineChange(m_root, m_context.m_textBuffer.getLineCount());
         layout();
     }
 };
@@ -132,9 +137,9 @@ public:
         std::string content;
         std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
         for (auto &line : m_context.m_textBuffer.m_buffer) {
-            content.append(conv.to_bytes(line.content + _GT("\r\n")));
+            content += conv.to_bytes(line.content + _GT("\r\n"));
         }
-        return std::move(content);
+        return content;
     }
     void onContentChange(EventContext &context, CommandType type, CommandData data) override;
 
@@ -163,17 +168,17 @@ public:
             {_GT("true"), StyleKeywordFont},
             {_GT("false"), StyleKeywordFont},
             {_GT("null"), StyleKeywordFont},
+            {_GT("return"), StyleKeywordFont},
     };
 public:
     explicit DocumentManager(RenderManager *render) : m_render(render), m_handler(this) {
-
 /*
         CreateLSP(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
         string_ref ref = "file:///C:/Users/Administrator/Desktop/compiler4e/";
         m_client->Initialize(ref);
         openFile("C:/Users/Administrator/Desktop/compiler4e/runtime.c");
 */
-        //open(new EDocument(this, R"(C:\Users\Administrator\Desktop\edit\f.e)"));
+        open(new EDocument(this, R"(C:\Users\Administrator\Desktop\edit\f.e)"));
         openNew();
     }
     ~DocumentManager() {
@@ -189,7 +194,7 @@ public:
     void CreateLSP(string_ref path, string_ref cmd = nullptr) {
         //m_client = std::make_shared<LanguageClient>(R"(F:\LLVM\bin\clangd.exe)");
         //m_client = std::make_shared<LanguageClient>(R"(I:\lsp\ccls\cmake-build-release\ccls.exe)");
-        m_client = std::make_shared<LanguageClient>(path.c_str(), (char *) cmd.c_str());
+        m_client = std::make_shared<ProcessLanguageClient>(path.c_str(), (char *) cmd.c_str());
         m_loop = std::thread([&] { m_client->loop(m_handler); });
     }
     LanguageClient *getLanguageClient() { return m_client.get(); }
@@ -247,8 +252,6 @@ public:
         m_client->GoToDeclaration(current()->getUri(), position);
     }
     void onTrigger(EventContext &context, int ch) {
-        printf("ch : %d\n", ch);
-
         for (auto &cmp : m_completionTrigger) {
             if (cmp.front() == ch) {
                 CompletionContext ctx;
@@ -258,6 +261,7 @@ public:
         }
         for (auto &cmp : m_signatureTrigger) {
             if (cmp.front() == ch) {
+                //printf("signature help\n");
                 m_client->SignatureHelp(current()->getUri(), context.position());
             }
         }

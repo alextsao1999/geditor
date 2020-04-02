@@ -54,7 +54,14 @@ public:
     }
 
 };
-CompleteDocument::CompleteDocument(RenderManager *render, DocumentManager *mgr) : Document(render, mgr) {
+CompleteDocument::CompleteDocument(RenderManager *render, DocumentManager *mgr) :
+Document(render, mgr), m_context(render) {
     Container::append(new CompleteList());
     layout();
+    //m_root.redraw();
+}
+
+void CompleteDocument::onRedraw(EventContext &context) {
+    printf("redraw document\n");
+    Root::onRedraw(context);
 }

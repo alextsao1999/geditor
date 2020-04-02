@@ -7,8 +7,7 @@
 
 void EventContextRef::unref() {
     if (m_ref) {
-        (*m_ref)--;
-        if (*m_ref == 0) {
+        if ((*m_ref)-- <= 0) {
             m_ptr->free();
             delete m_ref;
         }
@@ -56,20 +55,13 @@ CaretManager::~CaretManager() {
 }
 
 void CaretManager::update() {
-    if (!m_context.has()) {
-        return;
-    }
     // 设置光标的位置为实际偏移(光标偏移 减去 可视区偏移)
     Offset offset = current();
     SetCaretPos(offset.x, offset.y);
 }
 
-Element *CaretManager::getFocus() {
-    return m_context.has() ? m_context->current() : nullptr;
-}
-
 bool CaretManager::enter(int index) {
-    if (m_context.has() && m_context->canEnter()) {
+    if (m_context && m_context->canEnter()) {
         m_context.m_ptr = new EventContext(m_context.ptr(), index);
         return true;
     }

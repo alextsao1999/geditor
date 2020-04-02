@@ -11,7 +11,7 @@
 #include "doc_manager.h"
 #include "open_visitor.h"
 #include "shellapi.h"
-static const GChar *GEDITOR_CLASSNAME = _GT("GEditor");
+static const _TCHAR *GEDITOR_CLASSNAME = TEXT("GEditor");
 class EditorRender : public WindowRenderManager {
 public:
     GEditorData *m_data = nullptr;
@@ -33,7 +33,7 @@ public:
     GEditorData *m_data;
 public:
     explicit GEditor(HWND parent, int x, int y, int nWidth, int nHeight) {
-        m_hWnd = CreateWindowEx(WS_EX_ACCEPTFILES, GEDITOR_CLASSNAME, _GT("GEditor"),
+        m_hWnd = CreateWindowEx(WS_EX_ACCEPTFILES, GEDITOR_CLASSNAME, TEXT("GEditor"),
                                    WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL | WS_BORDER,
                                    x, y, nWidth, nHeight, parent,
                                    nullptr, nullptr, nullptr);
@@ -178,7 +178,7 @@ public:
                 break;
             case WM_SETFOCUS:
                 CreateCaret(hWnd, nullptr, 2, 17);
-                SetCaretPos(-2, -2);
+                current.m_context.m_caretManager.update();
                 ShowCaret(hWnd);
                 break;
             case WM_KILLFOCUS:
@@ -239,7 +239,6 @@ public:
         data->current().context()->m_caretManager.update();
     }
     static void onDropFiles(HWND hwnd, HDROP hDropInfo, GEditorData *data) {
-        //  UINT  nFileCount = DragQueryFile(hDropInfo, (UINT)-1, NULL, 0);  //查询一共拖拽了几个文件
         char szFileName[MAX_PATH] = "";
         DragQueryFileA(hDropInfo, 0, szFileName, sizeof(szFileName));  //打开拖拽的第一个(下标为0)文件
         FileBuffer buffer(szFileName);
@@ -262,7 +261,6 @@ public:
         buffer.free();
         data->current().layout();
         data->m_render.invalidate();
-        //完成拖入文件操作，系统释放缓冲区 
         DragFinish(hDropInfo);
     }
     static void onPaint(HWND hWnd, GEditorData *data) {

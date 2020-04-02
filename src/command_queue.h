@@ -33,7 +33,7 @@ union CommandData {
     CommandData(int pos, int ch) : input(InputData(pos, ch)) {}
     CommandData(EventContext *context, Element *element) : replace(ReplaceData(context, element)) {}
     explicit CommandData(Element *element) : element(element) {}
-    explicit CommandData(int pos, std::wstring *string) : string(StringData(pos, string)) {}
+    explicit CommandData(int pos, GString *string) : string(StringData(pos, string)) {}
     struct InputData {
         int pos;
         int ch;
@@ -46,8 +46,8 @@ union CommandData {
     } replace;
     struct StringData {
         int pos;
-        std::wstring *string;
-        StringData(int pos, std::wstring *string) : pos(pos), string(string) {}
+        GString *string;
+        StringData(int pos, GString *string) : pos(pos), string(string) {}
     } string;
     Element *element; // new element
     int value;

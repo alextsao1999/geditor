@@ -5,7 +5,10 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
+#link_directories(${CMAKE_BINARY_DIR})
+
 if (MSVC)
+    add_definitions(/D_CRT_SECURE_NO_WARNINGS)
     set(CompilerFlags
             CMAKE_CXX_FLAGS
             CMAKE_CXX_FLAGS_DEBUG
@@ -17,7 +20,8 @@ if (MSVC)
         string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
         string(APPEND ${CompilerFlag} " /Zc:threadSafeInit-")
     endforeach()
-endif(MSVC)
+else()
+endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
 

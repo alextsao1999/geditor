@@ -31,7 +31,11 @@ struct CaretPos {
 class EventContextRef {
 public:
     constexpr EventContextRef() = default;
-    EventContextRef(EventContext *ptr) : m_ptr(ptr), m_ref(new int(1)) {}
+    EventContextRef(EventContext *ptr) : m_ptr(ptr) {
+        if (ptr) {
+            m_ref = new int(1);
+        }
+    }
     EventContextRef(EventContextRef &rhs) {
         m_ptr = rhs.m_ptr;
         m_ref = rhs.m_ref;
@@ -47,11 +51,16 @@ public:
             return *this;
         }
         unref();
-        m_ref = new int(1);
         m_ptr = ptr;
+        if (m_ptr != nullptr) {
+            m_ref = new int(1);
+        }
         return *this;
     }
-    inline EventContextRef &operator=(EventContextRef &rhs) noexcept {
+    inline EventContextRef &operator=(const EventContextRef &rhs) noexcept {
+        if (this == &rhs) {
+            return *this;
+        }
         unref();
         m_ref = rhs.m_ref;
         m_ptr = rhs.m_ptr;
@@ -59,11 +68,19 @@ public:
         return *this;
     }
     inline EventContextRef &operator=(EventContextRef &&rhs) noexcept {
+        m_ref = rhs.m_ref;
+        m_ptr = rhs.m_ptr;
+        rhs.m_ref = nullptr;
+        rhs.m_ptr = nullptr;
         return *this;
     }
+    inline bool operator==(EventContext *ptr) noexcept { return m_ptr == ptr; }
+    inline bool operator==(const EventContextRef &rhs) noexcept { return m_ptr == rhs.m_ptr; }
     inline EventContext *ptr() { return m_ptr; }
     inline EventContext &ref() { return *m_ptr; }
-    inline bool has() { return m_ref; }
+    inline bool has() { return m_ptr; }
+    inline operator bool() { return m_ptr; }
+    inline operator EventContext *() { return m_ptr; }
     int *m_ref = nullptr;
     EventContext *m_ptr = nullptr;
 };
@@ -75,10 +92,10 @@ private:
     CaretPos m_data;
 public:
     EventContextRef m_context;
-    Offset m_relative;
+    Offset m_relative{-10, -10};
     explicit CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();
-    Element *getFocus();
+    EventContextRef &getRef() { return m_context; };
     EventContext *getEventContext() { return m_context.ptr(); }
     inline CaretPos &data() { return m_data; }
     // 可视区光标位置

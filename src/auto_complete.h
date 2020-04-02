@@ -11,12 +11,9 @@
 #include "document.h"
 class CompleteDocument : public Document {
 public:
+    Context m_context;
     CompleteDocument(RenderManager *render, DocumentManager *mgr);
-
-    void onRedraw(EventContext &context) override {
-
-        Root::onRedraw(context);
-    }
+    void onRedraw(EventContext &context) override;
 };
 
 class CompleterRender : public WindowRenderManager {
@@ -40,10 +37,10 @@ public:
     explicit AutoComplete() {
         int width = 250, height = 300;
         RegisterACClass();
-        m_hWnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_NOACTIVATE, _GT("AutoComplete"), _GT(""),
+        m_hWnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_NOACTIVATE, TEXT("AutoComplete"), TEXT(""),
                                 WS_POPUP, 0, 0, width, height, 0, nullptr, nullptr, nullptr);
-        SetWindowLongPtr(m_hWnd, GWLP_USERDATA, (LONG_PTR) this);
         m_context = std::make_unique<AutoCompleteContext>(m_hWnd);
+        SetWindowLongPtr(m_hWnd, GWLP_USERDATA, (LONG_PTR) this);
         show(nullptr);
     };
     ~AutoComplete() {
@@ -75,7 +72,7 @@ public:
         wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
         wcex.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
         wcex.lpszMenuName = nullptr;
-        wcex.lpszClassName = _GT("AutoComplete");
+        wcex.lpszClassName = TEXT("AutoComplete");
         wcex.hIconSm = nullptr;
         return RegisterClassEx(&wcex);
     }
@@ -90,6 +87,10 @@ public:
                 break;
             case WM_PAINT:
                 onPaint(hWnd, ac);
+                break;
+            case WM_LBUTTONDOWN:
+
+                ac->m_context->m_completer.m_root.redraw();
                 break;
             case WM_DESTROY:
                 PostQuitMessage(0);

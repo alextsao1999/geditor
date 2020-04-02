@@ -15,11 +15,15 @@
 struct EventContext;
 typedef int  (WINAPI *CallBack)(EventContext *, int, int);
 
-#define ANSI
+#define GUNICODE
 
-#ifdef UNICODE
-#define GChar _TCHAR
-#define _GT(t) _T(t)
+#ifdef GUNICODE
+#define ToGS(t) A2W(t)
+#define GString std::wstring
+#define ToGString std::to_wstring
+#define GChar wchar_t
+#define GIStringStream std::wistringstream
+#define _GT(t) L##t
 #define gstrcmp wcscmp
 #define gstrcat wcscat_s
 #define gsprintf swprintf
@@ -28,8 +32,12 @@ typedef int  (WINAPI *CallBack)(EventContext *, int, int);
 #define gstrchr wcschr
 #define gmemcpy wmemcpy
 #define gmemcmp wmemcmp
-#elif (defined(ANSI))
+#elif (defined(GANSI))
+#define ToGS(t) t
+#define ToGString std::to_string
+#define GString std::string
 #define GChar char
+#define GIStringStream std::istringstream
 #define _GT(t) t
 #define gstrcmp strcmp
 #define gstrcat strcat
@@ -43,9 +51,6 @@ typedef int  (WINAPI *CallBack)(EventContext *, int, int);
 #endif
 
 #include <cstdio>
-#define NOT_REACHED() do { \
-    fprintf(stderr, "shouldn't be reached! %s:%d", __FILE__, __LINE__); \
-} while (0);
 
 #define ASSERT(cond, msg) do { \
 if (!(cond)) { \

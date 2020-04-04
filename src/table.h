@@ -812,6 +812,7 @@ public:
     int m_min = 50;
     int m_width = 0;
     int m_height = 20;
+    bool m_isRadio = false;
     explicit TextElement() = default;
     void setContent(const GChar* value) { m_data.assign(value); }
 public:
@@ -836,6 +837,15 @@ public:
         context.redraw();
     }
     void onLeftDoubleClick(EventContext &context, int x, int y) override {
+        if (m_isRadio) {
+            if (m_data.empty()) {
+                m_data.assign(_GT("1"));
+            } else {
+                m_data.clear();
+            }
+            context.redraw();
+            return;
+        }
         if (context.outer && context.outer->tag().contain(TAG_HEADER)) {
             return;
         }
@@ -858,7 +868,7 @@ public:
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(6, 2), &context);
         if (code == VK_LEFT) {
-            if (context.outer->tag().contain(TAG_UNEDITABLE)) {
+            if (context.outer->tag().contain(TAG_UNEDITABLE) || m_isRadio) {
                 caret->data().setIndex(-1);
                 caret->findPrev(TAG_FOCUS);
                 return;
@@ -870,7 +880,7 @@ public:
             }
         }
         if (code == VK_RIGHT) {
-            if (context.outer->tag().contain(TAG_UNEDITABLE)) {
+            if (context.outer->tag().contain(TAG_UNEDITABLE) || m_isRadio) {
                 caret->data().setIndex(0);
                 caret->findNext(TAG_FOCUS);
                 return;
@@ -916,6 +926,15 @@ public:
         }
     };
     void onInputChar(EventContext &context, SelectionState state, int ch) override {
+        if (m_isRadio) {
+            if (m_data.empty()) {
+                m_data.assign(_GT("1"));
+            } else {
+                m_data.clear();
+            }
+            context.redraw();
+            return;
+        }
         if (context.outer->tag().contain(TAG_UNEDITABLE)) {
             return;
         }
@@ -945,7 +964,7 @@ public:
         context.redraw();
     }
     void onFocus(EventContext &context) override {
-        if (context.outer->tag().contain(TAG_UNEDITABLE)) {
+        if (context.outer->tag().contain(TAG_UNEDITABLE) || m_isRadio) {
             context.setPos(CaretPos(0, context.absOffset(Offset(6, 2))));
             context.getCaretManager()->set(6, 2);
             return;
@@ -1272,11 +1291,13 @@ public:
     }
 };
 class FastTable : public Container<DisplayTable> {
-    using Row = FastRow;
 public:
+    using Row = FastRow;
+    typedef GColor (WINAPI*ColorProvider )(int type, int row, int col);
     int m_delta = 0;
     int m_top = 5;
     int m_column = 0;
+    ColorProvider m_provider = nullptr;
     explicit FastTable(int column) : m_column(column) {}
     explicit FastTable(int row, int column) {
         m_column = column;
@@ -1296,12 +1317,17 @@ public:
     template <typename Type = TextElement>
     Type *getItem(int row, int col) { return (Type *) ((Row *) get(row))->get(col); }
     virtual GColor getBackgroundColor(int row, int col) {
+        if (m_provider) {
+            return m_provider(0, row, col);
+        }
         return SK_ColorTRANSPARENT;
     }
     virtual GColor getForegroundColor(int row, int col) {
+        if (m_provider) {
+            return m_provider(1, row, col);
+        }
         return SK_ColorBLACK;
     }
-    virtual void setRowColor(int row, GColor color) {}
 public:
     Tag getTag(EventContext &context) override { return TAG("Table"); }
     void setLogicWidth(EventContext &context, int width) override {
@@ -1682,6 +1708,9 @@ class SubElement : public Container<> {
         }
         TableType type() { return m_type; }
         GColor getBackgroundColor(int row, int col) override {
+            if (m_provider) {
+                return m_provider(m_type << 1, row, col);
+            }
             if (m_type == TableTypeHeader) {
                 if (row == 0 || row == 2) {
                     return SkColorSetRGB(230, 237, 228);
@@ -1694,6 +1723,9 @@ class SubElement : public Container<> {
             return FastTable::getBackgroundColor(row, col);
         }
         GColor getForegroundColor(int row, int col) override {
+            if (m_provider) {
+                return m_provider((m_type << 1) + 1, row, col);
+            }
             if (m_type == TableTypeHeader) {
                 if (row == 0 || row == 2) {
                     return SK_ColorBLACK;
@@ -1983,11 +2015,17 @@ class ClassElement : public Container<> {
             FastTable::append(row);
         }
         GColor getBackgroundColor(int row, int col) override {
+            if (m_provider) {
+                return m_provider(3 << 1, row, col);
+            }
             if (row == 0 || row == 2)
                 return SK_ColorLTGRAY;
             return FastTable::getBackgroundColor(row, col);
         }
         GColor getForegroundColor(int row, int col) override {
+            if (m_provider) {
+                return m_provider((3 << 1) + 1, row, col);
+            }
             if (row == 0 || row == 2) {
                 return SK_ColorBLACK;
             }

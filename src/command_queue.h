@@ -67,8 +67,10 @@ class CommandQueue {
 public:
     void push(Command cmd) {
         if (count > maxStack) {
+/*
             handle(queue.front());
             queue.pop_front();
+*/
         } else {
             count++;
         }

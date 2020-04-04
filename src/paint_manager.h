@@ -148,13 +148,11 @@ public:
         paint.setColor(SkColorSetRGB(255, 165, 0));
         add(StyleErrorFont, paint);
 
-        paint.setFakeBoldText(true);
         paint.setColor(SK_ColorBLUE);
         add(StyleKeywordFont, paint);
 
         paint.setColor(SkColorSetRGB(105, 105, 105));
         add(StyleOperatorFont, paint);
-        paint.setFakeBoldText(false);
 
         paint.setColor(SkColorSetRGB(0, 128, 128));
         add(StyleStringFont, paint);

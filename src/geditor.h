@@ -37,7 +37,7 @@ public:
                                    WS_VISIBLE | WS_CHILD | WS_HSCROLL | WS_VSCROLL | WS_BORDER,
                                    x, y, nWidth, nHeight, parent,
                                    nullptr, nullptr, nullptr);
-        ASSERT(m_hWnd, "Create Window Error!");
+        GASSERT(m_hWnd, "Create Window Error!");
         m_data = new GEditorData(m_hWnd);
         SetWindowLongPtr(m_hWnd, GWLP_USERDATA, (LONG_PTR) m_data);
     }

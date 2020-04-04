@@ -36,11 +36,6 @@ public:
             m_ref = new int(1);
         }
     }
-    EventContextRef(EventContextRef &rhs) {
-        m_ptr = rhs.m_ptr;
-        m_ref = rhs.m_ref;
-        addref();
-    }
     ~EventContextRef() { unref(); }
     inline void addref() { if (m_ref) (*m_ref)++; }
     void unref();
@@ -65,13 +60,6 @@ public:
         m_ref = rhs.m_ref;
         m_ptr = rhs.m_ptr;
         addref();
-        return *this;
-    }
-    inline EventContextRef &operator=(EventContextRef &&rhs) noexcept {
-        m_ref = rhs.m_ref;
-        m_ptr = rhs.m_ptr;
-        rhs.m_ref = nullptr;
-        rhs.m_ptr = nullptr;
         return *this;
     }
     inline bool operator==(EventContext *ptr) noexcept { return m_ptr == ptr; }

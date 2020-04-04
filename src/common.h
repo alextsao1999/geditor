@@ -13,7 +13,7 @@
 #include "memory.h"
 
 struct EventContext;
-typedef int  (WINAPI *CallBack)(EventContext *, int, int);
+typedef int (WINAPI *CallBack)(EventContext *, int, int);
 
 #define GUNICODE
 
@@ -52,7 +52,7 @@ typedef int  (WINAPI *CallBack)(EventContext *, int, int);
 
 #include <cstdio>
 
-#define ASSERT(cond, msg) do { \
+#define GASSERT(cond, msg) do { \
 if (!(cond)) { \
     fprintf(stderr, "assert fail! \"%s\" %s:%d", msg, __FILE__, __LINE__); \
     abort(); \

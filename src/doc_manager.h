@@ -40,7 +40,7 @@ class NewDocument : public MarginDocument {
 public:
     explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
         auto *doc = new ClassElement();
-        for (int i = 0; i < 1; ++i) {
+        for (int i = 0; i < 2; ++i) {
             auto *sub = new SubElement();
             sub->content(0).assign(_GT("main"));
             sub->content(1).assign(_GT("int"));
@@ -52,30 +52,6 @@ public:
         }
         Document::append(doc);
         layout();
-/*
-        auto *inc = new FastTable(1, 2);
-        if (auto *col = inc->getItem(0, 0)) {
-            col->m_data = _GT("#include");
-            col->m_color = SK_ColorYELLOW;
-        }
-        Document::append(inc);
-
-        auto *head = new FastTable(1, 2, 10);
-        if (auto *col = head->getItem(0, 0)) {
-            col->m_data = _GT("@Annotation");
-            col->m_color = SK_ColorLTGRAY;
-        }
-        Document::append(head);
-
-        auto *table = new SubElement();
-        table->addParam(L"test", L"aaaa");
-        table->addLocal(L"test", L"aaaa");
-        table->append(new AutoLineElement());
-        Document::append(table);
-        m_context.m_textBuffer.appendLine();
-
-        layout();
-*/
     }
     void Open () {
         /*
@@ -178,7 +154,7 @@ public:
         m_client->Initialize(ref);
         openFile("C:/Users/Administrator/Desktop/compiler4e/runtime.c");
 */
-        open(new EDocument(this, R"(C:\Users\Administrator\Desktop\edit\f.e)"));
+        //open(new EDocument(this, R"(C:\Users\Administrator\Desktop\edit\f.e)"));
         openNew();
     }
     ~DocumentManager() {

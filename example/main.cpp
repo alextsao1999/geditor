@@ -151,13 +151,9 @@ void OpenEFile(Document *document) {
     document->m_context.m_renderManager->invalidate();
 }
 int main() {
-/*
-    auto *cvt = new std::codecvt_byname<wchar_t, char, std::mbstate_t>("Chinese");
-    std::wcout.imbue(std::locale(std::locale("Chinese"), cvt));
-*/
     CreateJPEGImageDecoder();
     CreateBMPImageDecoder();
-    ASSERT(MyRegisterClass(nullptr), "Register Class Name Error!");
+    GASSERT(MyRegisterClass(nullptr), "Register Class Name Error!");
     HWND hwnd = CreateMyWindow();
     auto *g = GEditorBuilder::build(hwnd, 10, 40);
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) g);

@@ -323,6 +323,10 @@ EXPORT_API Element *WINAPI CreateModuleElement(const char *string) {
     ret->name.assign(A2W(string));
     return ret;
 }
+EXPORT_API Element *WINAPI CreateClassElement() {
+    return new ClassElement();
+}
+
 EXPORT_API Element *WINAPI CreateSubElement() {
     return new SubElement();
 }
@@ -351,9 +355,10 @@ EXPORT_API Element *WINAPI CreateRowElement(int column) {
 EXPORT_API void WINAPI TableSetTop(FastTable *table, int top) {
     table->m_top = top;
 }
-EXPORT_API void WINAPI TableSetRowColor(FastTable *table, int row, GColor color) {
-    table->setRowColor(row, color);
+EXPORT_API void WINAPI TableSetColorProvider(FastTable *table, FastTable::ColorProvider p) {
+    table->m_provider = p;
 }
+
 EXPORT_API void WINAPI RowSetColumnString(FastRow *row, int column, const char *string) {
     row->getColumn(column)->setContent(A2W(string));
 }
@@ -373,6 +378,12 @@ EXPORT_API void WINAPI RowGetColumnString(FastRow *row, int column, char *string
         return;
     }
     WideCharToMultiByte(0, 0, &content.front(), content.length(), string, length, 0, 0);
+}
+EXPORT_API void WINAPI RowSetColumnRadio(FastRow *row, int column, BOOL radio) {
+    row->getColumn(column)->m_isRadio = radio;
+}
+EXPORT_API BOOL WINAPI RowGetColumnRadio(FastRow *row, int column) {
+    return row->getColumn(column)->m_isRadio;
 }
 EXPORT_API int WINAPI RowGetColumnCount(FastRow *row) {
     return row->m_items.size();

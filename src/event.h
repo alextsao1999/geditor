@@ -160,12 +160,12 @@ struct Tag {
         return false;
     }
     Tag &append(TagId value) {
-        ASSERT(strlen(str) < 255, "Length >= 256!");
+        GASSERT(strlen(str) < 255, "Length >= 256!");
         strcat(str, value);
         return *this;
     }
     Tag &append(int value) {
-        ASSERT(strlen(str) < 255, "Length >= 256!");
+        GASSERT(strlen(str) < 255, "Length >= 256!");
         sprintf(str + strlen(str), TAG("%d"), value);
         return *this;
     }

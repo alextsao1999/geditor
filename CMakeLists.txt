@@ -20,7 +20,6 @@ if (MSVC)
         string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
         string(APPEND ${CompilerFlag} " /Zc:threadSafeInit-")
     endforeach()
-else()
 endif()
 
 add_definitions(-DUNICODE -D_UNICODE)

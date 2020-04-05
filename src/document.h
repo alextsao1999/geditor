@@ -221,6 +221,9 @@ public:
             SelectionState selection = ctx.getSelectionState();
             if (selection != SelectionNone) {
                 ctx.current()->onSelectionToString(ctx, selection, out);
+                if (selection == SelectionSelf || selection == SelectionEnd) {
+                    break;
+                }
             }
         }
     }
@@ -229,8 +232,12 @@ public:
             SelectionState selection = ctx.getSelectionState();
             if (selection != SelectionNone) {
                 ctx.current()->onSelectionDelete(ctx, selection);
+                if (selection == SelectionSelf || selection == SelectionEnd) {
+                    goto leave;
+                }
             }
         }
+        leave:
         context.relayout();
     }
     virtual void onSelectionReplace(EventContext &context, SelectionState state, Range &range, istream &in) {
@@ -247,6 +254,9 @@ public:
             SelectionState selection = ctx.getSelectionState();
             if (selection != SelectionNone) {
                 ctx.current()->onSelectionRange(ctx, selection, range);
+                if (selection == SelectionSelf || selection == SelectionEnd) {
+                    break;
+                }
             }
         }
     }
@@ -502,7 +512,7 @@ public:
         }
         return before;
     }
-/*
+    /*
     virtual Element *remove(Element *ele) {
         if (ele == nullptr) {
             return nullptr;
@@ -522,7 +532,7 @@ public:
         return ele;
     }
     virtual Element *remove(int index) { return remove(get(index)); }
-*/
+    */
     virtual Element *replace(int index, Element *element) { return replace(get(index), element); }
     virtual void append(Element *element, Element *ae){
         Element *next = element->getNext();

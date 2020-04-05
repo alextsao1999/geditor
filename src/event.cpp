@@ -66,13 +66,11 @@ void EventContext::push(CommandType type, CommandData data) {
     doc->context()->m_queue.push({copy(), pos(), type, data});
 }
 void EventContext::notify(int type, NotifyParam param, NotifyValue other) {
-    CheckBound(void(0));
+    CheckBound(void());
     current()->onNotify(*this, type, param, other);
 }
 Tag EventContext::tag() {
-    if (OutOfBound()) {
-        return {};
-    }
+    CheckBound({});
     return current()->getTag(*this);
 }
 

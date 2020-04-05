@@ -1,5 +1,5 @@
 //
-// Created by Alex on 2019/6/27.
+// Created by Alex Tsao(无间) on 2019/6/27.
 //
 
 #ifndef GEDITOR_LAYOUT_H
@@ -38,7 +38,6 @@ enum Display {
     DisplayAbsolute,
     DisplayInline,
     DisplayBlock,
-    DisplayLine,
     DisplayTable,
     DisplayRow,
     DisplayCustom,
@@ -83,7 +82,7 @@ public:
             LayoutDisplayCustom,
     };
     void reflow(EventContext context, bool relayout = false, Offset offset = {0, 0});
-    LayoutFunc getLayoutFunc(Display display) { return m_layouts[display]; }
+    LayoutFunc func(Display display) { return m_layouts[display]; }
 };
 
 #endif //GEDITOR_LAYOUT_H

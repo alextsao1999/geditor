@@ -36,6 +36,11 @@ public:
             m_ref = new int(1);
         }
     }
+    EventContextRef(EventContextRef &rhs) {
+        m_ptr = rhs.m_ptr;
+        m_ref = rhs.m_ref;
+        addref();
+    }
     ~EventContextRef() { unref(); }
     inline void addref() { if (m_ref) (*m_ref)++; }
     void unref();

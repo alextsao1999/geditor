@@ -172,10 +172,10 @@ public:
         }
         return res;
     }
-    void breakText(const void *text, size_t bytelength, GStyle &paint, Buffer<SkRect> &rects) {
+    bool breakText(const void *text, size_t bytelength, GStyle &paint, Buffer<SkRect> &rects) {
         int length = paint.countText(text, bytelength);
-        if (length == 0) {
-            return;
+        if (length <= 0) {
+            return false;
         }
         Buffer<SkScalar> widths(length);
         rects.reset(length);
@@ -189,10 +189,11 @@ public:
         if (rects[length - 1].width() == 0) {
             rects[length - 1].fRight += widths[length - 1];
         }
+        return true;
     }
-    void breakText(Buffer<SkRect> &rects, int style = StyleDeafaultFont) {
+    bool breakText(Buffer<SkRect> &rects, int style = StyleDeafaultFont) {
         LineViewer viewer = m_context->getLineViewer(0);
-        breakText(viewer.c_str(), viewer.size(), m_context->getStyle(style), rects);
+        return breakText(viewer.c_str(), viewer.size(), m_context->getStyle(style), rects);
     }
     CaretPos getIndexPos(Buffer<SkRect> &rects, int index) {
         while (index < 0) {
@@ -557,7 +558,7 @@ public:
             EventContext prev = context.nearby(-1);
             if (prev.tag().contain(TAG_LINE)) {
                 context.combineLine(-1);
-                prev.focus();
+                prev.focus(true, true);
                 erase(context);
             }
         }
@@ -749,6 +750,10 @@ class SyntaxLineElement : public LineElement {
 public:
     Element *copy() override { return new SyntaxLineElement(); }
     void onRedraw(EventContext &context) override {
+        TextCaretService service(padding(), &context);
+        Buffer<GRect> rects;
+        service.breakText(rects);
+
         context.gutter();
         Canvas canvas = context.getCanvas();
         drawSelection(context);
@@ -1260,10 +1265,6 @@ public:
         context.remove();
     }
     void onClone(EventContext &context) override {
-        if (m_undeleteable || m_header) {
-            context.nearby(1).focus();
-            return;
-        }
         context.insert(new FastRow(size()));
         context.nearby(1).focus();
     }
@@ -1681,8 +1682,8 @@ class SubElement : public Container<> {
         public:
             using FastRow::FastRow;
             void onClone(EventContext &context) override {
-                if (m_undeleteable) {
-                    auto *table = context.outer->cast<FastTable>();
+                if (m_undeleteable || m_header) {
+                    auto *table = context.outer->cast<Table>();
                     if (context.outer->count() == 2) {
                         auto *row = new ParamRow(6);
                         row->setHeader(true);
@@ -1982,7 +1983,7 @@ class ClassElement : public Container<> {
         public:
             using FastRow::FastRow;
             void onClone(EventContext &context) override {
-                if (m_undeleteable) {
+                if (m_undeleteable || m_header) {
                     auto *table = context.outer->cast<ClassHeader>();
                     if (context.outer->count() == 2) {
                         auto *row = new ClassRow(4);
@@ -2052,9 +2053,13 @@ public:
             SelectionState selection = ctx.getSelectionState();
             if (selection != SelectionNone) {
                 ctx.current()->onSelectionDelete(ctx, selection);
+                if (selection == SelectionSelf || selection == SelectionEnd) {
+                    goto leave;
+                }
             }
         }
         //context.relayout();
+        leave:
         context.enter().reflow();
     }
 

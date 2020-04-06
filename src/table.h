@@ -90,6 +90,7 @@ public:
         //canvas->drawRect(rect, paint);
     }
 };
+using RectVec = Buffer<SkRect>;
 class TextCaretService {
 protected:
     Offset m_offset;
@@ -115,7 +116,7 @@ public:
     }
     bool commit(int style = StyleDeafaultFont) {
         LineViewer viewer = m_context->getLineViewer();
-        return commit(viewer.c_str(), viewer.size(), m_context->getStyle(style), nullptr);
+        return commit(viewer.c_str(), viewer.size(), m_context->getStyle(style));
     }
     bool commit(GString &string, int style = StyleDeafaultFont) {
         return commit(string.c_str(), string.length() * sizeof(GChar), m_context->getStyle(style));
@@ -125,8 +126,8 @@ public:
         int index = m_index;
         int length = paint.countText(text, bytelength);
         Buffer<SkScalar> widths(length);
-        Buffer<SkRect> rects(length);
-        paint.getTextWidths(text, bytelength, widths.data, rects.data);
+        RectVec rects(length);
+        paint.getTextWidths(text, bytelength, widths.data(), rects.data());
         SkScalar size = paint.getTextSize();
         int width = 0;
         for (int i = 0; i < length; ++i) {
@@ -148,9 +149,6 @@ public:
         Offset caret;
         if (index < length) {
             caret.x = rects[index].left();
-            if (bound) {
-                *bound = rects[index];
-            }
         } else {
             index = length;
             if (length == 0) {
@@ -160,9 +158,6 @@ public:
                     rects[length - 1].fRight += widths[length - 1];
                 }
                 caret.x = rects[length - 1].right();
-                if (bound) {
-                    *bound = rects[length - 1];
-                }
             }
         }
         caret.y = m_offset.y;
@@ -172,46 +167,71 @@ public:
         }
         return res;
     }
-    bool breakText(const void *text, size_t bytelength, GStyle &paint, Buffer<SkRect> &rects) {
+    void show(Offset offset, int index) {
+        CaretManager *m_caret = m_context->getCaretManager();
+        m_caret->data().set(index, m_context->absOffset(offset));
+        m_caret->set(offset);
+    }
+    bool breakText(const void *text,  size_t bytelength, GStyle &paint, RectVec &rects) {
         int length = paint.countText(text, bytelength);
         if (length <= 0) {
             return false;
         }
         Buffer<SkScalar> widths(length);
-        rects.reset(length);
-        paint.getTextWidths(text, bytelength, widths.data, rects.data);
+        rects.resize(length);
+        paint.getTextWidths(text, bytelength, widths.data(), rects.data());
         SkScalar size = paint.getTextSize();
         int width = 0;
         for (int i = 0; i < length; ++i) {
             rects[i].offset(m_offset.x + width, size + (SkScalar) m_offset.y);
             width += widths[i];
         }
-        if (rects[length - 1].width() == 0) {
+        if (rects.back().width() == 0) {
             rects[length - 1].fRight += widths[length - 1];
         }
         return true;
     }
-    bool breakText(Buffer<SkRect> &rects, int style = StyleDeafaultFont) {
+    bool breakText(RectVec &rects, int style = StyleDeafaultFont) {
         LineViewer viewer = m_context->getLineViewer(0);
         return breakText(viewer.c_str(), viewer.size(), m_context->getStyle(style), rects);
     }
-    CaretPos getIndexPos(Buffer<SkRect> &rects, int index) {
+    CaretPos getCaretPos(RectVec &rects, int index) {
         while (index < 0) {
-            index = rects.count + index + 1;
+            index = rects.size() + index + 1;
         }
-        if (rects.count == 0) {
-            return {index, {}};
+        if (rects.size() == 0) {
+            return {index, m_offset};
         }
-        if (index >= rects.count) {
-            index = rects.count;
-            return {index, m_context->absOffset(Offset(rects.back().fRight, m_offset.y))};
+        if (index >= rects.size()) {
+            index = rects.size();
+            return {index, m_context->absOffset(Offset(rects.back().right(), m_offset.y))};
         }
-        return {index, m_context->absOffset(Offset(rects[index].fLeft, m_offset.y))};
+        return {index, m_context->absOffset(Offset(rects[index].left(), m_offset.y))};
     }
-    int getIndex(Buffer<SkRect> &rects, int x, int y) {
+    Offset getRelOffset(RectVec &rects, int index) {
+        int length = rects.size();
+        if (length <= 0) {
+            return m_offset;
+        }
+        while (index < 0) {
+            index = length + index + 1;
+        }
+        Offset caret;
+        if (index < length) {
+            caret.x = rects[index].left();
+        } else {
+            caret.x = rects.back().right();
+        }
+        caret.y = m_offset.y;
+        return caret;
+    }
+    Offset getAbsOffset(RectVec &rects, int index) {
+        return m_context->absOffset(getRelOffset(rects, index));
+    }
+    int getIndex(RectVec &rects, int x, int y) {
         Offset offset = Offset{x, y} - m_context->offset();
         int index = 0;
-        for (int i = 0; i < rects.count; ++i) {
+        for (int i = 0; i < rects.size(); ++i) {
             if (SkIntToScalar(offset.x) >= rects[i].x()) {
                 if (SkIntToScalar(offset.x) > rects[i].centerX()) {
                     index = i + 1;
@@ -221,20 +241,27 @@ public:
             }
         }
         while (index < 0) {
-            index = rects.count + index + 1;
+            index = rects.size() + index + 1;
         }
         return index;
     }
-    void show(Offset offset, int index) {
-        CaretManager *m_caret = m_context->getCaretManager();
-        m_caret->data().set(index, m_context->absOffset(offset));
-        m_caret->set(offset);
-    }
     static int GetIndex(EventContext &context, Offset offset, int x, int y) {
         TextCaretService service(offset, &context);
-        Buffer<SkRect> rects;
+        RectVec rects;
         service.breakText(rects);
         return service.getIndex(rects, x, y);
+    }
+    static CaretPos GetCaretPos(EventContext &context, Offset offset, int x, int y) {
+        TextCaretService service(offset, &context);
+        RectVec rects;
+        service.breakText(rects);
+        return service.getCaretPos(rects, service.getIndex(rects, x, y));
+    }
+    static CaretPos GetCaretPos(EventContext &context, Offset offset, int index) {
+        TextCaretService service(offset, &context);
+        RectVec rects;
+        service.breakText(rects);
+        return service.getCaretPos(rects, index);
     }
 };
 class OffsetCaretService {
@@ -404,9 +431,9 @@ public:
     int getLineNumber() override { return 1; }
     Tag getTag(EventContext &context) override {
         if (context.getLineViewer().flags() & LineFlagHide) {
-            return Tag::Format(TAG("Line (%d)"), context.getCounter().line + 1);
+            return Tag::Format(TAG("Line (%d)"), context.line() + 1);
         }
-        return Tag::Format(TAG("Line Focus (%d)"), context.getCounter().line + 1);
+        return Tag::Format(TAG("Line Focus (%d)"), context.line() + 1);
     }
     static void OnFold(EventContext &context) {
         EventContext ctx = context;
@@ -448,9 +475,9 @@ public:
     void onLeftDoubleClick(EventContext &context, int x, int y) override {
         TextCaretService service(padding(), &context);
         auto line = context.getLineViewer();
-        Buffer<SkRect> rects;
+        RectVec rects;
         service.breakText(rects);
-        int length = rects.count;
+        int length = rects.size();
         if (length == 0) {
             return;
         }
@@ -462,8 +489,8 @@ public:
         while (endIndex < length && (IsCodeChar(line.charAt(endIndex)) || IsNumber(line.charAt(endIndex)))) {
             endIndex++;
         }
-        CaretPos start = service.getIndexPos(rects, startIndex);
-        CaretPos end = service.getIndexPos(rects, endIndex);
+        CaretPos start = service.getCaretPos(rects, startIndex);
+        CaretPos end = service.getCaretPos(rects, endIndex);
         context.getDocContext()->select(start, end);
         context.setPos(end);
         context.focus();
@@ -596,9 +623,7 @@ public:
                         service.moveLeft();
                     } else {
                         EventContext *prev = context.findPrev(TAG_FOCUS);
-                        if (!prev) {
-                            return;
-                        }
+                        if (!prev) { return; }
                         if (prev->tag().contain(TAG_LINE)) {
                             int prevLength = prev->getLineViewer().length();
                             context.combineLine(-1);
@@ -669,10 +694,10 @@ public:
         }
         if (state == SelectionStart) {
             TextCaretService text(padding(), &context);
-            Buffer<SkRect> rects;
+            RectVec rects;
             text.breakText(rects);
             Offset start = context.relOffset(context.getDocContext()->getSelectStart());
-            if (rects.count) {
+            if (rects.size()) {
                 DrawUtil::DrawSlection(context, start, Offset(rects.back().right(), rects.back().top()));
             } else {
                 if (!context.isFocusIn())
@@ -690,9 +715,9 @@ public:
         }
         if (state == SelectionInside || state == SelectionRow) {
             TextCaretService text(padding(), &context);
-            Buffer<SkRect> rects;
+            RectVec rects;
             text.breakText(rects);
-            if (rects.count) {
+            if (rects.size()) {
                 DrawUtil::DrawSlection(context, padding(), Offset(rects.back().right(), rects.back().top()));
             } else {
                 DrawUtil::DrawSlection(context, padding(), Offset(10, 6));
@@ -751,7 +776,7 @@ public:
     Element *copy() override { return new SyntaxLineElement(); }
     void onRedraw(EventContext &context) override {
         TextCaretService service(padding(), &context);
-        Buffer<GRect> rects;
+        RectVec rects;
         service.breakText(rects);
 
         context.gutter();
@@ -820,6 +845,7 @@ public:
     bool m_isRadio = false;
     explicit TextElement() = default;
     void setContent(const GChar* value) { m_data.assign(value); }
+    inline Offset location() { return {6, 2}; }
 public:
     Tag getTag(EventContext &context) override { return {TAG("Text Focus")}; }
     int getMinWidth(EventContext &context) override {
@@ -855,10 +881,10 @@ public:
             return;
         }
         TextCaretService service(Offset(6, 2), &context);
-        Buffer<SkRect> rects;
+        RectVec rects;
         service.breakText(m_data.c_str(), m_data.size() * sizeof(GChar), context.getStyle(StyleTableFont), rects);
-        auto start = service.getIndexPos(rects, 0);
-        auto end = service.getIndexPos(rects, -1);
+        auto start = service.getCaretPos(rects, 0);
+        auto end = service.getCaretPos(rects, -1);
         context.getDocContext()->select(start, end);
         context.setPos(end);
         context.getCaretManager()->getEventContext()->focus(false);

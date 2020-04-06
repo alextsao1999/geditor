@@ -243,8 +243,10 @@ public:
         }
         if (&context == context.getCaretManager()->getEventContext()) {
             CompletionContext ctx;
+            auto pos = context.position(); // -1
+            pos.character--;
             ctx.triggerKind = CompletionTriggerKind::TriggerTriggerForIncompleteCompletions;
-            m_client->Completion(current()->getUri(), context.position(-1), ctx);
+            m_client->Completion(current()->getUri(), pos, ctx);
         }
 
     }

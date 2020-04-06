@@ -16,13 +16,15 @@
 #define ONCE_ALLOC 4
 int CeilToPowerOf2(int v);
 template <typename T>
-struct Buffer {
+class Buffer {
     // this is just a buffer
-    T *data = nullptr;
-    int count = 0;
-    int capacity = 0;
+private:
+    T *m_data = nullptr;
+    int m_count = 0;
+    int m_capacity = 0;
+public:
     Buffer() = default;
-    explicit Buffer(int init_count) { count = init_count;ensureCapacity(init_count); }
+    explicit Buffer(int init_count) { m_count = init_count;ensureCapacity(init_count); }
     ~Buffer() { clear(); }
     class BufferIter {
         Buffer *m_data;
@@ -35,20 +37,23 @@ struct Buffer {
         inline T &current() { return m_data->operator[](m_index); }
     };
     inline BufferIter iter() { return BufferIter(this); }
+    inline T *data() { return m_data; }
+    inline int size() { return m_count; }
+    inline int length() { return m_count; }
     inline void fill(const T &value, int num) {
-        ensureCapacity(count + num);
+        ensureCapacity(m_count + num);
         for (int i = 0; i < num; ++i) {
-            data[count++] = value;
+            m_data[m_count++] = value;
         }
     };
     inline int push(const T &data = T()) {
         fill(data, 1);
-        return count - 1;
+        return m_count - 1;
     };
-    inline T &front() { return data[0]; }
-    inline const T &back() { return data[count - 1]; }
-    inline T &pop() { return data[--count]; }
-    inline void erase(int index) { memcpy(&data[index], &data[index  + 1], (--count - index) * sizeof(T)); };
+    inline T &front() { return m_data[0]; }
+    inline const T &back() { return m_data[m_count - 1]; }
+    inline T &pop() { return m_data[--m_count]; }
+    inline void erase(int index) { memcpy(&m_data[index], &m_data[index + 1], (--m_count - index) * sizeof(T)); };
     inline void erase(int pos, int npos) {
         int n = npos - pos + 1;
         for (int i = 0; i < n; ++i) {
@@ -56,45 +61,42 @@ struct Buffer {
         }
     }
     inline bool insert(int index, const T &value = T()) {
-        if (index >= count)
-            fill(value, index - count + 1);
+        if (index >= m_count)
+            fill(value, index - m_count + 1);
         else {
-            ensureCapacity(++count);
-            memmove(&data[index + 1], &data[index], (count - index - 1) * sizeof(T));
+            ensureCapacity(++m_count);
+            memmove(&m_data[index + 1], &m_data[index], (m_count - index - 1) * sizeof(T));
         }
-        data[index] = value;
+        m_data[index] = value;
         return true;
     };
     inline void set(int index, const T &value = T()) {
         ensureIndex(index);
-        data[index] = value;
+        m_data[index] = value;
     };
     inline T &at(int index) {
         ensureIndex(index);
-        return data[index];
+        return m_data[index];
     }
-    inline int size() {
-        return count;
-    };
     inline void clear() {
-        ge_free(data);
-        data = nullptr;
+        ge_free(m_data);
+        m_data = nullptr;
     }
-    inline void reset(int new_count = 0) { count = new_count;ensureCapacity(new_count); }
+    inline void resize(int new_count = 0) { m_count = new_count;ensureCapacity(new_count); }
     // 确保容量
     inline void ensureCapacity(int newCapacity) {
-        if (newCapacity > capacity) {
+        if (newCapacity > m_capacity) {
             // size_t oldSize = capacity * sizeof(T);
-            capacity = CeilToPowerOf2(newCapacity);
-            data = (T *) ge_realloc(data, capacity * sizeof(T));
+            m_capacity = CeilToPowerOf2(newCapacity);
+            m_data = (T *) ge_realloc(m_data, m_capacity * sizeof(T));
         }
     }
     inline void ensureIndex(int index) {
-        if (index >= count) fill(T(), index - count + 1);
+        if (index >= m_count) fill(T(), index - m_count + 1);
     }
     inline T &operator[](const int &index) {
         ensureIndex(index);
-        return data[index];
+        return m_data[index];
     }
 
 };

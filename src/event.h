@@ -222,6 +222,7 @@ struct EventContext {
     inline bool has() { return element; };
     bool prev();
     bool next();
+    int line() { return getCounter().line; }
     LineCounter getCounter() { if (outer) { return outer->getCounter() + counter; } else { return counter; } }
     // 只改变本层次Line
     void prevLine(int count = 1) { counter.decrease(this, count); }
@@ -269,7 +270,7 @@ struct EventContext {
         getCaretManager()->update();
     }
     inline Element *current() { return element; }
-    Position position(int offset = 0) { return {getCounter().line, pos().getIndex() + offset}; }
+    Position position() { return {line(), pos().getIndex()}; }
     Painter getPainter();
     Canvas getCanvas(SkPaint *paint);
     Canvas getCanvas();

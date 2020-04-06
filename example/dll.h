@@ -109,7 +109,18 @@ EXPORT_API void WINAPI GEditorDocumentTypeHierarchy(GEditor *editor, Position &p
     auto uri = editor->m_data->m_manager.current()->getUri();
     editor->m_data->m_manager.m_client->TypeHierarchy(uri, pos, (TypeHierarchyDirection) d, resolve);
 }
-
+EXPORT_API void WINAPI GEditorDocumentHighlight(GEditor *editor, Position &pos) {
+    auto uri = editor->m_data->m_manager.current()->getUri();
+    editor->m_data->m_manager.m_client->DocumentHighlight(uri, pos);
+}
+EXPORT_API void WINAPI GEditorDocumentColor(GEditor *editor) {
+    auto uri = editor->m_data->m_manager.current()->getUri();
+    editor->m_data->m_manager.m_client->DocumentColor(uri);
+}
+EXPORT_API void WINAPI GEditorDocumentFormatting(GEditor *editor, Position &pos) {
+    auto uri = editor->m_data->m_manager.current()->getUri();
+    editor->m_data->m_manager.m_client->Formatting(uri);
+}
 
 EXPORT_API void WINAPI GEditorDocumentPushStart(GEditor *editor) {
     editor->m_data->current().context()->pushStart(PushType::PushTypeNone);
@@ -125,12 +136,10 @@ EXPORT_API void WINAPI GEditorDocumentApplyChange(GEditor *editor, json &value) 
     EventContextRef ref(editor->m_data->current().m_root.findLine(range.start.line));
 
 }
+
 CaretPos PositionToCaretPos(GEditor *editor, Position &positon, bool focus = false) {
     EventContext *ctx = editor->m_data->current().m_root.findLine(positon.line);
-    TextCaretService service({4, 6}, ctx);
-    Buffer<SkRect> buffer;
-    service.breakText(buffer);
-    CaretPos pos = service.getIndexPos(buffer, positon.character);
+    CaretPos pos = TextCaretService::GetCaretPos(*ctx, {4, 6}, positon.character);
     if (focus) {
         ctx->pos().setIndex(positon.character);
         ctx->focus(false);

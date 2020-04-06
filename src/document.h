@@ -88,7 +88,6 @@ public:
     using istream = std::basic_istream<GChar>;
     Element() = default;
     Offset getOffset(EventContext &context) override;
-    virtual CaretPos getCaretPos(EventContext &context, Offset &offset) { return {}; }
     virtual int getChildCount() {
         int count = 0;
         Element *start = getHead();

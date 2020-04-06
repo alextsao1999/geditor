@@ -27,15 +27,23 @@ FileDocument::FileDocument(DocumentManager *mgr, string_ref path, string_ref lan
 
 void FileDocument::onContentChange(EventContext &context, CommandType type, CommandData data) {
     if (m_manager && m_manager->m_client) {
-//        Range range;
-//        range.start = context.position();
-//        range.end = range.start;
-//        range.end.character++;
         std::vector<TextDocumentContentChangeEvent> events;
-        TextDocumentContentChangeEvent s;
-        s.text = getContent();
-//        s.range = range;
-        events.push_back(s);
+        TextDocumentContentChangeEvent append;
+        if (type == CommandType::DeleteElement && 0) {
+            int number = data.element->getLineNumber();
+            Range range;
+            range.start.line = context.line();
+            range.start.character = 0;
+            range.end.line = range.start.line + number;
+            range.end.character = context.getLineViewer(number - 1).length();
+            append.range = range;
+            append.text = "";
+            //append.rangeLength
+            events.emplace_back(append);
+        } else {
+            append.text = getContent();
+            events.push_back(append);
+        }
         m_manager->m_client->DidChange(getUri(), events, true);
     }
 }

@@ -177,14 +177,10 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         }
     }
     LineElement::onInputChar(context, state, ch);
-    if (state != SelectionNone) {
-        return;
-    }
     if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
         mgr->onTrigger(context, ch);
     }
-    EventContext *current = caret->getEventContext();
-    if (current) { // (<current>) 跳过右括号
+    if (EventContext *current = caret->getEventContext()) { // (<current>) 跳过右括号
         line = current->getLineViewer();
         int index = current->pos().getIndex();
         if (auto *left = gstrchr(lchar, ch)) {
@@ -198,8 +194,8 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
 
 void AutoLineElement::onMouseHover(EventContext &context, int x, int y) {
     if (auto *mgr = context.document()->getDocumentManager()->LSPManager()) {
-        int index = TextCaretService::GetIndex(context, {4, 6}, x, y);
-        mgr->onHover({context.getCounter().line, index});
+        int index = TextCaretService::GetIndex(context, padding(), x, y);
+        mgr->onHover({context.line(), index});
     }
 }
 

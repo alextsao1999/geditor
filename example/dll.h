@@ -24,12 +24,12 @@ EXPORT_API void WINAPI GEditorSetOnBlur(GEditor *editor, CallBack callback) {
     editor->m_data->current().m_onBlur = callback;
 }
 EXPORT_API void WINAPI GEditorSetStyle(GEditor *editor, int style_id, GColor color) {
-    GStyle style;
+    GStyle &style = editor->m_data->current().m_context.m_styleManager.get(style_id);
     style.setColor(color);
     style.setTextSize(14);
     style.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
     style.setAntiAlias(true);
-    editor->m_data->current().m_context.m_styleManager.set(style_id, style);
+    //editor->m_data->current().m_context.m_styleManager.set(style_id, style);
 }
 EXPORT_API void WINAPI GEditorAddKeyword(GEditor *editor, int style, const char *keyword) {
     editor->m_data->m_manager.m_keywords.emplace(AnsiToUnicode(keyword), style);
@@ -54,6 +54,14 @@ EXPORT_API void WINAPI GEditorLSPInit(GEditor *editor, const char *root) {
     string_ref uri = root;
     auto &client = editor->m_data->m_manager.m_client;
     client->Initialize(uri);
+}
+EXPORT_API void WINAPI GEditorLSPRequest(GEditor *editor, const char *method, json &json) {
+    auto uri = editor->m_data->m_manager.current()->getUri();
+    editor->m_data->m_manager.m_client->SendRequest(method, json);
+}
+EXPORT_API void WINAPI GEditorLSPNotify(GEditor *editor, const char *method, json &json) {
+    auto uri = editor->m_data->m_manager.current()->getUri();
+    editor->m_data->m_manager.m_client->SendNotify(method, json);
 }
 EXPORT_API int WINAPI GEditorDocumentOpenFile(GEditor *editor, const char *path) {
     return editor->m_data->m_manager.openFile(path);
@@ -82,13 +90,14 @@ EXPORT_API void WINAPI GEditorDocumentHover(GEditor *editor, Position &pos) {
 EXPORT_API void WINAPI GEditorDocumentSignatureHelp(GEditor *editor, Position &pos) {
     editor->m_data->m_manager.onSignatureHelp(pos);
 }
-EXPORT_API void WINAPI GEditorDocumentComplete(GEditor *editor, Position &pos) {
+EXPORT_API void WINAPI GEditorDocumentCompletion(GEditor *editor, Position &pos) {
     CompletionContext ctx;
     ctx.triggerKind = CompletionTriggerKind::Invoked;
     editor->m_data->m_manager.onComplete(pos, ctx);
 }
 EXPORT_API void WINAPI GEditorDocumentSymbolInfo(GEditor *editor, Position &pos) {
-    editor->m_data->m_manager.onGoToDefinition(pos);
+    auto uri = editor->m_data->m_manager.current()->getUri();
+    editor->m_data->m_manager.m_client->SymbolInfo(uri, pos);
 }
 EXPORT_API void WINAPI GEditorWorkspaceSymbol(GEditor *editor, const char *query) {
     editor->m_data->m_manager.m_client->WorkspaceSymbol(query);
@@ -159,7 +168,6 @@ EXPORT_API void WINAPI GEditorCaretOffset(GEditor *editor, Offset &offset) {
     offset = editor->m_data->current().context()->m_caretManager.current();
 }
 
-
 EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) {
     return editor->m_data->current().m_context.m_caretManager.getEventContext();
 }
@@ -190,6 +198,14 @@ EXPORT_API void WINAPI GEditorLineDelete(GEditor *editor, int line) {
 EXPORT_API void WINAPI GEditorLineSetString(GEditor *editor, int line, const char *string) {
     LineViewer viewer = editor->m_data->current().m_context.m_textBuffer.getLine(line);
     viewer.content().assign(A2W(string));
+}
+EXPORT_API void WINAPI GEditorLineSetFlags(GEditor *editor, int line, int flags) {
+    LineViewer viewer = editor->m_data->current().m_context.m_textBuffer.getLine(line);
+    viewer.flags() = flags;
+}
+EXPORT_API int WINAPI GEditorLineGetFlags(GEditor *editor, int line) {
+    LineViewer viewer = editor->m_data->current().m_context.m_textBuffer.getLine(line);
+    return viewer.flags();
 }
 EXPORT_API int WINAPI GEditorLineGetLength(GEditor *editor, int line) {
     auto &string = editor->m_data->current().m_context.m_textBuffer.getLine(line).content();
@@ -241,9 +257,6 @@ EXPORT_API void WINAPI EventContextGetLineString(EventContext *context, int offs
     WideCharToMultiByte(0, 0, &content.front(), content.length(), string, length, 0, 0);
 }
 
-EXPORT_API EventContext *WINAPI EventContextFindLine(EventContext *context, int line) {
-    return context->findLine(line);
-}
 EXPORT_API void WINAPI EventContextGetPosition(EventContext *context, Position *position) {
     *position = context->position();
 }
@@ -320,6 +333,16 @@ EXPORT_API EventContext *WINAPI EventContextFindNext(EventContext *context, char
 EXPORT_API EventContext *WINAPI EventContextFindInner(EventContext *context, char *tag) {
     return context->findInnerFirst(tag);
 }
+EXPORT_API EventContext *WINAPI EventContextFindOuter(EventContext *context, char *tag) {
+    return context->findOuter(tag);
+}
+EXPORT_API EventContext *WINAPI EventContextFindLine(EventContext *context, int line) {
+    return context->findLine(line);
+}
+EXPORT_API EventContext *WINAPI EventContextGetOuter(EventContext *context, int count) {
+    return context->getOuter(count);
+}
+
 EXPORT_API void WINAPI EventContextFree(EventContext *context) {
     context->free();
 }
@@ -354,18 +377,29 @@ EXPORT_API Element *WINAPI CreateLoopElement(int count) {
 EXPORT_API Element *WINAPI CreateSwitchElement(int count) {
     return new SwitchElement(count);
 }
+class MyTable : public TableElement {
+public:
+    Tag m_tag;
+    using TableElement::TableElement;
+    Tag getTag(EventContext &context) override {
+        if (!m_tag.empty()) { return m_tag; }
+        return FastTable::getTag(context);
+    }
+};
 EXPORT_API Element *WINAPI CreateTableElement(int row, int column) {
-    return new FastTable(row, column);
+    return new MyTable(row, column);
 }
 EXPORT_API Element *WINAPI CreateRowElement(int column) {
     return new FastRow(column);
 }
-
-EXPORT_API void WINAPI TableSetTop(FastTable *table, int top) {
+EXPORT_API void WINAPI TableSetTop(TableElement *table, int top) {
     table->m_top = top;
 }
-EXPORT_API void WINAPI TableSetColorProvider(FastTable *table, FastTable::ColorProvider p) {
+EXPORT_API void WINAPI TableSetColorProvider(TableElement *table, TableElement::ColorProvider p) {
     table->m_provider = p;
+}
+EXPORT_API void WINAPI TableSetTag(MyTable *table, const char *str) {
+    table->m_tag = str;
 }
 
 EXPORT_API void WINAPI RowSetColumnString(FastRow *row, int column, const char *string) {
@@ -389,10 +423,10 @@ EXPORT_API void WINAPI RowGetColumnString(FastRow *row, int column, char *string
     WideCharToMultiByte(0, 0, &content.front(), content.length(), string, length, 0, 0);
 }
 EXPORT_API void WINAPI RowSetColumnRadio(FastRow *row, int column, BOOL radio) {
-    row->getColumn(column)->m_isRadio = radio;
+    row->getColumn(column)->m_radio = radio;
 }
 EXPORT_API BOOL WINAPI RowGetColumnRadio(FastRow *row, int column) {
-    return row->getColumn(column)->m_isRadio;
+    return row->getColumn(column)->m_radio;
 }
 EXPORT_API int WINAPI RowGetColumnCount(FastRow *row) {
     return row->m_items.size();
@@ -455,6 +489,7 @@ EXPORT_API int64_t WINAPI JsonGetInt64(json &value) { return value.get<int64_t>(
 EXPORT_API float WINAPI JsonGetFloat(json &value) { return value.get<float>(); }
 EXPORT_API BOOL WINAPI JsonGetBool(json &value) { return value.get<bool>(); }
 EXPORT_API const char *WINAPI JsonGetString(json &value) { return value.get_ref<std::string &>().c_str(); }
+EXPORT_API void WINAPI JsonSet(json &value, json &v) { value = v; }
 EXPORT_API void WINAPI JsonSetInt(json &value, int v) { value = v; }
 EXPORT_API void WINAPI JsonSetInt64(json &value, int64_t v) { value = v; }
 EXPORT_API void WINAPI JsonSetFloat(json &value, float v) { value = v; }

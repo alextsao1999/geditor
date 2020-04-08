@@ -554,6 +554,7 @@ public:
         pe->setNext(element);
     }
 };
+using BlockContainer = Container<>;
 template <Display D = DisplayBlock>
 class ScrollContainer : public Container<D> {
 public:

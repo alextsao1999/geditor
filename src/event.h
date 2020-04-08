@@ -145,7 +145,16 @@ struct Tag {
     char str[256] = {'\0'};
     constexpr Tag() = default;
     Tag(TagId string) { strcpy(str, string); }
+    Tag(std::string& string) { strcpy(str, string.c_str()); }
     bool empty() { return strlen(str) == 0; }
+    Tag &operator=(const Tag&rhs) {
+        strcpy(str, rhs.str);
+        return *this;
+    }
+    Tag &operator=(const char *rhs) {
+        strcpy(str, rhs);
+        return *this;
+    }
     bool operator==(const Tag &rvalue) { return strcmp(str, rvalue.str); }
     bool operator==(TagId rvalue) { return strcmp(str, rvalue) == 0; }
     const char *c_str() { return str; }
@@ -525,6 +534,9 @@ struct EventContext {
         EventContext *current = outer;
         while (current && --count) {
             current = current->outer;
+        }
+        if (count != 0) {
+            return nullptr;
         }
         return current;
     }

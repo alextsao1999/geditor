@@ -152,7 +152,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
             }
         }
         if (ch == VK_TAB) {
-            static const GChar *jumps = _GT("'\",()<>;{}");
+            static const GChar *jumps = _GT("'\",()<>;{}:");
             while (index < line.length()) {
                 if (gstrchr(jumps, line.charAt(index))) {
                     context.pos().setIndex(index + 1);
@@ -206,7 +206,7 @@ void AutoLineElement::onMouseLeave(EventContext &context, int x, int y) {
 void TextElement::onRedraw(EventContext &context) {
     Canvas canvas = context.getCanvas();
     auto state = context.outer->getSelectionState();
-    auto *table = context.getOuter(2)->cast<FastTable>();
+    auto *table = context.getOuter(2)->cast<TableElement>();
     int row = context.outer->index, col = context.index;
     if (GColor color = table->getBackgroundColor(row, col)) {
         SkPaint paint;
@@ -227,7 +227,7 @@ void TextElement::onRedraw(EventContext &context) {
     }
 
     canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
-    if (m_isRadio) {
+    if (m_radio) {
         if (m_data.empty()) {
             return;
         }

@@ -416,46 +416,85 @@ public:
     LineElement() = default;
     inline Offset padding() { return {4, 6}; }
     inline Offset location() { return {4, 6}; }
-public:
-    int getLogicHeight(EventContext &context) override { return 25; }
-    int getLogicWidth(EventContext &context) override {
-        auto line = context.getLineViewer();
-        return (int) context.getStyle().measureText(line.c_str(), line.size()) + 8;
-    }
-    Display getDisplay(EventContext &context) override {
-        if (context.getLineViewer().flags() & LineFlagHide) {
-            return DisplayNone;
+    virtual void insert(EventContext &context) {
+        context.insert(copy());
+        int flags = context.getLineViewer().flags();
+        if ((flags & LineFlagLineVert) || (flags & LineFlagFold)) {
+            context.getLineViewer(1).flags() |= LineFlagLineVert;
         }
-        return DisplayBlock;
     }
-    int getLineNumber() override { return 1; }
+    virtual void erase(EventContext &context) {
+        int flags = context.getLineViewer().flags();
+        if (flags & LineFlagLineHorz) {
+            int &prev = context.getLineViewer(-1).flags();
+            if (prev & LineFlagLineVert) {
+                prev &= ~LineFlagLineVert;
+                prev |= LineFlagLineHorz;
+            } else {
+                prev &= ~LineFlagFold;
+            }
+        }
+        context.remove();
+//        context.prevLine(getLineNumber());
+    }
+    virtual Element *copy() { return new LineElement(); }
+    virtual void drawSelection(EventContext &context) {
+        SelectionState state = context.getSelectionState();
+        if (state == SelectionSelf) {
+            Offset start = context.relOffset(context.getDocContext()->getSelectStart());
+            Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
+            DrawUtil::DrawSlection(context, start, end);
+        }
+        if (state == SelectionStart) {
+            TextCaretService text(padding(), &context);
+            RectVec rects;
+            text.breakText(rects);
+            Offset start = context.relOffset(context.getDocContext()->getSelectStart());
+            if (rects.size()) {
+                DrawUtil::DrawSlection(context, start, Offset(rects.back().right(), rects.back().top()));
+            } else {
+                if (!context.isFocusIn())
+                    DrawUtil::DrawSlection(context, padding(), Offset(10, 6));
+            }
+        }
+        if (state == SelectionEnd) {
+            Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
+            if (context.getLineViewer().length()) {
+                DrawUtil::DrawSlection(context, padding(), end);
+            } else {
+                if (!context.isFocusIn())
+                    DrawUtil::DrawSlection(context, padding(), Offset(10, 6));
+            }
+        }
+        if (state == SelectionInside || state == SelectionRow) {
+            TextCaretService text(padding(), &context);
+            RectVec rects;
+            text.breakText(rects);
+            if (rects.size()) {
+                DrawUtil::DrawSlection(context, padding(), Offset(rects.back().right(), rects.back().top()));
+            } else {
+                DrawUtil::DrawSlection(context, padding(), Offset(10, 6));
+            }
+        }
+    }
+public:
     Tag getTag(EventContext &context) override {
         if (context.getLineViewer().flags() & LineFlagHide) {
             return Tag::Format(TAG("Line (%d)"), context.line() + 1);
         }
         return Tag::Format(TAG("Line Focus (%d)"), context.line() + 1);
     }
-    static void OnFold(EventContext &context) {
-        EventContext ctx = context;
-        auto line = ctx.getLineViewer();
-        if (line.flags() & LineFlagFold) {
-            line.flags() ^= LineFlagFold;
-            line.flags() |= LineFlagExpand;
-        } else {
-            line.flags() ^= LineFlagExpand;
-            line.flags() |= LineFlagFold;
+    int getLineNumber() override { return 1; }
+    Display getDisplay(EventContext &context) override {
+        if (context.getLineViewer().flags() & LineFlagHide) {
+            return DisplayNone;
         }
-        do {
-            ctx.next();
-            auto now = ctx.getLineViewer();
-            if ((now.flags() & LineFlagLineVert) || (now.flags() & LineFlagLineHorz)) {
-                now.flags() ^= LineFlagHide;
-            } else {
-                break;
-            }
-        } while (ctx.has());
-        context.reflow();
-        context.redraw();
+        return DisplayBlock;
+    }
+    int getLogicHeight(EventContext &context) override { return 25; }
+    int getLogicWidth(EventContext &context) override {
+        auto line = context.getLineViewer();
+        return (int) context.getStyle().measureText(line.c_str(), line.size()) + 8;
     }
     void onLeftButtonDown(EventContext &context, int x, int y) override {
         if (auto index = context.document()->margin()->index(context.absolute(x, y))) {
@@ -549,6 +588,103 @@ public:
             caret->findNext(TAG_FOCUS);
         }
     };
+    void onInputChar(EventContext &context, SelectionState state, int ch) override {
+        auto* caret = context.getCaretManager();
+        TextCaretService service(padding(), &context);
+        auto line = context.getLineViewer();
+        switch (ch) {
+            case VK_BACK:
+                if (state == SelectionNone) {
+                    if (service.index() > 0) {
+                        line.remove(service.index() - 1);
+                        service.moveLeft();
+                    } else {
+                        EventContext *prev = context.findPrev(TAG_FOCUS);
+                        if (!prev) { return; }
+                        if (prev->tag().contain(TAG_LINE)) {
+                            int prevLength = prev->getLineViewer().length();
+                            context.combineLine(-1);
+                            erase(context);
+                            prev->reflow();
+                            prev->redraw();
+                        } else {
+                            prev->pos().setIndex(-1);
+                        }
+                        prev->focus(false);
+                        return;
+                    }
+                }
+                break;
+            case VK_RETURN: {
+                insert(context);
+                context.breakLine(0, service.index());
+                context.reflow();
+                context.redraw();
+                caret->data().setIndex(0);
+                caret->next();
+                return;
+            }
+            default:
+                line.insert(service.index(), ch);
+                service.moveRight();
+                break;
+        }
+        service.commit();
+        context.redraw();
+    }
+    void onFocus(EventContext &context) override {
+        context_on_outer(context, Focus);
+        TextCaretService service(padding(), &context);
+        service.commit();
+    }
+    void onBlur(EventContext &context, EventContext *focus, bool force) override {
+        context_on_outer(context, Blur, focus, force);
+    }
+    void onUndo(Command command) override {
+        auto line = command.context->getLineViewer(0, false);
+        if (command.type == CommandType::Break) {
+            auto next = command.context->getLineViewer(1, false);
+            line.append(next.c_str());
+            next.clear();
+        }
+        if (command.type == CommandType::Combine) {
+            command.context->breakLine(-1, command.data.value, false);
+        }
+        if (command.type == CommandType::AddChar) {
+            line.remove(command.data.input.pos);
+        }
+        if (command.type == CommandType::AddString) {
+            line.remove(command.data.input.pos, command.data.input.ch);
+        }
+        if (command.type == CommandType::SetString) {
+            line.content().assign(*command.data.string.string);
+            delete command.data.string.string;
+        }
+        if (command.type == CommandType::DeleteChar) {
+            line.insert(command.data.input.pos, command.data.input.ch);
+        }
+        if (command.type == CommandType::DeleteString) {
+            line.insert(command.data.string.pos, command.data.string.string->c_str());
+            delete command.data.string.string;
+        }
+        command.context->setPos(command.pos);
+        command.context->focus(true, true);
+        Element::onUndo(command);
+        if (command.type == CommandType::Break || command.type == CommandType::DeleteElement) {
+            command.context->doc->undo();
+        }
+    }
+    void onRedraw(EventContext &context) override {
+        Canvas canvas = context.getCanvas();
+        drawSelection(context);
+        SkPaint border;
+        border.setStyle(SkPaint::Style::kStroke_Style);
+        border.setColor(SK_ColorLTGRAY);
+        canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        LineViewer viewer = context.getLineViewer();
+        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
+        canvas.drawText(viewer.c_str(), viewer.size(), location().x, location().y);
+    }
     void onSelectionDelete(EventContext &context, SelectionState state) override {
         auto line = context.getLineViewer();
         auto *dctx = context.getDocContext();
@@ -611,165 +747,30 @@ public:
         }
 
     }
-    void onInputChar(EventContext &context, SelectionState state, int ch) override {
-        auto* caret = context.getCaretManager();
-        TextCaretService service(padding(), &context);
-        auto line = context.getLineViewer();
-        switch (ch) {
-            case VK_BACK:
-                if (state == SelectionNone) {
-                    if (service.index() > 0) {
-                        line.remove(service.index() - 1);
-                        service.moveLeft();
-                    } else {
-                        EventContext *prev = context.findPrev(TAG_FOCUS);
-                        if (!prev) { return; }
-                        if (prev->tag().contain(TAG_LINE)) {
-                            int prevLength = prev->getLineViewer().length();
-                            context.combineLine(-1);
-                            erase(context);
-                            prev->reflow();
-                            prev->redraw();
-                        } else {
-                            prev->pos().setIndex(-1);
-                        }
-                        prev->focus(false);
-                        return;
-                    }
-                }
-                break;
-            case VK_RETURN: {
-                insert(context);
-                context.breakLine(0, service.index());
-                context.reflow();
-                context.redraw();
-                caret->data().setIndex(0);
-                caret->next();
-                return;
-            }
-            default:
-                line.insert(service.index(), ch);
-                service.moveRight();
-                break;
+
+public:
+    static void OnFold(EventContext &context) {
+        EventContext ctx = context;
+        auto line = ctx.getLineViewer();
+        if (line.flags() & LineFlagFold) {
+            line.flags() ^= LineFlagFold;
+            line.flags() |= LineFlagExpand;
+        } else {
+            line.flags() ^= LineFlagExpand;
+            line.flags() |= LineFlagFold;
         }
-        service.commit();
+        do {
+            ctx.next();
+            auto now = ctx.getLineViewer();
+            if ((now.flags() & LineFlagLineVert) || (now.flags() & LineFlagLineHorz)) {
+                now.flags() ^= LineFlagHide;
+            } else {
+                break;
+            }
+        } while (ctx.has());
+        context.reflow();
         context.redraw();
     }
-    void onFocus(EventContext &context) override {
-        context_on_outer(context, Focus);
-        TextCaretService service(padding(), &context);
-        service.commit();
-    }
-    void onBlur(EventContext &context, EventContext *focus, bool force) override {
-        context_on_outer(context, Blur, focus, force);
-    }
-    virtual void insert(EventContext &context) {
-        context.insert(copy());
-        int flags = context.getLineViewer().flags();
-        if ((flags & LineFlagLineVert) || (flags & LineFlagFold)) {
-            context.getLineViewer(1).flags() |= LineFlagLineVert;
-        }
-    }
-    virtual void erase(EventContext &context) {
-        int flags = context.getLineViewer().flags();
-        if (flags & LineFlagLineHorz) {
-            int &prev = context.getLineViewer(-1).flags();
-            if (prev & LineFlagLineVert) {
-                prev &= ~LineFlagLineVert;
-                prev |= LineFlagLineHorz;
-            } else {
-                prev &= ~LineFlagFold;
-            }
-        }
-        context.remove();
-//        context.prevLine(getLineNumber());
-    }
-    virtual Element *copy() { return new LineElement(); }
-    virtual void drawSelection(EventContext &context) {
-        SelectionState state = context.getSelectionState();
-        if (state == SelectionSelf) {
-            Offset start = context.relOffset(context.getDocContext()->getSelectStart());
-            Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
-            DrawUtil::DrawSlection(context, start, end);
-        }
-        if (state == SelectionStart) {
-            TextCaretService text(padding(), &context);
-            RectVec rects;
-            text.breakText(rects);
-            Offset start = context.relOffset(context.getDocContext()->getSelectStart());
-            if (rects.size()) {
-                DrawUtil::DrawSlection(context, start, Offset(rects.back().right(), rects.back().top()));
-            } else {
-                if (!context.isFocusIn())
-                    DrawUtil::DrawSlection(context, padding(), Offset(10, 6));
-            }
-        }
-        if (state == SelectionEnd) {
-            Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
-            if (context.getLineViewer().length()) {
-                DrawUtil::DrawSlection(context, padding(), end);
-            } else {
-                if (!context.isFocusIn())
-                    DrawUtil::DrawSlection(context, padding(), Offset(10, 6));
-            }
-        }
-        if (state == SelectionInside || state == SelectionRow) {
-            TextCaretService text(padding(), &context);
-            RectVec rects;
-            text.breakText(rects);
-            if (rects.size()) {
-                DrawUtil::DrawSlection(context, padding(), Offset(rects.back().right(), rects.back().top()));
-            } else {
-                DrawUtil::DrawSlection(context, padding(), Offset(10, 6));
-            }
-        }
-    }
-    void onUndo(Command command) override {
-        auto line = command.context->getLineViewer(0, false);
-        if (command.type == CommandType::Break) {
-            auto next = command.context->getLineViewer(1, false);
-            line.append(next.c_str());
-            next.clear();
-        }
-        if (command.type == CommandType::Combine) {
-            command.context->breakLine(-1, command.data.value, false);
-        }
-        if (command.type == CommandType::AddChar) {
-            line.remove(command.data.input.pos);
-        }
-        if (command.type == CommandType::AddString) {
-            line.remove(command.data.input.pos, command.data.input.ch);
-        }
-        if (command.type == CommandType::SetString) {
-            line.content().assign(*command.data.string.string);
-            delete command.data.string.string;
-        }
-        if (command.type == CommandType::DeleteChar) {
-            line.insert(command.data.input.pos, command.data.input.ch);
-        }
-        if (command.type == CommandType::DeleteString) {
-            line.insert(command.data.string.pos, command.data.string.string->c_str());
-            delete command.data.string.string;
-        }
-        command.context->setPos(command.pos);
-        command.context->focus(true, true);
-        Element::onUndo(command);
-        if (command.type == CommandType::Break || command.type == CommandType::DeleteElement) {
-            command.context->doc->undo();
-        }
-    }
-    void onRedraw(EventContext &context) override {
-        Canvas canvas = context.getCanvas();
-        drawSelection(context);
-        SkPaint border;
-        border.setStyle(SkPaint::Style::kStroke_Style);
-        border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.bound(0.5, 0.5), border);
-        LineViewer viewer = context.getLineViewer();
-        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
-        canvas.drawText(viewer.c_str(), viewer.size(), location().x, location().y);
-    }
-
 };
 class SyntaxLineElement : public LineElement {
 public:
@@ -811,6 +812,7 @@ public:
 class AutoLineElement : public SyntaxLineElement {
 public:
     Element *copy() override { return new AutoLineElement(); }
+public:
     void onInputChar(EventContext &context, SelectionState state, int ch) override;
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
         if (context.document()->m_onBlur) {
@@ -822,7 +824,6 @@ public:
     }
     void onMouseHover(EventContext &context, int x, int y) override;
     void onMouseLeave(EventContext &context, int x, int y) override;
-
     void onRedraw(EventContext &context) override {
         SyntaxLineElement::onRedraw(context);
         if (context.getLineViewer().flags() & LineFlagExpand) {
@@ -842,7 +843,7 @@ public:
     int m_min = 50;
     int m_width = 0;
     int m_height = 20;
-    bool m_isRadio = false;
+    bool m_radio = false;
     explicit TextElement() = default;
     void setContent(const GChar* value) { m_data.assign(value); }
     inline Offset location() { return {6, 2}; }
@@ -868,7 +869,7 @@ public:
         context.redraw();
     }
     void onLeftDoubleClick(EventContext &context, int x, int y) override {
-        if (m_isRadio) {
+        if (m_radio) {
             if (m_data.empty()) {
                 m_data.assign(_GT("1"));
             } else {
@@ -899,7 +900,7 @@ public:
         auto caret = context.getCaretManager();
         TextCaretService service(Offset(6, 2), &context);
         if (code == VK_LEFT) {
-            if (context.outer->tag().contain(TAG_UNEDITABLE) || m_isRadio) {
+            if (context.outer->tag().contain(TAG_UNEDITABLE) || m_radio) {
                 caret->data().setIndex(-1);
                 caret->findPrev(TAG_FOCUS);
                 return;
@@ -911,7 +912,7 @@ public:
             }
         }
         if (code == VK_RIGHT) {
-            if (context.outer->tag().contain(TAG_UNEDITABLE) || m_isRadio) {
+            if (context.outer->tag().contain(TAG_UNEDITABLE) || m_radio) {
                 caret->data().setIndex(0);
                 caret->findNext(TAG_FOCUS);
                 return;
@@ -957,7 +958,7 @@ public:
         }
     };
     void onInputChar(EventContext &context, SelectionState state, int ch) override {
-        if (m_isRadio) {
+        if (m_radio) {
             if (m_data.empty()) {
                 m_data.assign(_GT("1"));
             } else {
@@ -995,7 +996,7 @@ public:
         context.redraw();
     }
     void onFocus(EventContext &context) override {
-        if (context.outer->tag().contain(TAG_UNEDITABLE) || m_isRadio) {
+        if (context.outer->tag().contain(TAG_UNEDITABLE) || m_radio) {
             context.setPos(CaretPos(0, context.absOffset(Offset(6, 2))));
             context.getCaretManager()->set(6, 2);
             return;
@@ -1047,16 +1048,16 @@ public:
     }
 
 };
-class RowElement : public Container<DisplayRow> {
+class NormalRowElement : public Container<DisplayRow> {
 public:
     GColor m_color;
-    explicit RowElement(int column, GColor color = SK_ColorTRANSPARENT) : m_color(color) {
+    explicit NormalRowElement(int column, GColor color = SK_ColorTRANSPARENT) : m_color(color) {
         for (int i = 0; i < column; ++i) {
             Container::append(new TextElement());
         }
     }
+public:
     Tag getTag(EventContext &context) override { return {TAG("Row Focus")}; }
-    TextElement *getColumn(int index) { return (TextElement *) get(index); }
     void setColor(GColor color) {
         m_color = color;
     }
@@ -1092,36 +1093,24 @@ public:
         context.enter().focus();
     }
 };
-class TableElement : public Container<DisplayTable> {
+class NormalTableElement : public Container<DisplayTable> {
 public:
     int m_delta = 0;
     int m_top;
-    TableElement(int line, int column, int top = 5) {
+    NormalTableElement(int line, int column, int top = 5) {
         m_top = top;
         for (int i = 0; i < line; ++i) {
-            Container::append(new RowElement(column));
+            Container::append(new NormalRowElement(column));
         }
     }
-    Tag getTag(EventContext &context) override { return {TAG("Table Focus")}; }
-    RowElement *addRow(int column) {
-        auto *row = new RowElement(column);
-        append(row);
-        return row;
-    }
-    RowElement *getRow(int line) { return (RowElement *) get(line); }
     void replace(int line, int column, Element *element) {
         auto *row = (Container *) get(line);
         row->replace(column, element)->free();
     }
-    template <typename Type = TextElement>
-    Type *getItem(int row, int col) { return (Type *) ((RowElement *) get(row))->get(col); }
-    void onNotify(EventContext &context, int type, NotifyParam param, NotifyValue other) override {
-        if (context.outer && context.outer->display() == DisplayRow) {
-            context.outer->notify(type, param, other);
-        } else {
-            context.update();
-        }
-    }
+public:
+    Tag getTag(EventContext &context) override { return {TAG("Table Focus")}; }
+    int getLogicWidth(EventContext &context) override { return m_width + m_delta; }
+    int getMinWidth(EventContext &context) override { return m_width; }
     void setLogicWidth(EventContext &context, int width) override {
         m_delta = width - m_width;
         for_context(row, context) {
@@ -1130,8 +1119,13 @@ public:
             row.setLogicWidth(width);
         }
     }
-    int getLogicWidth(EventContext &context) override { return m_width + m_delta; }
-    int getMinWidth(EventContext &context) override { return m_width; }
+    void onNotify(EventContext &context, int type, NotifyParam param, NotifyValue other) override {
+        if (context.outer && context.outer->display() == DisplayRow) {
+            context.outer->notify(type, param, other);
+        } else {
+            context.update();
+        }
+    }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 4;
         offset.y += m_top;
@@ -1169,7 +1163,6 @@ public:
             context.enter(-1).focus();
         }
     }
-
 };
 class FastRow : public RelativeElement {
     class FastText : public TextElement {
@@ -1210,6 +1203,7 @@ public:
     inline TextElement *getColumn(int index) { return (TextElement *) get(index); }
     void setHeader(bool header) { m_header = header; }
     void setUndeleteable(bool ud) { m_undeleteable = ud; }
+public:
     Tag getTag(EventContext &context) override {
         Tag tag = {TAG("Row Focus")};
         if (m_header) {
@@ -1224,6 +1218,12 @@ public:
     int getLineNumber() override { return 0; }
     Element *getHead() override { return get(0); }
     Element *getTail() override { return get(-1); }
+    int getLogicWidth(EventContext &context) override { return m_width; }
+    int getLogicHeight(EventContext &context) override { return m_height; }
+    int getWidth(EventContext &context) override { return m_width; }
+    int getHeight(EventContext &context) override { return m_height; }
+    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
+    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     void onFocus(EventContext &context) override {
         CaretManager *caret = context.getCaretManager();
         float horz = (float) caret->data().getOffset().x;
@@ -1258,12 +1258,6 @@ public:
     void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
         Element::onFinishReflow(context, offset, layout);
     }
-    int getLogicWidth(EventContext &context) override { return m_width; }
-    int getLogicHeight(EventContext &context) override { return m_height; }
-    int getWidth(EventContext &context) override { return m_width; }
-    int getHeight(EventContext &context) override { return m_height; }
-    void setLogicWidth(EventContext &context, int width) override { m_width = width; }
-    void setLogicHeight(EventContext &context, int height) override { m_height = height; }
     void onSelectionDelete(EventContext &context, SelectionState state) override {
         if (state == SelectionSelf) {
             if (context.selectedCount() == 1) {
@@ -1316,11 +1310,13 @@ public:
         }
         return context.enter(-1);
     }
+
 };
+template <class RowElement = FastRow>
 class FastTable : public Container<DisplayTable> {
 public:
-    using Row = FastRow;
-    typedef GColor (WINAPI*ColorProvider )(int type, int row, int col);
+    //using RowElement = FastRow;
+    typedef GColor (WINAPI *ColorProvider)(int type, int row, int col);
     int m_delta = 0;
     int m_top = 5;
     int m_column = 0;
@@ -1329,20 +1325,20 @@ public:
     explicit FastTable(int row, int column) {
         m_column = column;
         for (int i = 0; i < row; ++i) {
-            Container::append(new Row(column));
+            Container::append(new RowElement(column));
         }
     }
-    Row *addRow(int column) {
+    RowElement *addRow(int column) {
         if (column > m_column) {
             m_column = column;
         }
-        auto *row = new Row(column);
+        auto *row = new RowElement(column);
         append(row);
         return row;
     }
-    Row *getRow(int line) { return (Row *) get(line); }
+    RowElement *getRow(int line) { return (RowElement *) get(line); }
     template <typename Type = TextElement>
-    Type *getItem(int row, int col) { return (Type *) ((Row *) get(row))->get(col); }
+    Type *getItem(int row, int col) { return (Type *) ((RowElement *) get(row))->get(col); }
     virtual GColor getBackgroundColor(int row, int col) {
         if (m_provider) {
             return m_provider(0, row, col);
@@ -1357,6 +1353,8 @@ public:
     }
 public:
     Tag getTag(EventContext &context) override { return TAG("Table"); }
+    int getLogicWidth(EventContext &context) override { return m_width + m_delta; }
+    int getMinWidth(EventContext &context) override { return m_width; }
     void setLogicWidth(EventContext &context, int width) override {
         m_delta = width - m_width;
         for_context(row, context) {
@@ -1365,8 +1363,6 @@ public:
             row.setLogicWidth(width);
         }
     }
-    int getLogicWidth(EventContext &context) override { return m_width + m_delta; }
-    int getMinWidth(EventContext &context) override { return m_width; }
     void onEnterReflow(EventContext &context, Offset &offset) override {
         offset.x += 4;
         offset.y += m_top;
@@ -1430,6 +1426,7 @@ public:
         }
     }
 };
+using TableElement = FastTable<>;
 class CodeBlockElement : public Container<> {
 public:
     explicit CodeBlockElement(int num) {
@@ -1703,7 +1700,7 @@ class SubElement : public Container<> {
         TableTypeHeader,
         TableTypeLocal,
     };
-    class Table : public FastTable {
+    class Table : public TableElement {
         class ParamRow : public FastRow {
         public:
             using FastRow::FastRow;
@@ -1776,6 +1773,15 @@ class SubElement : public Container<> {
                 }
             }
             return FastTable::getForegroundColor(row, col);
+        }
+        Tag getTag(EventContext &context) override {
+            if (m_type == TableTypeHeader) {
+                return FastTable::getTag(context).append(TAG(" SubHeader"));
+            } else if (m_type == TableTypeLocal) {
+                return FastTable::getTag(context).append(TAG(" LocalHeader"));
+            } else {
+                return FastTable::getTag(context);
+            }
         }
     };
     Table *header = nullptr;
@@ -2004,7 +2010,7 @@ public:
     }
 };
 class ClassElement : public Container<> {
-    class ClassHeader : public FastTable {
+    class ClassHeader : public TableElement {
         class ClassRow : public FastRow {
         public:
             using FastRow::FastRow;
@@ -2066,6 +2072,9 @@ class ClassElement : public Container<> {
                 return SkColorSetRGB(34, 139, 34);
             }
             return SK_ColorBLACK;
+        }
+        Tag getTag(EventContext &context) override {
+            return FastTable::getTag(context).append(TAG(" ClassHeader"));
         }
     };
 public:

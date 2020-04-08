@@ -39,6 +39,7 @@ public:
 class NewDocument : public MarginDocument {
 public:
     explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
+/*
         auto *doc = new ClassElement();
         for (int i = 0; i < 2; ++i) {
             auto *sub = new SubElement();
@@ -52,6 +53,7 @@ public:
         }
         Document::append(doc);
         layout();
+*/
     }
     void Open () {
         /*
@@ -124,11 +126,10 @@ class DocumentManager {
 public:
     //AutoComplete m_completion;
     std::shared_ptr<LanguageClient> m_client;
+    ServerCapabilities m_server;
     CallBackMsgHandler m_handler;
     std::thread m_loop;
     std::vector<Document *> m_documents;
-    std::vector<std::string> m_completionTrigger;
-    std::vector<std::string> m_signatureTrigger;
     RenderManager *m_render;
     int m_current = 0;
     std::map<GString, int> m_keywords = {
@@ -228,16 +229,16 @@ public:
         m_client->GoToDeclaration(current()->getUri(), position);
     }
     void onTrigger(EventContext &context, int ch) {
-        for (auto &cmp : m_completionTrigger) {
+        for (auto &cmp : m_server.completionTrigger) {
             if (cmp.front() == ch) {
                 CompletionContext ctx;
                 ctx.triggerKind = CompletionTriggerKind::TriggerCharacter;
+                ctx.triggerCharacter = cmp;
                 m_client->Completion(current()->getUri(), context.position(), ctx);
             }
         }
-        for (auto &cmp : m_signatureTrigger) {
+        for (auto &cmp : m_server.signatureHelpTrigger) {
             if (cmp.front() == ch) {
-                //printf("signature help\n");
                 m_client->SignatureHelp(current()->getUri(), context.position());
             }
         }

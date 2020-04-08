@@ -67,13 +67,7 @@ FileDocument::~FileDocument() {
 void CallBackMsgHandler::onResponse(value &ID, value &result) {
     auto id = ID.get<RequestID>();
     if (id == "initialize") {
-        json &cap = result["capabilities"];
-        if (cap.contains("completionProvider")) {
-            cap["completionProvider"]["triggerCharacters"].get_to(m_mgr->m_completionTrigger);
-        }
-        if (cap.contains("signatureHelpProvider")) {
-            cap["signatureHelpProvider"]["triggerCharacters"].get_to(m_mgr->m_signatureTrigger);
-        }
+        m_mgr->m_server = result["capabilities"];
     }
     if (m_onResponse) {
         m_onResponse(id.c_str(), result);

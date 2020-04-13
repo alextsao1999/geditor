@@ -47,7 +47,7 @@ Root *Root::getContain(EventContext &context, int x, int y) {
     return nullptr;
 }
 
-void Root::onDraw(EventContext &context, SkCanvas *canvas) {
+void Root::onDraw(EventContext &context, Drawable canvas) {
     for_context(ctx, context) {
         if (ctx.visible()) {
             Offset offset = ctx.current()->getLogicOffset();

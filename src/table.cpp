@@ -233,20 +233,20 @@ void TextElement::onRedraw(EventContext &context) {
         }
         canvas->translate((float) context.width() / 2, context.height() - 5);
         canvas->rotate(40);
-        SkPaint paint;
+        GStyle paint;
         paint.setColor(table->getForegroundColor(row, col));
-        paint.setStrokeWidth(3);
+        paint.setWidth(3);
         paint.setAntiAlias(true);
-        paint.setStrokeCap(SkPaint::Cap::kRound_Cap);
-        canvas->drawLine(0, 0, -8, 0, paint);
-        canvas->rotate(90);
-        canvas->drawLine(0, 0, -13, 0, paint);
+        paint.setStrokeCap(GStyle::CapRound);
+        canvas.drawLine(0, 0, -8, 0, paint);
+        canvas.rotate(90);
+        canvas.drawLine(0, 0, -13, 0, paint);
         return;
     }
 
-    SkPaint paint = context.getStyle(StyleTableFont).paint();
-    paint.setColor(table->getForegroundColor(row, col));
-    canvas->translate(0, paint.getTextSize());
-    canvas->drawText(m_data.c_str(), m_data.size() * sizeof(GChar), 6, 2, paint);
+    GStyle style = context.getStyle(StyleTableFont);
+    style.setColor(table->getForegroundColor(row, col));
+    canvas.translate(0, style.getTextSize());
+    canvas.drawText(m_data.c_str(), m_data.size() * sizeof(GChar), 6, 2, style);
 
 }

@@ -76,11 +76,11 @@ public:
         GRect rect;
         rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
         rect.fBottom = rect.fTop + context.getStyle().getTextSize() + 4;
-        SkPaint paint;
+        GStyle paint;
         paint.setColor(SkColorSetRGB(218, 227, 233));
         paint.setAlpha(255);
         paint.setAntiAlias(true);
-        canvas->drawRect(rect, paint);
+        canvas.drawRect(rect, paint);
         //canvas->drawRoundRect(rect, 4, 4, paint);
         //paint.setColor(SK_ColorBLACK);
         //paint.setAlpha(30);
@@ -677,10 +677,10 @@ public:
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         drawSelection(context);
-        SkPaint border;
-        border.setStyle(SkPaint::Style::kStroke_Style);
+        GStyle border;
+        border.setStyle(GStyle::StyleStroke);
         border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        canvas.drawRect(canvas.bound(0.5, 0.5), border);
         LineViewer viewer = context.getLineViewer();
         canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
         canvas.drawText(viewer.c_str(), viewer.size(), location().x, location().y);
@@ -784,14 +784,14 @@ public:
         Canvas canvas = context.getCanvas();
         drawSelection(context);
 
-        SkPaint border;
+        GStyle border;
         if (context.isSelectedRow()) {
-            border.setStyle(SkPaint::Style::kStrokeAndFill_Style);
+            border.setStyle(GStyle::StyleFillAndStroke);
         } else {
-            border.setStyle(SkPaint::Style::kStroke_Style);
+            border.setStyle(GStyle::StyleStroke);
         }
         border.setColor(SK_ColorLTGRAY);
-        //canvas->drawRect(canvas.bound(0.5, 0.5), border);
+        //canvas.drawRect(canvas.bound(0.5, 0.5), border);
 
         auto *lexer = context.getLexer();
         Offset offset = location();
@@ -804,7 +804,7 @@ public:
                 }
             }
             GStyle &style = context.getStyle(token.style);
-            canvas->drawText(token.c_str(), token.size(), 0, 0, style.paint());
+            canvas.drawText(token.c_str(), token.size(), 0, 0, style);
             canvas.translate(style.measureText(token.c_str(), token.size()), 0);
         }
     }
@@ -828,12 +828,12 @@ public:
         SyntaxLineElement::onRedraw(context);
         if (context.getLineViewer().flags() & LineFlagExpand) {
             Canvas canvas = context.getCanvas();
-            SkPaint paint;
-            paint.setStyle(SkPaint::kStroke_Style);
-            SkRect rect = SkRect::MakeWH(context.logicWidth(), context.height());
+            GStyle paint;
+            paint.setStyle(GStyle::StyleStroke);
+            GRect rect = GRect::MakeWH(context.logicWidth(), context.height());
             rect.inset(0.5, 4);
             rect.offset(0, 3);
-            canvas->drawRect(rect, paint);
+            canvas.drawRect(rect, paint);
         }
     }
 };
@@ -1066,9 +1066,9 @@ public:
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        SkPaint paint;
+        GStyle paint;
         paint.setColor(m_color);
-        canvas->drawRect(canvas.bound(0, 0), paint);
+        canvas.drawRect(canvas.bound(0, 0), paint);
         if (context.isSelectedRow()) {
             if (context.isSelectedSelf()) {
                 if (context.selectedCount() > 1) {
@@ -1522,11 +1522,7 @@ public:
     }
     void onRedraw(EventContext &context) override {
         Container::onRedraw(context);
-        SkPaint paint;
-        GScalar inter[2] = {3, 2};
-        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
-        paint.setColor(SK_ColorBLACK);
-        paint.setAlpha(110);
+        GStyle &paint = context.getStyle(StyleControlLine);
         int runawayTop = 15;
         int runawayLeft = 14;
         constexpr int runawayRight = 23;
@@ -1544,7 +1540,7 @@ public:
                 }
                 if (ctx.isTail()) {
                     runawayLeft = lineLeft;
-                    canvas->drawLine(lineLeft, runawayTop, lineRight, runawayTop, paint);
+                    canvas.drawLine(lineLeft, runawayTop, lineRight, runawayTop, paint);
                 } else {
                     Offset offset = ctx.current()->getLogicOffset();
                     runawayTop = offset.y + ctx.height() - 10;
@@ -1560,29 +1556,29 @@ public:
             if (ctx.nearby(1).enter().tag().contain(TAG("CodeBlock"))) {
                 underlineRight += 25;
             }
-            canvas->drawLine(lineLeft, lineTop, lineRight, lineTop, paint); // 上横线
-            canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
-            canvas->drawLine(lineLeft, lineBottom, underlineRight, lineBottom, paint); // 下横线
-            canvas->drawLine(runawayLeft, ctx.height() - 10, lineRight, ctx.height() - 10, paint);
+            canvas.drawLine(lineLeft, lineTop, lineRight, lineTop, paint); // 上横线
+            canvas.drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
+            canvas.drawLine(lineLeft, lineBottom, underlineRight, lineBottom, paint); // 下横线
+            canvas.drawLine(runawayLeft, ctx.height() - 10, lineRight, ctx.height() - 10, paint);
             // 逃逸线横线
             GPath path = DrawUtil::triangleRight(length, underlineRight, lineBottom);
-            canvas->drawPath(path, paint);// 下边线三角形
+            canvas.drawPath(path, paint);// 下边线三角形
         }
         // 需要绘制逃逸线
         Canvas canvas = context.getCanvas();
         if (context.nearby(1).tag().contain(TAG("CodeBlock"))) {
             int runawayBottom = context.height() + 12;
-            canvas->drawLine(runawayLeft, runawayTop, runawayLeft, runawayBottom, paint); // 逃逸线竖线
-            canvas->drawLine(runawayLeft, runawayBottom, runawayRight, runawayBottom, paint); // 逃逸线下横线
+            canvas.drawLine(runawayLeft, runawayTop, runawayLeft, runawayBottom, paint); // 逃逸线竖线
+            canvas.drawLine(runawayLeft, runawayBottom, runawayRight, runawayBottom, paint); // 逃逸线下横线
             GPath path = DrawUtil::triangleRight(length, runawayRight, runawayBottom); // 右三角
-            canvas->drawPath(path, paint);
+            canvas.drawPath(path, paint);
         } else {
             int runawayBottom = context.height() - 2;
-            canvas->drawLine(runawayLeft, runawayTop, runawayLeft, context.height(), paint); // 逃逸线竖线
+            canvas.drawLine(runawayLeft, runawayTop, runawayLeft, context.height(), paint); // 逃逸线竖线
             // 逃逸线向下
             GPath path = DrawUtil::triangleDown(length, runawayLeft, runawayBottom);
             // 有可能后面还有流程语句 需要连接
-            canvas->drawPath(path, paint);
+            canvas.drawPath(path, paint);
         }
 
     }
@@ -1628,11 +1624,7 @@ public:
     void onRedraw(EventContext &context) override {
         CodeBlockElement::onRedraw(context);
         Canvas canvas = context.getCanvas();
-        SkPaint paint;
-        GScalar inter[2] = {3, 2};
-        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
-        paint.setColor(SK_ColorBLACK);
-        paint.setAlpha(110);
+        GStyle &paint = context.getStyle(StyleControlLine);
         constexpr int lineLeft = 5;
         constexpr int lineRight = 23;
 
@@ -1641,18 +1633,18 @@ public:
             context.nearby(-1).tag().contain(TAG("Condition"))) {
             lineTop = 20;
         }
-        canvas->drawLine(lineLeft, lineTop, lineRight, lineTop, paint);
+        canvas.drawLine(lineLeft, lineTop, lineRight, lineTop, paint);
         if (context.nearby(1).tag().contain(TAG("CodeBlock"))) {
             int lineBottom = context.height() + 12;
-            canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
-            canvas->drawLine(lineLeft, lineBottom, lineRight, lineBottom, paint); // 下边线
+            canvas.drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
+            canvas.drawLine(lineLeft, lineBottom, lineRight, lineBottom, paint); // 下边线
             GPath path = DrawUtil::triangleRight(5.7, lineRight, lineBottom);
-            canvas->drawPath(path, paint);
+            canvas.drawPath(path, paint);
         } else {
             int lineBottom = context.height() - 2;
-            canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
+            canvas.drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
             GPath path = DrawUtil::triangleDown(5.7, lineLeft, lineBottom);
-            canvas->drawPath(path, paint);
+            canvas.drawPath(path, paint);
         }
     }
 
@@ -1674,11 +1666,7 @@ public:
     void onRedraw(EventContext &context) override {
         CodeBlockElement::onRedraw(context);
         Canvas canvas = context.getCanvas();
-        SkPaint paint;
-        GScalar inter[2] = {3, 2};
-        paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
-        paint.setColor(SK_ColorBLACK);
-        paint.setAlpha(110);
+        GStyle &paint = context.getStyle(StyleControlLine);
         constexpr int lineLeft = 5;
         constexpr int lineRight = 23;
         int lineTop = 15;
@@ -1687,11 +1675,11 @@ public:
             lineTop = 22;
         }
         int lineBottom = context.height() - 10;
-        canvas->drawLine(lineLeft, lineTop, lineRight, lineTop, paint); // 上横线
-        canvas->drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
-        canvas->drawLine(lineLeft, lineBottom, lineRight, lineBottom, paint); // 下横线
+        canvas.drawLine(lineLeft, lineTop, lineRight, lineTop, paint); // 上横线
+        canvas.drawLine(lineLeft, lineTop, lineLeft, lineBottom, paint); // 竖线
+        canvas.drawLine(lineLeft, lineBottom, lineRight, lineBottom, paint); // 下横线
         GPath path = DrawUtil::triangleRight(5.7, lineRight, lineTop);
-        canvas->drawPath(path, paint);
+        canvas.drawPath(path, paint);
     }
 };
 class SubElement : public Container<> {
@@ -1892,8 +1880,8 @@ private:
             SyntaxLineElement::onRedraw(context);
             Canvas canvas = context.getCanvas();
             std::string &&line = std::to_string(context.index + 1);
-            SkPaint paint;
-            canvas->drawText(line.c_str(), line.length(), -15, 20, paint);
+            GStyle paint;
+            canvas.drawText(line.c_str(), line.length(), -15, 20, paint);
         }
         void free() override {}
     };
@@ -1989,17 +1977,17 @@ public:
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         canvas.drawText(name.c_str(), name.size() * sizeof(GChar), 18, 15, StyleDeafaultFont);
-        SkPaint border;
-        border.setStyle(SkPaint::Style::kStroke_Style);
+        GStyle border;
+        border.setStyle(GStyle::StyleStroke);
         border.setColor(SK_ColorLTGRAY);
-        canvas->drawRect(canvas.bound(0.5, 0.5), border);
-        canvas->drawLine(0, 20, context.width(), 20, border);
-        border.setStyle(SkPaint::kFill_Style);
+        canvas.drawRect(canvas.bound(0.5, 0.5), border);
+        canvas.drawLine(0, 20, context.width(), 20, border);
+        border.setStyle(GStyle::StyleFill);
         if (expand) {
-            canvas->drawPath(DrawUtil::triangleDown(8, 9, 8), border);
+            canvas.drawPath(DrawUtil::triangleDown(8, 9, 8), border);
             Root::onRedraw(context);
         } else {
-            canvas->drawPath(DrawUtil::triangleRight(8, 7, 10), border);
+            canvas.drawPath(DrawUtil::triangleRight(8, 7, 10), border);
         }
     }
     void onEnterReflow(EventContext &context, Offset &offset) override {

@@ -41,6 +41,41 @@ EXPORT_API void WINAPI GEditorRelayout(GEditor *editor) {
     editor->m_data->current().m_root.relayout();
     editor->m_data->current().m_root.redraw();
 }
+EXPORT_API int WINAPI GEditorSendMsg(GEditor *editor, int msg, int param, int value) {
+    #define MSG_LoadDcr 0
+    #define MSG_LoadBkg 1
+    #define MSG_GetBitmap 2
+    #define MSG_GetDC 3
+    #define MSG_Erase 4
+    #define MSG_Redraw 5
+    #define MSG_Copy 6
+    if (msg == MSG_LoadDcr) {
+        CreateJPEGImageDecoder();
+        CreateBMPImageDecoder();
+    }
+    if (msg == MSG_LoadBkg) {
+        return SkImageDecoder::DecodeMemory((void *) param, value, &editor->m_data->m_render.m_background);
+    }
+    if (msg == MSG_GetBitmap) {
+        return (int) editor->m_data->m_render.m_hBitmap;
+    }
+    if (msg == MSG_GetDC) {
+        return (int) editor->m_data->m_render.m_hMemDC;
+    }
+    if (msg == MSG_Erase) {
+        auto &render = editor->m_data->m_render;
+        render.m_canvas->clear(value);
+    }
+    if (msg == MSG_Redraw) {
+        auto &render = editor->m_data->m_render;
+        render.target().onRedraw(render.target().m_root);
+    }
+    if (msg == MSG_Copy) {
+        editor->m_data->m_render.copy();
+    }
+
+    return 0;
+}
 
 EXPORT_API void WINAPI GEditorLSPCreate(GEditor *editor, const char *app, const char *cmd) {
     editor->m_data->m_manager.CreateLSP(app, cmd);
@@ -341,6 +376,12 @@ EXPORT_API EventContext *WINAPI EventContextFindLine(EventContext *context, int 
 }
 EXPORT_API EventContext *WINAPI EventContextGetOuter(EventContext *context, int count) {
     return context->getOuter(count);
+}
+EXPORT_API BOOL WINAPI EventContextGetRect(EventContext *context, SkIRect *rect) {
+    if (rect) {
+        *rect = context->viewportRect().round();
+    }
+    return context->visible();
 }
 
 EXPORT_API void WINAPI EventContextFree(EventContext *context) {

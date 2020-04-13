@@ -39,7 +39,6 @@ public:
 class NewDocument : public MarginDocument {
 public:
     explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
-/*
         auto *doc = new ClassElement();
         for (int i = 0; i < 2; ++i) {
             auto *sub = new SubElement();
@@ -53,7 +52,6 @@ public:
         }
         Document::append(doc);
         layout();
-*/
     }
     void Open () {
         /*

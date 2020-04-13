@@ -168,12 +168,12 @@ source_group("Source Files" FILES ${skia_sources})
 
 if (BUILD_SHARED)
 	add_library(skia SHARED ${skia_sources} ${skia_headers})
-	target_link_libraries(skia "opengl32")
 else()
 	add_library(skia STATIC ${skia_sources} ${skia_headers})
 endif ()
-
 target_include_directories(skia PUBLIC ${skia_include_dirs})
+target_link_libraries(skia PUBLIC opengl32 jpeg usp10)
+
 set_target_properties(skia PROPERTIES 
 	VERSION 1.0 
 	SOVERSION 1

@@ -90,12 +90,19 @@ void Canvas::drawRect(const GRect &rect, int style) {
 }
 
 void RenderManager::redraw(EventContext *ctx) {
+    if (ctx->outer) {
+        GRect rect = ctx->outer->viewportRect();
+        update(&rect);
+
+    }
     Offset offset = ctx->viewportOffset();
     RECT rect;
     rect.left = offset.x;
     rect.top = offset.y;
     rect.right = rect.left + ctx->width();
     rect.bottom = rect.top + ctx->height();
+
+
     invalidate();
 }
 

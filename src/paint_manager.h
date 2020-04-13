@@ -21,6 +21,8 @@
 #include <SkLayerDrawLooper.h>
 #include <SkBlurMaskFilter.h>
 #include <SkBlurMask.h>
+#include <SkDashPathEffect.h>
+#include <SkGradientShader.h>
 #include "SkTextBlob.h"
 #include "common.h"
 #include "layout.h"
@@ -58,13 +60,14 @@ enum {
     StyleFunctionFont,
 
     StyleTableFont,
+    StyleControlLine,
 };
 class GStyle {
 public:
     enum StyleType {
-        kFill_Style,            //!< fill the geometry
-        kStroke_Style,          //!< stroke the geometry
-        kStrokeAndFill_Style,   //!< fill and stroke the geometry
+        StyleFill,            //!< fill the geometry
+        StyleStroke,          //!< stroke the geometry
+        StyleFillAndStroke,   //!< fill and stroke the geometry
     };
     enum FontType {
         kNormal = 0,
@@ -72,12 +75,21 @@ public:
         kItalic = 0x02,
         kBoldItalic = 0x03
     };
+    enum CapType {
+        CapButt,
+        CapRound,
+        CapSquare
+    };
     SkPaint m_paint;
     HFONT fFont = nullptr;
     ~GStyle() {
         DeleteObject(fFont);
     }
     inline SkPaint &paint() { return m_paint; }
+    inline SkPaint *operator->() { return &m_paint; }
+    inline operator SkPaint&() {
+        return m_paint;
+    }
     inline void attach(HDC hdc) {
         HGDIOBJ obj;
         if (m_paint.getStyle() == SkPaint::Style::kStroke_Style) {
@@ -92,6 +104,9 @@ public:
     }
     inline void reset() { m_paint.reset(); }
     inline void setStyle(StyleType type) { m_paint.setStyle((SkPaint::Style) type); }
+    inline void setWidth(GScalar w) { m_paint.setStrokeWidth(w); }
+    inline void setAlpha(uint8_t a) { m_paint.setAlpha(a); }
+    inline void setStrokeCap(CapType t) { m_paint.setStrokeCap((SkPaint::Cap) t); }
     inline void setColor(GColor color) { m_paint.setColor((SkColor) color); }
     inline void setTextEncoding(SkPaint::TextEncoding encoding) { m_paint.setTextEncoding(encoding); }
     inline void setTextSize(GScalar scalar) { m_paint.setTextSize(scalar); }
@@ -110,6 +125,17 @@ public:
     inline int getTextWidths(const void* text, size_t byteLength, SkScalar widths[],
                              SkRect bounds[] = NULL) { return m_paint.getTextWidths(text, byteLength, widths, bounds); }
 
+    inline void setLinear(GColor clr1, GColor clr2, GPoint p1 = {0, 0}, GPoint p2 = {3, 3}) {
+        SkPoint points[2] = {p1, p1};
+        SkColor colors[2] = {clr1, clr2};
+        m_paint.setShader(
+                SkGradientShader::CreateLinear(
+                        points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL))->unref();
+
+    }
+    inline void setBlur(GColor color, GScalar sigma, GScalar x, GScalar y) {
+        m_paint.setLooper(SkBlurDrawLooper::Create(color, sigma, x, y))->unref();
+    }
 };
 class StyleManager {
 private:
@@ -125,12 +151,12 @@ public:
         add(StyleBorder, paint);
 
         paint.reset();
-        paint.setStyle(GStyle::kStroke_Style);
+        paint.setStyle(GStyle::StyleStroke);
         paint.setColor(SkColorSetRGB(148, 148, 148));
         add(StyleTableBorder, paint);
 
         paint.reset();
-        paint.setStyle(GStyle::kStrokeAndFill_Style);
+        paint.setStyle(GStyle::StyleFillAndStroke);
         paint.setColor(SkColorSetRGB(218, 227, 233));
         add(StyleTableBorderSelected, paint);
 
@@ -175,9 +201,18 @@ public:
         add(StyleTableFont, paint);
 
         paint.reset();
-        paint.setStyle(GStyle::kStrokeAndFill_Style);
+        paint.setStyle(GStyle::StyleFillAndStroke);
         paint.setColor(SK_ColorLTGRAY);
         add(StyleSelectedBackground, paint);
+
+        paint.reset();
+        GScalar inter[2] = {3, 2};
+        paint.setColor(SK_ColorBLACK);
+        paint.setAlpha(110);
+        paint->setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
+        paint.setBlur(SK_ColorBLACK, 10, 0, 2);
+        add(StyleControlLine, paint);
+
     }
     static SkColor ParseColor(const char *str) {
         SkColor color;
@@ -263,7 +298,6 @@ public:
     Offset m_offset;
     EventContext *m_context;
     int m_count = 0;
-
     Canvas(EventContext *context, SkCanvas *canvas, SkPaint *paint);
     Canvas(EventContext *context, SkCanvas *canvas);
     ~Canvas();
@@ -280,11 +314,30 @@ public:
         m_canvas->translate(x, y);
     }
     void drawRect(const GRect &rect, int style);
+    void drawRect(const GRect &rect, GStyle &style) {
+        m_canvas->drawRect(rect, style);
+    }
     void drawText(const void* text, size_t byteLength, GScalar x, GScalar y, int style = StyleDeafaultFont);
+    void drawText(const void *text, size_t byteLength, GScalar x, GScalar y, GStyle &style) {
+        m_canvas->drawText(text, byteLength, x, y, style);
+    }
+    void drawLine(GScalar x0, GScalar y0, GScalar x1, GScalar y1, GStyle& style) {
+        m_canvas->drawLine(x0, y0, x1, y1, style);
+    }
+    void drawPath(const GPath &path, GStyle &style) {
+        m_canvas->drawPath(path, style);
+    }
+    void rotate(GScalar deg) {
+        m_canvas->rotate(deg);
+    }
     inline SkCanvas *operator->() { return m_canvas; }
     inline SkCanvas &operator*() { return *m_canvas; };
     GRect bound(Offset inset = Offset());
     GRect bound(GScalar dx = 0, GScalar dy = 0);
+};
+struct RedrawContext {
+    GRect *rect;
+
 };
 class RenderManager {
 public:
@@ -346,6 +399,7 @@ public:
     ~WindowRenderManager() override {
         if (m_hBitmap) DeleteObject(m_hBitmap);
     }
+public:
     virtual Document &target() = 0;
     void refresh() override { InvalidateRect(m_hWnd, nullptr, false); }
     void invalidate() override { InvalidateRect(m_hWnd, nullptr, false); }

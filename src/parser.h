@@ -7,13 +7,13 @@
 
 #include <istream>
 class EventContext;
-class Parser {
+class GParser {
 public:
     using istream = std::wistream;
     virtual void parse(EventContext *, istream &in) = 0;
 };
 
-class SimpleParser : public Parser {
+class SimpleParser : public GParser {
 public:
     void parse(EventContext *context, istream &in) override;
 

@@ -87,7 +87,7 @@ struct Context {
                 std::swap(m_selectStartPos, m_selectEndPos);
             }
         }
-        m_renderManager->invalidate();
+        m_renderManager->refresh();
     }
     void startSelect() {
         m_selecting = true;
@@ -239,7 +239,7 @@ struct EventContext {
     void reflow(bool relayout = false);
     void redraw();
     void relayout();
-    void focus(bool isCopy = true, bool force = false);
+    void focus(bool isCopy = true, bool force = false, EventContext *sender = nullptr);
     void push(CommandType type, CommandData data);
     void notify(int type, NotifyParam param, NotifyValue other);
     void timer(long long interval, int id = 0, int count = 0);
@@ -281,7 +281,6 @@ struct EventContext {
     inline Element *current() { return element; }
     Position position() { return {line(), pos().getIndex()}; }
     Painter getPainter();
-    Canvas getCanvas(SkPaint *paint);
     Canvas getCanvas();
     RenderManager *getRenderManager();
     LayoutManager *getLayoutManager();

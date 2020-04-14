@@ -77,27 +77,28 @@ public:
     int *m_ref = nullptr;
     EventContext *m_ptr = nullptr;
 };
+struct CaretContext{
+    Offset relative;
+    EventContextRef context;
+    CaretPos data;
+};
 class CaretManager {
     friend class RenderManager;
     friend class AutoComplete;
 private:
     RenderManager *m_paintManager;
-    CaretPos m_data;
 public:
     EventContextRef m_context;
+    CaretPos m_data;
     Offset m_relative{-10, -10};
     explicit CaretManager(RenderManager *paintManager) : m_paintManager(paintManager) {}
     ~CaretManager();
     EventContextRef &getRef() { return m_context; };
     EventContext *getEventContext() { return m_context.ptr(); }
-    inline CaretPos &data() { return m_data; }
+    inline CaretPos &data(EventContext *sender = nullptr) { return m_data; }
     // 可视区光标位置
     Offset current();
-/*
-    void show() { ShowCaret(m_paintManager->m_hWnd); }
-    void hide() { SetCaretPos(-1, -1); }
-*/
-    void focus(EventContext *context, bool force = false);
+    void focus(EventContext *sender, EventContext *context, bool force = false);
     void set(Offset pos) {
         m_relative = pos;
         update();
@@ -112,9 +113,32 @@ public:
     EventContext *include(EventContext *context);
     bool findNext(char *tag);
     bool findPrev(char *tag);
-    void onErase(EventContext *context);
     void refocus() {
-        focus(m_context.ptr());
+        focus(nullptr, m_context.ptr());
+    }
+public:
+    bool direct = true;
+    bool hide = false;
+    double process = 0;
+    int alpha = 0;
+    void onErase(EventContext *context);
+    void onTick();
+    void onDraw();
+    void onShow();
+    void onHide() {
+        process = 0;
+        onTick();
+        hide = true;
+    }
+    static inline double EaseInOutQuint(double t) {
+        double t2;
+        if( t < 0.5 ) {
+            t2 = t * t;
+            return 16 * t * t2 * t2;
+        } else {
+            t2 = (--t) * t;
+            return 1 + 16 * t * t2 * t2;
+        }
     }
 
 };

@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by Alex on 2019/8/4.
 //
 
@@ -76,10 +76,7 @@ public:
         GRect rect;
         rect.set({(GScalar) start.x, (GScalar) start.y}, {(GScalar) end.x, (GScalar) end.y});
         rect.fBottom = rect.fTop + context.getStyle().getTextSize() + 4;
-        GStyle paint;
-        paint.setColor(SkColorSetRGB(218, 227, 233));
-        paint.setAlpha(255);
-        paint.setAntiAlias(true);
+        GStyle &paint = context.getStyle(StyleSelectedBackground);
         canvas.drawRect(rect, paint);
         //canvas->drawRoundRect(rect, 4, 4, paint);
         //paint.setColor(SK_ColorBLACK);
@@ -90,7 +87,8 @@ public:
         //canvas->drawRect(rect, paint);
     }
 };
-using RectVec = Buffer<SkRect>;
+using RectVec = Buffer<GRect>;
+using PointVec = Buffer<GPoint>;
 class TextCaretService {
 protected:
     Offset m_offset;
@@ -121,14 +119,14 @@ public:
     bool commit(GString &string, int style = StyleDeafaultFont) {
         return commit(string.c_str(), string.length() * sizeof(GChar), m_context->getStyle(style));
     }
-    bool commit(const void* text, size_t bytelength, GStyle& paint, SkRect* bound = nullptr) {
+    bool commit(const void* text, size_t bytelength, GStyle& paint, GRect* bound = nullptr) {
         bool res; // 是否未越界
         int index = m_index;
         int length = paint.countText(text, bytelength);
-        Buffer<SkScalar> widths(length);
+        Buffer<GScalar> widths(length);
         RectVec rects(length);
         paint.getTextWidths(text, bytelength, widths.data(), rects.data());
-        SkScalar size = paint.getTextSize();
+        GScalar size = paint.getTextSize();
         int width = 0;
         for (int i = 0; i < length; ++i) {
             rects[i].offset(m_offset.x + width, size + (SkScalar)m_offset.y);
@@ -263,6 +261,12 @@ public:
         service.breakText(rects);
         return service.getCaretPos(rects, index);
     }
+    static void GetPoints(RectVec &rects, PointVec &pts) {
+        pts.resize(rects.size());
+        for (auto &rect : rects) {
+            pts.push({rect.left(), rect.right()});
+        }
+    }
 };
 class OffsetCaretService {
 public:
@@ -299,7 +303,7 @@ public:
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         canvas->drawBitmap(bitmap, 0, 0);
-        canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
+        canvas.drawRect(context.bound(0.5, 0.5), StyleTableBorder);
 
 /*
         SkPaint style;
@@ -335,6 +339,7 @@ public:
         bitmap.getBounds(&rect);
         rect.inset(20.5, 20.5);
 
+/*
         SkCanvas canvas(bitmap);
         canvas.clear(SK_ColorWHITE);
 
@@ -351,6 +356,7 @@ public:
         paint.setStrokeWidth(1);
         paint.setAntiAlias(true);
         canvas.drawRoundRect(rect, 4, 4, paint);
+*/
 
     }
     void onLeftButtonUp(EventContext &context, int x, int y) override {
@@ -680,9 +686,8 @@ public:
         GStyle border;
         border.setStyle(GStyle::StyleStroke);
         border.setColor(SK_ColorLTGRAY);
-        canvas.drawRect(canvas.bound(0.5, 0.5), border);
+        canvas.drawRect(context.bound(0.5, 0.5), border);
         LineViewer viewer = context.getLineViewer();
-        canvas.translate(0, context.getStyle(StyleDeafaultFont).getTextSize());
         canvas.drawText(viewer.c_str(), viewer.size(), location().x, location().y);
     }
     void onSelectionDelete(EventContext &context, SelectionState state) override {
@@ -781,7 +786,7 @@ public:
         service.breakText(rects);
 
         context.gutter();
-        Canvas canvas = context.getCanvas();
+        auto canvas = context.getCanvas();
         drawSelection(context);
 
         GStyle border;
@@ -794,11 +799,10 @@ public:
         //canvas.drawRect(canvas.bound(0.5, 0.5), border);
 
         auto *lexer = context.getLexer();
-        Offset offset = location();
-        canvas.translate(offset.x, (float) offset.y + context.getStyle().getTextSize());
+        canvas.translate(location());
         while (lexer->has()) {
             Token token = lexer->next();
-            if (token == TokenIdentifier && token.style < StyleKeywordFont) {
+            if (token == TokenIdentifier && token.style < StyleFunctionFont) {
                 if (lexer->peek() == _GT("(") || (lexer->peek() == TokenSpace && lexer->peek(2) == _GT("("))) {
                     token.style = StyleFunctionFont;
                 }
@@ -1068,14 +1072,14 @@ public:
         Canvas canvas = context.getCanvas();
         GStyle paint;
         paint.setColor(m_color);
-        canvas.drawRect(canvas.bound(0, 0), paint);
+        canvas.drawRect(context.bound(0, 0), paint);
         if (context.isSelectedRow()) {
             if (context.isSelectedSelf()) {
                 if (context.selectedCount() > 1) {
-                    canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
+                    canvas.drawRect(context.bound(0.5, 0.5), StyleTableSelected);
                 }
             } else {
-                canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
+                canvas.drawRect(context.bound(0.5, 0.5), StyleTableSelected);
             }
         }
         Root::onRedraw(context);
@@ -1729,8 +1733,8 @@ class SubElement : public Container<> {
                 }
             }
             if (m_type == TableTypeLocal && row == 0) {
-                //return SkColorSetRGB(217, 227, 240);
-                return SkColorSetRGB(217, 227, 255);
+                return SkColorSetRGB(217, 227, 240);
+                //return SkColorSetRGB(217, 227, 255);
             }
             return FastTable::getBackgroundColor(row, col);
         }
@@ -1894,7 +1898,8 @@ public:
     int getLogicHeight(EventContext &context) override { return m_lines.count * 25; }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        canvas.drawText(_GT("Inline C Language"), 17 * 2, 18, 15, StyleDeafaultFont);
+        canvas.drawText(_GT("Inline C Language"), 17 * 2, 18, 2, StyleDeafaultFont);
+/*
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
@@ -1902,11 +1907,12 @@ public:
         canvas->drawLine(0, 20, context.width(), 20, border);
 
         border.setStyle(SkPaint::kFill_Style);
+*/
         if (expand) {
-            canvas->drawPath(DrawUtil::triangleDown(8, 9, 8), border);
+            //canvas->drawPath(DrawUtil::triangleDown(8, 9, 8), border);
             Root::onRedraw(context);
         } else {
-            canvas->drawPath(DrawUtil::triangleRight(8, 7, 10), border);
+            //canvas->drawPath(DrawUtil::triangleRight(8, 7, 10), border);
         }
     }
     int getLineNumber() override { return m_lines.count; }
@@ -1976,11 +1982,11 @@ public:
     }
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
-        canvas.drawText(name.c_str(), name.size() * sizeof(GChar), 18, 15, StyleDeafaultFont);
+        canvas.drawText(name.c_str(), name.size() * sizeof(GChar), 18, 2, StyleDeafaultFont);
         GStyle border;
         border.setStyle(GStyle::StyleStroke);
         border.setColor(SK_ColorLTGRAY);
-        canvas.drawRect(canvas.bound(0.5, 0.5), border);
+        canvas.drawRect(context.bound(0.5, 0.5), border);
         canvas.drawLine(0, 20, context.width(), 20, border);
         border.setStyle(GStyle::StyleFill);
         if (expand) {

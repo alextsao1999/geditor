@@ -87,12 +87,22 @@ public:
         return si.nTrackPos;
     }
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam) {
+        if (nMsg == WM_CREATE) {
+            SetTimer(hWnd, 1, 30, nullptr);
+        }
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data || data->m_manager.m_documents.empty()) {
             return DefWindowProc(hWnd, nMsg, wParam, lParam);
         }
         Document &current = data->current();
         switch (nMsg) {
+            case WM_TIMER:
+                current.m_context.m_caretManager.onTick();
+                break;
+            case WM_DESTROY:
+                KillTimer(hWnd, 1);
+                PostQuitMessage(0);
+                break;
             case WM_MOUSEMOVE:
                 {
                     Offset offset = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset;
@@ -104,7 +114,7 @@ public:
                 current.onMouseMove(current.m_root, current.m_mouse.x, current.m_mouse.y);
                 if (current.context()->m_selecting) {
                     current.context()->updateSelect();
-                    data->m_render.invalidate();
+                    data->m_render.refresh();
                 }
                 break;
             case WM_MOUSEWHEEL:
@@ -170,19 +180,20 @@ public:
             case WM_KEYUP:
                 MsgCallFocus(onKeyUp, wParam, lParam);
                 break;
+            case WM_ERASEBKGND:
+                break;
             case WM_PAINT:
                 onPaint(hWnd, data);
                 break;
-            case WM_DESTROY:
-                PostQuitMessage(0);
-                break;
             case WM_SETFOCUS:
-                CreateCaret(hWnd, nullptr, 2, 17);
-                current.m_context.m_caretManager.update();
-                ShowCaret(hWnd);
+                //CreateCaret(hWnd, nullptr, 2, 17);
+                //current.m_context.m_caretManager.update();
+                //ShowCaret(hWnd);
+                current.m_context.m_caretManager.onShow();
                 break;
             case WM_KILLFOCUS:
-                DestroyCaret();
+                //DestroyCaret();
+                current.m_context.m_caretManager.onHide();
                 break;
             case WM_MOUSEHOVER:
                 onTrackMouse(hWnd, false);
@@ -260,14 +271,15 @@ public:
         }
         buffer.free();
         data->current().layout();
-        data->m_render.invalidate();
+        data->m_render.refresh();
         DragFinish(hDropInfo);
     }
     static void onPaint(HWND hWnd, GEditorData *data) {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
         GRect rect = GRect::MakeLTRB(ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
-        data->m_render.update(&rect);
+        data->m_render.update(nullptr);
+        data->current().m_context.m_caretManager.onDraw();
         data->m_render.copy();
         EndPaint(hWnd, &ps);
     }
@@ -283,7 +295,6 @@ public:
         }
         trackedMouseLeave = on;
     }
-
 };
 
 #endif //GEDITOR_GEDITOR_H

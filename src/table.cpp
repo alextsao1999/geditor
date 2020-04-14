@@ -25,7 +25,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
                         ctx.remove();
                         prev.update();
                         if (EventContext *inner = prev.nearby(1).findInnerFirst(TAG_FOCUS)) {
-                            inner->focus(false, true);
+                            inner->focus(false, true, &context);
                         }
                         return;
                     }
@@ -62,7 +62,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         }
         if (ch == VK_RETURN) {
             if (line.flags() & LineFlagExpand) {
-                caret->data().setIndex(0);
+                context.pos().setIndex(0);
                 caret->findNext(TAG_FOCUS);
                 return;
             }
@@ -204,14 +204,14 @@ void AutoLineElement::onMouseLeave(EventContext &context, int x, int y) {
 }
 
 void TextElement::onRedraw(EventContext &context) {
-    Canvas canvas = context.getCanvas();
+    auto canvas = context.getCanvas();
     auto state = context.outer->getSelectionState();
     auto *table = context.getOuter(2)->cast<TableElement>();
     int row = context.outer->index, col = context.index;
     if (GColor color = table->getBackgroundColor(row, col)) {
-        SkPaint paint;
+        GStyle paint;
         paint.setColor(color);
-        canvas->drawRect(canvas.bound(0.5, 0.5), paint);
+        canvas.drawRect(canvas.bound(0.5, 0.5), paint);
     }
     if (context.isSelectedSelf()) {
         Offset start = context.relOffset(context.getDocContext()->getSelectStart());
@@ -219,20 +219,19 @@ void TextElement::onRedraw(EventContext &context) {
         DrawUtil::DrawSlection(context, start, end);
     } else {
         if (state == SelectionSelf && context.outer->selectedCount() > 1) {
-            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
+            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableSelected);
         }
         if (state != SelectionNone && state != SelectionSelf) {
-            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorderSelected);
+            canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableSelected);
         }
     }
-
     canvas.drawRect(canvas.bound(0.5, 0.5), StyleTableBorder);
     if (m_radio) {
         if (m_data.empty()) {
             return;
         }
-        canvas->translate((float) context.width() / 2, context.height() - 5);
-        canvas->rotate(40);
+        canvas.translate((float) context.width() / 2, context.height() - 5);
+        canvas.rotate(40);
         GStyle paint;
         paint.setColor(table->getForegroundColor(row, col));
         paint.setWidth(3);
@@ -246,7 +245,7 @@ void TextElement::onRedraw(EventContext &context) {
 
     GStyle style = context.getStyle(StyleTableFont);
     style.setColor(table->getForegroundColor(row, col));
-    canvas.translate(0, style.getTextSize());
-    canvas.drawText(m_data.c_str(), m_data.size() * sizeof(GChar), 6, 2, style);
+    canvas.translate(location());
+    canvas.drawText(m_data.c_str(), m_data.size() * sizeof(GChar), 0, 0, style);
 
 }

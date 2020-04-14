@@ -4,7 +4,7 @@
 #include <QMainWindow>
 #include <QCompleter>
 #include <geditor.h>
-
+#include <QGEditor.h>
 namespace Ui {
     class MainWindow;
 }
@@ -18,7 +18,7 @@ private slots:
     void on_pushButton_clicked();
 private:
     Ui::MainWindow *ui;
-    GEditor *editor = nullptr;
+    QGEditor *editor = nullptr;
     QCompleter *completer = nullptr;
 
 };

@@ -39,6 +39,7 @@ public:
 class NewDocument : public MarginDocument {
 public:
     explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
+/*
         auto *doc = new ClassElement();
         for (int i = 0; i < 2; ++i) {
             auto *sub = new SubElement();
@@ -51,7 +52,13 @@ public:
             m_context.m_textBuffer.appendLine().append(_GT("return 0;"));
         }
         Document::append(doc);
+*/
+
+/*
+        Document::append(new AutoLineElement());
+        m_context.m_textBuffer.appendLine().append(_GT("return 0;"));
         layout();
+*/
     }
     void Open () {
         /*

@@ -45,8 +45,7 @@ void Margin::draw() {
 
 void Margin::drawGutter(EventContext *context) {
     GString &&string = std::to_wstring(context->line() + 1);
-    auto style = context->getStyle().paint();
-    //style.setColor(SkColorSetRGB(69,145,245));
+    SkPaint style = context->getStyle();
     style.setColor(SK_ColorLTGRAY);
     style.setTextAlign(SkPaint::Align::kRight_Align);
     if (auto *render = (WindowRenderManager *) m_doc->m_context.m_renderManager) {

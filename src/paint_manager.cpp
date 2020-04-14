@@ -12,11 +12,23 @@ Painter::Painter(HDC m_HDC, EventContext *context) : m_HDC(m_HDC), m_context(con
 }
 
 void Painter::drawText(const void *text, size_t byteLength, GScalar x, GScalar y, int style) {
-    GStyle gstyle = m_context->getStyle(style);
-    gstyle.attach(m_HDC);
-    SetTextColor(m_HDC, gstyle.paint().getColor() << 8);
-    SetBkMode(m_HDC, TRANSPARENT);
-    TextOut(m_HDC, m_offset.x + x, m_offset.y + y, (LPTSTR) text, gstyle.countText(text, byteLength));
+    drawText(text, byteLength, x, y, m_context->getStyle(style));
+}
+
+void Painter::drawRect(const GRect &rect, int style) {
+    drawRect(rect, m_context->getStyle(style));
+}
+
+GRect Painter::bound(SkScalar dx, SkScalar dy) {
+    SkRect rect{
+            0,
+            0,
+            SkIntToScalar(m_context->width() + 1),
+            SkIntToScalar(m_context->height() + 1)
+    };
+
+    rect.inset(dx, dy);
+    return rect;
 }
 
 Canvas::Canvas(EventContext *context, SkCanvas *canvas) : m_canvas(canvas), m_context(context) {
@@ -45,18 +57,6 @@ void Canvas::save(SkPaint *paint) {
     m_canvas->translate(SkIntToScalar(m_offset.x), SkIntToScalar(m_offset.y));
 }
 
-SkRect Canvas::bound(Offset inset) {
-    SkRect rect{
-            0,
-            0,
-            SkIntToScalar(m_context->width()),
-            SkIntToScalar(m_context->height())
-    };
-
-    rect.inset(inset.x, inset.y);
-    return rect;
-}
-
 GRect Canvas::bound(SkScalar dx, SkScalar dy) {
     SkRect rect{
             0,
@@ -70,7 +70,7 @@ GRect Canvas::bound(SkScalar dx, SkScalar dy) {
 }
 
 void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y, int style) {
-    m_canvas->drawText(text, byteLength, x, y, m_context->getStyle(style).paint());
+    drawText(text, byteLength, x, y, m_context->getStyle(style));
 /*
     SkTextBlobBuilder builder;
     SkPaint paint = m_context->getStyle(style).paint();
@@ -86,24 +86,21 @@ void Canvas::drawText(const void *text, size_t byteLength, GScalar x, GScalar y,
 }
 
 void Canvas::drawRect(const GRect &rect, int style) {
-    m_canvas->drawRect(rect, m_context->getStyle(style).paint());
+    m_canvas->drawRect(rect, m_context->getStyle(style));
+}
+
+void Canvas::drawPosText(const void *text, size_t byteLength, GPoint *pts, int style) {
+    m_canvas->drawPosText(text, byteLength, pts, m_context->getStyle(style));
 }
 
 void RenderManager::redraw(EventContext *ctx) {
-    if (ctx->outer) {
-        GRect rect = ctx->outer->viewportRect();
-        update(&rect);
-
-    }
     Offset offset = ctx->viewportOffset();
     RECT rect;
     rect.left = offset.x;
     rect.top = offset.y;
     rect.right = rect.left + ctx->width();
     rect.bottom = rect.top + ctx->height();
-
-
-    invalidate();
+    refresh();
 }
 
 void WindowRenderManager::updateViewport() {

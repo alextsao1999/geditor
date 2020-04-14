@@ -148,7 +148,7 @@ void OpenEFile(Document *document) {
     }
     buffer.free();
     document->layout();
-    document->m_context.m_renderManager->invalidate();
+    document->m_context.m_renderManager->refresh();
 }
 int main() {
     CreateJPEGImageDecoder();

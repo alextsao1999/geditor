@@ -14,7 +14,7 @@ void EventContextRef::unref() {
     }
 }
 
-void CaretManager::focus(EventContext *context, bool force) {
+void CaretManager::focus(EventContext *sender, EventContext *context, bool force) {
     EventContextRef before = m_context;
     m_context = context;
     if (before.has()) {
@@ -58,6 +58,7 @@ void CaretManager::update() {
     // 设置光标的位置为实际偏移(光标偏移 减去 可视区偏移)
     Offset offset = current();
     SetCaretPos(offset.x, offset.y);
+    onShow();
 }
 
 bool CaretManager::enter(int index) {
@@ -112,7 +113,7 @@ Offset CaretManager::current() {
 bool CaretManager::findNext(char *tag) {
     EventContext *next = m_context->findNext(tag);
     if (next != nullptr) {
-        focus(next);
+        focus(m_context.ptr(), next);
         return true;
     }
     m_data.setIndex(-1);
@@ -123,7 +124,7 @@ bool CaretManager::findNext(char *tag) {
 bool CaretManager::findPrev(char *tag) {
     EventContext *prev = m_context->findPrev(tag);
     if (prev != nullptr) {
-        focus(prev);
+        focus(m_context.ptr(), prev);
         return true;
     }
     m_data.setIndex(0);
@@ -159,4 +160,47 @@ void CaretManager::onErase(EventContext *context) {
             }
         }
     }
+}
+
+void CaretManager::onTick() {
+    if (hide) {
+        return;
+    }
+    constexpr double step = 0.05f;
+    if (direct) {
+        process += step;
+    } else {
+        process -= step;
+    }
+    alpha = int(EaseInOutQuint(process) * 255);
+    if (alpha >= 255) {
+        direct = false;
+        alpha = 255;
+    }
+    if (alpha <= 0) {
+        direct = true;
+        alpha = 0;
+    }
+    m_paintManager->refresh();
+}
+void CaretManager::onDraw() {
+    if (hide || !m_context) {
+        return;
+    }
+    if (auto *render = (WindowRenderManager *) m_paintManager) {
+        Offset offset = current();
+        SkPaint paint;
+        paint.setColor(SK_ColorBLACK);
+        paint.setStrokeWidth(2);
+        paint.setAlpha(alpha);
+        int height = 17;
+        render->m_canvas->drawLine(offset.x, offset.y, offset.x, offset.y + height, paint);
+    }
+
+}
+void CaretManager::onShow() {
+    hide = false;
+    process = 0.5;
+    direct = true;
+    onTick();
 }

@@ -67,8 +67,9 @@ EXPORT_API int WINAPI GEditorSendMsg(GEditor *editor, int msg, int param, int va
         render.m_canvas->clear(value);
     }
     if (msg == MSG_Redraw) {
-        auto &render = editor->m_data->m_render;
-        render.target().onRedraw(render.target().m_root);
+        auto &target = editor->m_data->m_render.target();
+        target.onRedraw(target.m_root);
+        target.m_context.m_caretManager.onDraw();
     }
     if (msg == MSG_Copy) {
         editor->m_data->m_render.copy();
@@ -76,7 +77,6 @@ EXPORT_API int WINAPI GEditorSendMsg(GEditor *editor, int msg, int param, int va
 
     return 0;
 }
-
 EXPORT_API void WINAPI GEditorLSPCreate(GEditor *editor, const char *app, const char *cmd) {
     editor->m_data->m_manager.CreateLSP(app, cmd);
 }
@@ -165,7 +165,6 @@ EXPORT_API void WINAPI GEditorDocumentFormatting(GEditor *editor, Position &pos)
     auto uri = editor->m_data->m_manager.current()->getUri();
     editor->m_data->m_manager.m_client->Formatting(uri);
 }
-
 EXPORT_API void WINAPI GEditorDocumentPushStart(GEditor *editor) {
     editor->m_data->current().context()->pushStart(PushType::PushTypeNone);
 }
@@ -496,9 +495,14 @@ EXPORT_API int WINAPI ElementGetChildCount(Container<> *element) {
     return element->getChildCount();
 }
 
+EXPORT_API json *WINAPI JsonCreate() {
+    return new json();
+}
 EXPORT_API json *WINAPI JsonParse(const char *str) {
     auto *value = new json();
-    *value = json::parse(str);
+    if (str != nullptr) {
+        *value = json::parse(str);
+    }
     return value;
 }
 EXPORT_API void WINAPI JsonFree(json *value) {
@@ -509,7 +513,7 @@ EXPORT_API const char *WINAPI JsonGetTypeName(json &value) { return value.type_n
 EXPORT_API json *WINAPI JsonAtPath(json &value, const char *str) {
     return &value[json::json_pointer(str)];
 }
-EXPORT_API json *WINAPI JsonAtArray(json &value, int index) {
+EXPORT_API json *WINAPI JsonAtIndex(json &value, int index) {
     return &value[index];
 }
 EXPORT_API json *WINAPI JsonAtKey(json &value, const char *key) {
@@ -521,6 +525,21 @@ EXPORT_API BOOL WINAPI JsonContainsPath(json &value, const char *str) {
 EXPORT_API BOOL WINAPI JsonContainsKey(json &value, const char *key) {
     return value.contains(key);
 }
+EXPORT_API void WINAPI JsonEraseIndex(json &value, int index) {
+    value.erase(value.begin() + index);
+}
+EXPORT_API void WINAPI JsonErasePath(json &value, const char *path) {
+    value.erase(json::json_pointer(path));
+}
+EXPORT_API void WINAPI JsonEraseKey(json &value, const char *key) {
+    value.erase(key);
+}
+EXPORT_API void WINAPI JsonInsert(json &value, int index, json &iv) {
+    value.insert(value.begin() + index, iv);
+}
+EXPORT_API void WINAPI JsonAppend(json &value, json &iv) {
+    value.push_back(iv);
+}
 EXPORT_API BOOL WINAPI JsonIsNull(json &value) {
     return value.is_null();
 }
@@ -530,22 +549,65 @@ EXPORT_API int64_t WINAPI JsonGetInt64(json &value) { return value.get<int64_t>(
 EXPORT_API float WINAPI JsonGetFloat(json &value) { return value.get<float>(); }
 EXPORT_API BOOL WINAPI JsonGetBool(json &value) { return value.get<bool>(); }
 EXPORT_API const char *WINAPI JsonGetString(json &value) { return value.get_ref<std::string &>().c_str(); }
-EXPORT_API void WINAPI JsonSet(json &value, json &v) { value = v; }
+EXPORT_API void WINAPI JsonSet(json &value, json *v) { value = std::move(*v);delete v; }
+EXPORT_API void WINAPI JsonMove(json &value, json &v) { value = std::move(v); }
+EXPORT_API void WINAPI JsonCopy(json &value, json &v) { value = v; }
 EXPORT_API void WINAPI JsonSetInt(json &value, int v) { value = v; }
 EXPORT_API void WINAPI JsonSetInt64(json &value, int64_t v) { value = v; }
 EXPORT_API void WINAPI JsonSetFloat(json &value, float v) { value = v; }
 EXPORT_API void WINAPI JsonSetBool(json &value, BOOL v) { value = v; }
 EXPORT_API void WINAPI JsonSetString(json &value, const char *v) { value = v; }
-EXPORT_API void WINAPI JsonInsert(json &value, int index, json &iv) {
-    value.insert(value.begin() + index, iv);
-}
-EXPORT_API void WINAPI JsonAppend(json &value, json &iv) {
-    value.push_back(iv);
-}
 EXPORT_API std::string *WINAPI JsonDump(json &value, int indent) {
     return new std::string(value.dump(indent));
 }
 EXPORT_API const char *WINAPI JsonDumpString(std::string *value) { return value->c_str(); }
 EXPORT_API void WINAPI JsonDumpFree(std::string *value) { delete value; }
+
+#include <lalr/GrammarCompiler.hpp>
+#include <lalr/Parser.ipp>
+using namespace lalr;
+using DataType = void *;
+using DNodes = ParserNode<>;
+using DParser = Parser<const char *, DataType>;
+typedef DataType (WINAPI *ParserHandler)(const DataType *datas, const DNodes *nodes, int length);
+EXPORT_API GrammarCompiler *WINAPI CreateGrammer(const char *grammer) {
+    auto *res = new GrammarCompiler();
+    res->compile(grammer, grammer + strlen(grammer));
+    return res;
+}
+EXPORT_API void WINAPI DeleteGrammer(GrammarCompiler *grammer) {
+    delete grammer;
+}
+EXPORT_API DParser *WINAPI CreateParser(GrammarCompiler *grammer) {
+    return new DParser(grammer->parser_state_machine());
+}
+EXPORT_API void WINAPI DeleteParser(DParser *parser) {
+    delete parser;
+}
+EXPORT_API void WINAPI ParserAddHandler(DParser &parser, const char *name, ParserHandler handler) {
+    DParser::ParserActionFunction fun = [=](const DataType *data, const DNodes *nodes, size_t length) {
+        return handler(data, nodes, length);
+    };
+    parser.parser_action_handlers()(name, fun);
+
+    //parser.set_action_handler(name, fun);
+
+}
+EXPORT_API DataType WINAPI ParserParse(DParser &parser, const char *data) {
+    parser.parse(data, data + strlen(data));
+    return parser.user_data();
+}
+EXPORT_API const char *WINAPI NodesGetString(DNodes *node, int index) {
+    return node[index].lexeme().c_str();
+}
+EXPORT_API int WINAPI NodesGetLine(DNodes *node, int index) {
+    return node[index].line();
+}
+EXPORT_API int WINAPI NodesGetColumn(DNodes *node, int index) {
+    return node[index].column();
+}
+EXPORT_API int WINAPI NodesSymbol(DNodes *node, int index) {
+    return node[index].symbol()->type;
+}
 
 #endif //GEDITOR_DLL_H

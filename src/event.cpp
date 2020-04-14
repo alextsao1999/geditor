@@ -13,9 +13,6 @@ LineViewer EventContext::getLineViewer(int offset, bool pushCommand) {
     return doc->context()->m_textBuffer.getLine(getCounter(), offset, pushCommand ? this : nullptr);
 }
 Painter EventContext::getPainter() { return doc->context()->m_renderManager->getPainter(this); }
-Canvas EventContext::getCanvas(SkPaint *paint) {
-    return doc->context()->m_renderManager->getCanvas(this, paint);
-}
 Canvas EventContext::getCanvas() { return doc->context()->m_renderManager->getCanvas(this); }
 bool EventContext::canEnter() { return element && element->onCanEnter(*this); }
 bool EventContext::hasChild() { return element && element->getHead() != nullptr; }
@@ -57,9 +54,11 @@ void EventContext::relayout() {
     element->onRelayout(*this, getLayoutManager());
 }
 void EventContext::redraw() { doc->context()->m_renderManager->redraw(this); }
-void EventContext::focus(bool isCopy, bool force) {
-    if (element)
-        doc->m_context.m_caretManager.focus(isCopy ? copy() : this, force);
+void EventContext::focus(bool isCopy, bool force, EventContext *sender) {
+    if (!element) {
+        return;
+    }
+    doc->m_context.m_caretManager.focus(sender, isCopy ? copy() : this, force);
 }
 void EventContext::push(CommandType type, CommandData data) {
     doc->onContentChange(*this, type, data);

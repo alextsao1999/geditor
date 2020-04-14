@@ -5,7 +5,7 @@
 #include "parser.h"
 #include "event.h"
 #include "table.h"
-void SimpleParser::parse(EventContext *context, Parser::istream &in) {
+void SimpleParser::parse(EventContext *context, GParser::istream &in) {
     GString line;
     std::getline(in, line);
     context->getLineViewer().insert(context->pos().getIndex(), line.c_str());

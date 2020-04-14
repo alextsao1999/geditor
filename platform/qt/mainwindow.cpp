@@ -5,11 +5,8 @@
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
-    editor = GEditorBuilder::build((HWND) (this->winId()), 10, 10);
-
-    QStringList list = {"aa", "bb", "ccc"};
-    completer = new QCompleter(list, this);
-
+    editor = new QGEditor(this);
+    editor->move(10, 20);
 }
 
 MainWindow::~MainWindow() {

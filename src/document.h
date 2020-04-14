@@ -646,14 +646,6 @@ public:
     int getLogicWidth(EventContext &context) override {
         return m_context.m_renderManager->getViewportSize().width - 50;
     }
-    void onRelayout(EventContext &context, LayoutManager *sender) override {
-        sender->reflow(context.enter(), true, {10, 10});
-    }
-    void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
-        Container::onFinishReflow(context, offset, layout);
-        m_height += 200;
-        m_context.m_renderManager->setVertScroll(m_height);
-    }
     void setViewportOffset(Offset offset) {
         /*
         if (m_viewportOffset.y > offset.y) { // ÏòÉÏ
@@ -677,6 +669,14 @@ public:
             m_begin = m_root.enter();
         }
         m_viewportOffset = offset;
+    }
+    void onRelayout(EventContext &context, LayoutManager *sender) override {
+        sender->reflow(context.enter(), true, {10, 10});
+    }
+    void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
+        Container::onFinishReflow(context, offset, layout);
+        m_height += 200;
+        m_context.m_renderManager->setVertScroll(m_height);
     }
     virtual void onLineChange(EventContext &event, int num) {}
     virtual void onContentChange(EventContext &event, CommandType type, CommandData data) {}

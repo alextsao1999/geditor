@@ -22,7 +22,7 @@ class SkStreamRewindable;
 
     Base class for decoding compressed images into a SkBitmap
 */
-class SkImageDecoder : SkNoncopyable {
+class SK_API SkImageDecoder : SkNoncopyable {
 public:
     virtual ~SkImageDecoder();
 
@@ -435,7 +435,7 @@ private:
     decoder may have called ref() (and if so, the decoder is responsible for
     balancing its ownership when it is destroyed).
  */
-class SkImageDecoderFactory : public SkRefCnt {
+class SK_API SkImageDecoderFactory : public SkRefCnt {
 public:
     SK_DECLARE_INST_COUNT(SkImageDecoderFactory)
 
@@ -445,7 +445,7 @@ private:
     typedef SkRefCnt INHERITED;
 };
 
-class SkDefaultImageDecoderFactory : SkImageDecoderFactory {
+class SK_API SkDefaultImageDecoderFactory : SkImageDecoderFactory {
 public:
     // calls SkImageDecoder::Factory(stream)
     virtual SkImageDecoder* newDecoder(SkStreamRewindable* stream) {
@@ -456,7 +456,7 @@ public:
 // This macro declares a global (i.e., non-class owned) creation entry point
 // for each decoder (e.g., CreateJPEGImageDecoder)
 #define DECLARE_DECODER_CREATOR(codec)          \
-    SkImageDecoder *Create ## codec ();
+    SK_API SkImageDecoder *Create ## codec ();
 
 // This macro defines the global creation entry point for each decoder. Each
 // decoder implementation that registers with the decoder factory must call it.

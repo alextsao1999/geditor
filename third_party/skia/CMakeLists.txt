@@ -51,7 +51,8 @@ if (MSVC)
 else()
 	list(REMOVE_ITEM skia_src_utils
 			src/utils/SkThreadUtils_win.cpp
-			src/utils/win/SkWGL_win.cpp)
+			src/utils/win/SkWGL_win.cpp
+			)
 endif()
 
 aux_source_directory(src/effects/gradients skia_src_effects)
@@ -70,7 +71,8 @@ endif ()
 if (MSVC)
 	list(REMOVE_ITEM skia_src_gpu
 			src/gpu/gl/GrGLCreateNativeInterface_none.cpp
-			src/gpu/gl/GrGLDefaultInterface_none.cpp)
+			src/gpu/gl/GrGLDefaultInterface_none.cpp
+			)
 	list(APPEND skia_src_gpu
 			src/gpu/gl/win/GrGLCreateNativeInterface_win.cpp
 			src/gpu/gl/win/SkNativeGLContext_win.cpp)
@@ -167,6 +169,14 @@ source_group("Header Files" FILES ${skia_headers})
 source_group("Source Files" FILES ${skia_sources})
 
 if (BUILD_SHARED)
+	list(APPEND skia_sources
+			src/image/SkSurface_Gpu.cpp
+			src/image/SkImage_Gpu.cpp
+			)
+endif ()
+
+if (BUILD_SHARED)
+	add_definitions(-DSKIA_DLL)
 	add_library(skia SHARED ${skia_sources} ${skia_headers})
 else()
 	add_library(skia STATIC ${skia_sources} ${skia_headers})

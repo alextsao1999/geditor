@@ -1,11 +1,10 @@
 cmake_minimum_required(VERSION 3.1.1)
-project(Geditor)
+project(GEditor)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  ${CMAKE_BINARY_DIR})
-#link_directories(${CMAKE_BINARY_DIR})
 
 if (MSVC)
     add_definitions(/D_CRT_SECURE_NO_WARNINGS)
@@ -23,11 +22,7 @@ if (MSVC)
 endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
-
-add_subdirectory(third_party/lsp)
-add_subdirectory(third_party/libjpeg)
-add_subdirectory(third_party/skia)
-add_subdirectory(third_party/ecode)
+add_subdirectory(third_party)
 
 include_directories(src/)
 file(GLOB_RECURSE headers RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.h)
@@ -44,6 +39,6 @@ add_library(editor
         SHARED
         example/dll.h
         example/dll.cpp)
-target_link_libraries(editor geditor)
+target_link_libraries(editor geditor lalr)
 
 add_subdirectory(platform/qt)

@@ -37,6 +37,8 @@ public:
         inline T &current() { return m_data->operator[](m_index); }
     };
     inline BufferIter iter() { return BufferIter(this); }
+    inline T *begin() { return m_data; }
+    inline T *end() { return m_data + m_count; }
     inline T *data() { return m_data; }
     inline int size() { return m_count; }
     inline int length() { return m_count; }

@@ -43,27 +43,13 @@ enum PushType : int {
     PushTypeSelect
 };
 struct Context {
-    std::map<GString, int> keywords = {
-            {_GT("if"),    StyleKeywordFont},
-            {_GT("while"), StyleKeywordFont},
-            {_GT("var"),   StyleKeywordFont},
-            {_GT("this"),  StyleKeywordFont},
-            {_GT("break"), StyleKeywordFont},
-            {_GT("do"),    StyleKeywordFont},
-            {_GT("class"), StyleKeywordFont},
-            {_GT("int"), StyleKeywordFont},
-            {_GT("switch"), StyleKeywordFont},
-            {_GT("true"), StyleKeywordFont},
-            {_GT("false"), StyleKeywordFont},
-            {_GT("null"), StyleKeywordFont},
-    };
     KeyMap m_keyMap;
     RenderManager *m_renderManager;
     LayoutManager m_layoutManager;
     StyleManager m_styleManager;
     CaretManager m_caretManager;
     CommandQueue m_queue;
-    Lexer m_lexer;
+    GLexer m_lexer;
     TextBuffer m_textBuffer;
     //////////////////////////
     bool m_selecting = false;
@@ -287,7 +273,7 @@ struct EventContext {
     CaretManager *getCaretManager();
     StyleManager *getStyleManager();
     inline GStyle &getStyle(int id = StyleDeafaultFont) { return getStyleManager()->get(id); }
-    Lexer *getLexer();
+    GLexer *getLexer();
     LineViewer getLineViewer(int offset = 0, bool pushCommand = true);
     void insertLine(int offset = 0, int count = 1);
     void deleteLine(int offset = 0, int count = 1);
@@ -345,21 +331,6 @@ struct EventContext {
         sprintf(buf, "/%d[%s]", index, tag().str);
         str.append(buf);
         return str;
-    }
-
-    static EventContext *Parse(Document *doc, const char *string) {
-        if (string[0] == '/') {
-            int index = atoi(string + 1);
-            do {
-                string++;
-                if (string[0] == '/') {
-                    break;
-                }
-            } while (string[0] != '\0');
-            return new EventContext(doc);
-
-        }
-        return nullptr;
     }
 
     bool isSelecting();
@@ -478,28 +449,15 @@ struct EventContext {
         }
         return nullptr;
     }
-    bool contains(int line);
-
-    template <typename Type>
-    inline Type *cast() { return (Type *) element; }
-    bool compare(EventContext *rvalue) {
-        if (rvalue == nullptr) {
-            return false;
+    EventContext *getOuter(int count) {
+        EventContext *current = outer;
+        while (current && --count) {
+            current = current->outer;
         }
-        if (element == rvalue->element) {
-            if (outer) {
-                return outer->compare(rvalue->outer);
-            }
-            return rvalue->outer == nullptr;
+        if (count != 0) {
+            return nullptr;
         }
-/*
-        if (outer && rvalue->outer) {
-            return element == rvalue->element && outer->compare(rvalue->outer);
-        } else {
-            return element == rvalue->element;
-        }
-*/
-        return false;
+        return current;
     }
     EventContext *include(EventContext *rvalue) {
         if (rvalue) {
@@ -520,6 +478,22 @@ struct EventContext {
         }
         return nullptr;
     }
+    bool contains(int line);
+
+    template <typename Type>
+    inline Type *cast() { return (Type *) element; }
+    bool compare(EventContext *rvalue) {
+        if (rvalue == nullptr) {
+            return false;
+        }
+        if (element == rvalue->element) {
+            if (outer) {
+                return outer->compare(rvalue->outer);
+            }
+            return rvalue->outer == nullptr;
+        }
+        return false;
+    }
     ReverseContext *reverse() {
         EventContext *start = copy();
         ReverseContext *reverse = nullptr;
@@ -529,24 +503,8 @@ struct EventContext {
         }
         return reverse;
     }
-    EventContext *getOuter(int count) {
-        EventContext *current = outer;
-        while (current && --count) {
-            current = current->outer;
-        }
-        if (count != 0) {
-            return nullptr;
-        }
-        return current;
-    }
     Offset caretOffset();
     void gutter();
-};
-class EventContextBuilder {
-public:
-    inline static EventContext build(Document *doc) {
-        return EventContext(doc);
-    }
 };
 
 #endif //GEDITOR_EVENT_H

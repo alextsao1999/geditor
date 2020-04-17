@@ -62,7 +62,7 @@ struct Token {
 
 static GString symbols = _GT("+-*/");
 
-class Lexer {
+class GLexer {
     EventContext *context{};
     LineViewer viewer;
     const GChar *string{};
@@ -71,7 +71,7 @@ class Lexer {
     Token current;
     std::deque<Token> peeks;
 public:
-    explicit Lexer() = default;
+    explicit GLexer() = default;
     virtual void enter(EventContext *context);
     virtual bool has();
     virtual bool canNext();

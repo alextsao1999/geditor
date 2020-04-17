@@ -52,7 +52,7 @@ void Root::onDraw(EventContext &context, Drawable canvas) {
         if (ctx.visible()) {
             Offset offset = ctx.current()->getLogicOffset();
             if (context.isDocument()) {
-                offset -= context.getDocContext()->m_renderManager->getViewportOffset();
+                offset -= context.getRenderManager()->getViewportOffset();
             }
             auto bound = GRect::MakeXYWH(offset.x, offset.y, ctx.width(), ctx.height());
             int count = canvas->saveLayer(&bound, nullptr);

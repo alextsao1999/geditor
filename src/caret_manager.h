@@ -99,10 +99,7 @@ public:
     // 可视区光标位置
     Offset current();
     void focus(EventContext *sender, EventContext *context, bool force = false);
-    void set(Offset pos) {
-        m_relative = pos;
-        update();
-    }
+    void set(Offset pos, int index = 0);
     void set(int x, int y) { set(Offset(x, y)); }
     void update();
     bool next();

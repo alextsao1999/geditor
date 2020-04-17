@@ -44,7 +44,9 @@ struct Size {
 enum {
     StyleDeafault,
     StyleBorder,
+
     StyleTableFont,
+    StyleTableBackground,
     StyleTableBorder,
     StyleTableSelected,
 
@@ -78,6 +80,12 @@ public:
         CapButt,
         CapRound,
         CapSquare
+    };
+    enum BlurType {
+        BlurNormal,  //!< fuzzy inside and outside
+        BlurSolid,   //!< solid inside, fuzzy outside
+        BlurOuter,   //!< nothing inside, fuzzy outside
+        BlurInner,   //!< fuzzy inside, nothing outside
     };
     SkPaint m_paint;
     HFONT fFont = nullptr;
@@ -131,8 +139,18 @@ public:
                         points, colors, NULL, 2, SkShader::TileMode::kClamp_TileMode, 0, NULL))->unref();
 
     }
-    inline void setBlur(GColor color, GScalar sigma, GScalar x, GScalar y) {
+
+    inline void setBlur(GColor color, GScalar radius, GScalar x = 0, GScalar y = 0) {
+        auto sigma = SkBlurMask::ConvertRadiusToSigma(radius);
         m_paint.setLooper(SkBlurDrawLooper::Create(color, sigma, x, y))->unref();
+    }
+    inline void setDash() {
+        GScalar inter[2] = {3, 2};
+        m_paint.setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
+    }
+    inline void setBlurMask(GScalar radius, BlurType type = BlurNormal, int flags = 2) {
+        auto *mf = SkBlurMaskFilter::Create((SkBlurStyle) type, SkBlurMask::ConvertRadiusToSigma(radius), flags);
+        m_paint.setMaskFilter(mf)->unref();
     }
 };
 class StyleManager {
@@ -153,16 +171,24 @@ public:
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
+        paint.setBlur(SK_ColorLTGRAY, 3.5f, 0, 0);
         add(StyleTableFont, paint);
+
+        paint.reset();
+        paint.setStyle(GStyle::StyleFill);
+        paint.setColor(SK_ColorWHITE);
+        add(StyleTableBackground, paint);
 
         paint.reset();
         paint.setStyle(GStyle::StyleStroke);
         paint.setColor(SkColorSetRGB(148, 148, 148));
+        //paint.setBlur(SK_ColorLTGRAY, 2.5f, 0, 0);
         add(StyleTableBorder, paint);
 
         paint.reset();
         paint.setStyle(GStyle::StyleFillAndStroke);
         paint.setColor(SkColorSetRGB(204, 226, 254));
+        //paint.setBlur(SK_ColorLTGRAY, 3.5f, 0, 0);
         add(StyleTableSelected, paint);
 
         paint.setColor(SK_ColorWHITE);
@@ -172,17 +198,17 @@ public:
         paint.reset();
         paint.setStyle(GStyle::StyleFillAndStroke);
         paint.setColor(SkColorSetRGB(204, 226, 254));
+        //paint.setBlur(SK_ColorLTGRAY, 3.5f, 0, 0);
         add(StyleSelectedBackground, paint);
 
         paint.reset();
         paint.setTextSize(14);
-        paint.setFont("ËÎÌו");
+        //paint.setFont("DengXian");
         paint.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
         //paint.setFakeBoldText(true);
         paint.setAntiAlias(true);
         paint.setColor(SK_ColorBLACK);
-        //paint->setLooper(getLooper());
-
+        paint.setBlur(SK_ColorLTGRAY, 3.5f, 0, 0);
         add(StyleDeafaultFont, paint);
 
         paint.setColor(SkColorSetRGB(255, 165, 0));
@@ -208,7 +234,7 @@ public:
         paint.setColor(SK_ColorBLACK);
         paint.setAlpha(110);
         paint->setPathEffect(SkDashPathEffect::Create(inter, 2, 25))->unref();
-        paint.setBlur(SK_ColorBLACK, 10, 0, 2);
+        //paint.setBlur(SK_ColorBLACK, 10, 0, 2);
         add(StyleControlLine, paint);
 
     }

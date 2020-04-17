@@ -76,7 +76,7 @@ public:
         Offset pos = Offset{LOWORD(lParam), HIWORD(lParam)} + current.m_viewportOffset; \
         current.EVENT(current.m_root, pos.x, pos.y); }
     #define MsgCallFocus(name, ...) { \
-        auto _context = current.m_context.m_caretManager.m_context; \
+        auto _context = current.caret()->m_context; \
         context_on_ptr(_context.ptr(), name, ##__VA_ARGS__); }
     /////////////////////////////////////////////////////
     static int GetDragPosition(HWND hWnd, int nBar) {
@@ -88,7 +88,7 @@ public:
     }
     static LRESULT CALLBACK onWndProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam) {
         if (nMsg == WM_CREATE) {
-            SetTimer(hWnd, 1, 30, nullptr);
+            SetTimer(hWnd, 1, 60, nullptr);
         }
         auto *data = (GEditorData *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         if (!data || data->m_manager.m_documents.empty()) {
@@ -270,8 +270,8 @@ public:
             }
         }
         buffer.free();
-        data->current().layout();
-        data->m_render.refresh();
+        data->current().root().relayout();
+        data->current().render()->refresh();
         DragFinish(hDropInfo);
     }
     static void onPaint(HWND hWnd, GEditorData *data) {

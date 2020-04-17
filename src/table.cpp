@@ -208,11 +208,11 @@ void TextElement::onRedraw(EventContext &context) {
     auto state = context.outer->getSelectionState();
     auto *table = context.getOuter(2)->cast<TableElement>();
     int row = context.outer->index, col = context.index;
-    if (GColor color = table->getBackgroundColor(row, col)) {
-        GStyle paint;
-        paint.setColor(color);
-        canvas.drawRect(canvas.bound(0.5, 0.5), paint);
-    }
+
+    GStyle paint = context.getStyle(StyleTableBackground);
+    paint.setColor(table->getBackgroundColor(row, col));
+    canvas.drawRect(canvas.bound(0.5, 0.5), paint);
+
     if (context.isSelectedSelf()) {
         Offset start = context.relOffset(context.getDocContext()->getSelectStart());
         Offset end = context.relOffset(context.getDocContext()->getSelectEnd());
@@ -237,6 +237,7 @@ void TextElement::onRedraw(EventContext &context) {
         paint.setWidth(3);
         paint.setAntiAlias(true);
         paint.setStrokeCap(GStyle::CapRound);
+        paint.setBlur(SK_ColorLTGRAY, 3.5f, 0, 0);
         canvas.drawLine(0, 0, -8, 0, paint);
         canvas.rotate(90);
         canvas.drawLine(0, 0, -13, 0, paint);

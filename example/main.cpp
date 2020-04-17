@@ -49,7 +49,7 @@ void SaveToFile(GEditor *editor) {
     //std::codecvt_utf8_utf16<wchar_t> loc;
     //os.imbue(std::locale(std::locale("Chinese"), &loc));
     os.open(str);
-    OutputEventContext(os, editor->m_data->current().m_root);
+    OutputEventContext(os, editor->m_data->current().root());
     os.flush();
     os.close();
 */
@@ -73,11 +73,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                     auto *page = (ClassElement *) editor->m_data->current().get(0);
                     auto *sub = new SubElement();
                     sub->append(new AutoLineElement());
-                    editor->m_data->current().m_root.enter().insert(sub);
-                    editor->m_data->current().m_root.update();
+                    editor->m_data->current().root().enter().insert(sub);
+                    editor->m_data->current().root().update();
                 }
                 if (hObj == hButton2) {
-                    auto focus = editor->m_data->current().m_root.getCaretManager()->m_context;
+                    auto focus = editor->m_data->current().caret()->m_context;
                     if (auto *sub = focus->findOuter(TAG("Sub"))) {
                         auto *ele = sub->cast<SubElement>();
                         ele->addLocal(_GT(""), _GT(""));
@@ -147,8 +147,8 @@ void OpenEFile(Document *document) {
         }
     }
     buffer.free();
-    document->layout();
-    document->m_context.m_renderManager->refresh();
+    document->root().relayout();
+    document->render()->refresh();
 }
 int main() {
     CreateJPEGImageDecoder();
@@ -157,7 +157,7 @@ int main() {
     HWND hwnd = CreateMyWindow();
     auto *g = GEditorBuilder::build(hwnd, 10, 40);
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) g);
-    //OpenEFile(&g->m_data->m_document);
+    //OpenEFile(&g->m_data->current());
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
         if (!TranslateAccelerator(msg.hwnd, nullptr, &msg)) {

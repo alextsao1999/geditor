@@ -18,7 +18,7 @@ bool IsCodeChar(GChar ch) {
     return IsAlpha(ch) || ch == _HM_C('_') || (ch >= _GT('\u4E00') && ch <= _GT('\u9FA5'));
 }
 
-void Lexer::enter(EventContext *ctx) {
+void GLexer::enter(EventContext *ctx) {
     context = ctx;
     viewer = context->getLineViewer();
     string = viewer.c_str();
@@ -27,11 +27,11 @@ void Lexer::enter(EventContext *ctx) {
     peeks.clear();
 }
 
-bool Lexer::has() {
+bool GLexer::has() {
     return HAS_CHAR || !peeks.empty();
 }
 
-void Lexer::ParseSpace() {
+void GLexer::ParseSpace() {
     TOKEN_START();
     do {
         NEXT();
@@ -39,7 +39,7 @@ void Lexer::ParseSpace() {
     TOKEN_END(TokenSpace, StyleDeafaultFont);
 }
 
-void Lexer::ParseIdentifier() {
+void GLexer::ParseIdentifier() {
     TOKEN_START();
     do {
         NEXT();
@@ -53,7 +53,7 @@ void Lexer::ParseIdentifier() {
     }
 }
 
-void Lexer::ParseString() {
+void GLexer::ParseString() {
     TOKEN_START();
     GChar first = CURRENT_CHAR;
     NEXT();
@@ -68,7 +68,7 @@ void Lexer::ParseString() {
     TOKEN_END(TokenString, StyleStringFont);
 }
 
-void Lexer::ParseNumber() {
+void GLexer::ParseNumber() {
     TOKEN_START();
     do {
         NEXT();
@@ -76,7 +76,7 @@ void Lexer::ParseNumber() {
     TOKEN_END(TokenNumber, StyleNumberFont);
 }
 
-Token Lexer::next() {
+Token GLexer::next() {
     if (peeks.empty()) {
         ParseNextToken();
     } else {
@@ -86,7 +86,7 @@ Token Lexer::next() {
     return CURRENT_TOKEN;
 }
 
-Token Lexer::peek(int num) {
+Token GLexer::peek(int num) {
     while (peeks.size() < num) {
         ParseNextToken();
         if (CURRENT_TOKEN == TokenEol) {
@@ -97,7 +97,7 @@ Token Lexer::peek(int num) {
     return peeks[num - 1];
 }
 
-void Lexer::ParseNextToken() {
+void GLexer::ParseNextToken() {
     if (!has()) {
         CURRENT_TOKEN = Token();
         current.type = TokenEol;
@@ -133,7 +133,7 @@ void Lexer::ParseNextToken() {
     }
 }
 
-bool Lexer::canNext() {
+bool GLexer::canNext() {
     return CURRENT_POS < length - 1;
 }
 

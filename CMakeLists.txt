@@ -22,6 +22,8 @@ if (MSVC)
 endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
+
+set(BUILD_SHARED ON)
 add_subdirectory(third_party)
 
 include_directories(src/)
@@ -30,7 +32,7 @@ aux_source_directory(src/ sources)
 source_group("Header Files" FILES ${headers})
 source_group("Source Files" FILES ${sources})
 add_library(geditor STATIC ${sources} ${headers})
-target_link_libraries(geditor PUBLIC skia ecode lsp)
+target_link_libraries(geditor PUBLIC skia ecode lsp lalr)
 
 add_executable(main example/main.cpp)
 target_link_libraries(main geditor)
@@ -39,6 +41,10 @@ add_library(editor
         SHARED
         example/dll.h
         example/dll.cpp)
-target_link_libraries(editor geditor lalr)
+target_link_libraries(editor geditor)
 
 add_subdirectory(platform/qt)
+
+add_executable(test
+        example/test.cpp)
+target_link_libraries(test lalr)

@@ -13,7 +13,6 @@
 #include "memory.h"
 
 struct EventContext;
-typedef int (WINAPI *CallBack)(EventContext *, int, int);
 
 #define GUNICODE
 

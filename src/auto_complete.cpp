@@ -57,7 +57,7 @@ public:
 CompleteDocument::CompleteDocument(RenderManager *render, DocumentManager *mgr) :
 Document(render, mgr), m_context(render) {
     Container::append(new CompleteList());
-    layout();
+    root().relayout();
     //m_root.redraw();
 }
 

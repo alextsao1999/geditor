@@ -11,7 +11,7 @@ Margin::Margin(Document *doc) : m_doc(doc) {
 }
 
 void Margin::update() {
-    int count = m_doc->context()->m_textBuffer.getLineCount();
+    int count = m_doc->buffer()->getLineCount();
     m_lineWidth = (int(std::log10(count)) + 1) * m_charWidth + 15;
 
 }
@@ -35,7 +35,7 @@ int Margin::index(Offset offset) {
 }
 
 void Margin::draw() {
-    if (auto *render = (WindowRenderManager *) m_doc->context()->m_renderManager) {
+    if (auto *render = (WindowRenderManager *) m_doc->render()) {
         GScalar height = SkIntToScalar(render->getViewportSize().height);
         SkPaint paint;
         paint.setColor(SK_ColorLTGRAY);
@@ -48,7 +48,7 @@ void Margin::drawGutter(EventContext *context) {
     SkPaint style = context->getStyle();
     style.setColor(SK_ColorLTGRAY);
     style.setTextAlign(SkPaint::Align::kRight_Align);
-    if (auto *render = (WindowRenderManager *) m_doc->m_context.m_renderManager) {
+    if (auto *render = (WindowRenderManager *) m_doc->render()) {
         Offset view = context->viewportOffset();
         view.x = m_lineWidth - 5;
         render->m_canvas->drawText(string.c_str(), string.size() * 2,

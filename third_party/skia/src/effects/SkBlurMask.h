@@ -13,7 +13,7 @@
 #include "SkMask.h"
 #include "SkRRect.h"
 
-class SkBlurMask {
+class SK_API SkBlurMask {
 public:
     static bool BlurRect(SkScalar sigma, SkMask *dst, const SkRect &src, SkBlurStyle,
                          SkIPoint *margin = NULL,

@@ -1,6 +1,5 @@
 # Created By Alex Tsao 2019/9/21
 cmake_minimum_required(VERSION 3.10.2)
-set(BUILD_SHARED OFF)
 if (CMAKE_COMPILER_IS_GNUCC)
 	set(CMAKE_CXX_FLAGS " -msse4.1 -msse2 -mssse3 -fno-stack-protector -fno-strict-aliasing -fno-rtti -fPIC -fvisibility=hidden ${CMAKE_CXX_FLAGS}")
 	set(CMAKE_C_FLAGS " -msse4.1 -msse2 -mssse3 -fno-stack-protector -fno-strict-aliasing -fPIC -fvisibility=hidden ${CMAKE_C_FLAGS}")
@@ -63,11 +62,6 @@ aux_source_directory(src/gpu/gl skia_src_gpu)
 aux_source_directory(src/gpu/gl/builders skia_src_gpu)
 aux_source_directory(src/gpu/gl/debug skia_src_gpu)
 
-if (BUILD_SHARED)
-	list(REMOVE_ITEM skia_src_gpu
-			src/gpu/GrLayerHoister.cpp
-			src/gpu/SkGpuDevice.cpp)
-endif ()
 if (MSVC)
 	list(REMOVE_ITEM skia_src_gpu
 			src/gpu/gl/GrGLCreateNativeInterface_none.cpp

@@ -36,9 +36,34 @@ public:
     }
     void onRequest(string_ref method, value &params, value &ID) override {}
 };
+using namespace lalr;
 class NewDocument : public MarginDocument {
 public:
     explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
+        m_grammer = new GrammarCompiler();
+        const char* grammar =
+                "Cpp {\n"
+                "   %whitespace \"[ \\r\\n]*\";\n"
+                "   tokens: tokens token | contents | token;\n"
+                "   contents: identifier '{' tokens '}' [12, 8, 0, 8] | identifier '{' '}' [8, 8, 8];"
+                "   token:  identifier [9] | number [12] | next [8];\n"
+                "   number: \"[0-9]*\\.?[0-9]+\";\n"
+                "   identifier: \"[A-Za-z\\x4e00-\\x9fa5_][A-Za-z0-9\\x4e00-\\x9fa5_]*\";\n"
+                "   next: \".\";"
+                "}"
+        ;
+        m_grammer->compile(grammar, strlen(grammar) + grammar);
+        //printf("%s", grammar);
+        Document::append(new AutoLineElement());
+        auto *table = new TableElement(2, 5);
+        table->getItem(0, 2)->m_radio = true;
+        table->addRow(2);
+        table->addRow(3);
+        Document::append(table);
+        Document::append(new AutoLineElement());
+        buffer()->appendLine().append(_GT("return 0;"));
+        buffer()->appendLine().append(_GT("return 0;"));
+        root().relayout();
 /*
         auto *doc = new ClassElement();
         for (int i = 0; i < 2; ++i) {
@@ -52,12 +77,6 @@ public:
             m_context.m_textBuffer.appendLine().append(_GT("return 0;"));
         }
         Document::append(doc);
-*/
-
-/*
-        Document::append(new AutoLineElement());
-        m_context.m_textBuffer.appendLine().append(_GT("return 0;"));
-        layout();
 */
     }
     void Open () {
@@ -77,8 +96,8 @@ public:
     std::string getContent() {
         std::string content;
         std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-        for (auto &line : m_context.m_textBuffer.m_buffer) {
-            content.append(conv.to_bytes(line.content + _GT("\r\n")));
+        for (auto &line : buffer()->iter()) {
+            content.append(conv.to_bytes(line.content() + _GT("\r\n")));
         }
         return content;
     }
@@ -106,7 +125,7 @@ public:
             }
         }
         buffer.free();
-        layout();
+        root().relayout();
     }
 };
 class FileDocument : public MarginDocument {
@@ -119,8 +138,8 @@ public:
     std::string getContent() {
         std::string content;
         std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-        for (auto &line : m_context.m_textBuffer.m_buffer) {
-            content += conv.to_bytes(line.content + _GT("\r\n"));
+        for (auto &line : buffer()->iter()) {
+            content += conv.to_bytes(line.content() + _GT("\r\n"));
         }
         return content;
     }
@@ -247,7 +266,7 @@ public:
                 m_client->SignatureHelp(current()->getUri(), context.position());
             }
         }
-        if (&context == context.getCaretManager()->getEventContext()) {
+        if (&context == context.document()->caret()->getEventContext()) {
             CompletionContext ctx;
             auto pos = context.position(); // -1
             pos.character--;
@@ -264,6 +283,5 @@ public:
     }
 
 };
-
 
 #endif //GEDITOR_DOC_MANAGER_H

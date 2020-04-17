@@ -16,13 +16,12 @@ FileDocument::FileDocument(DocumentManager *mgr, string_ref path, string_ref lan
             text.append("\r\n");
         }
         Container::append(new AutoLineElement());
-        str = &m_context.m_textBuffer.appendLine().content();
-
+        str = &buffer()->appendLine().content();
     } while (std::getline(is, *str));
     if (mgr->m_client)
         mgr->m_client->DidOpen(uri.str(), text, languageId);
     is.close();
-    layout();
+    root().relayout();
 }
 
 void FileDocument::onContentChange(EventContext &context, CommandType type, CommandData data) {

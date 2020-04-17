@@ -92,9 +92,9 @@ using PointVec = Buffer<GPoint>;
 class TextCaretService {
 protected:
     Offset m_offset;
-    Offset m_move;
-    EventContext* m_context = nullptr;
+    Offset m_move; // Relative Offset
     int m_index = 0; // 没有匹配到m_move 就直接设置index
+    EventContext* m_context = nullptr;
 public:
     TextCaretService(const Offset& offset, EventContext* context) : m_offset(offset), m_context(context) {
         m_index = m_context->getCaretManager()->data().index;
@@ -120,6 +120,17 @@ public:
         return commit(string.c_str(), string.length() * sizeof(GChar), m_context->getStyle(style));
     }
     bool commit(const void* text, size_t bytelength, GStyle& paint, GRect* bound = nullptr) {
+/*
+        RectVec buffer;
+        breakText(text, bytelength, paint, buffer);
+        int hit = getIndex(buffer, m_move); // 命中index
+        if (hit == 0) {
+            hit = m_index;
+        }
+        Offset set = getRelOffset(buffer, hit);
+        show(set, hit);
+        return hit >= 0 && hit <= buffer.size();
+*/
         bool res; // 是否未越界
         int index = m_index;
         int length = paint.countText(text, bytelength);
@@ -127,9 +138,9 @@ public:
         RectVec rects(length);
         paint.getTextWidths(text, bytelength, widths.data(), rects.data());
         GScalar size = paint.getTextSize();
-        int width = 0;
+        GScalar width = 0;
         for (int i = 0; i < length; ++i) {
-            rects[i].offset(m_offset.x + width, size + (SkScalar)m_offset.y);
+            rects[i].offsetTo((GScalar) m_offset.x + width, size + (GScalar) m_offset.y);
             if (SkIntToScalar(m_move.x) >= rects[i].x()) {
                 if (SkIntToScalar(m_move.x) > rects[i].centerX()) {
                     index = i + 1;
@@ -167,21 +178,20 @@ public:
     }
     void show(Offset offset, int index) {
         CaretManager *m_caret = m_context->getCaretManager();
-        m_caret->data().set(index, m_context->absOffset(offset));
-        m_caret->set(offset);
+        m_caret->set(offset, index);
     }
     bool breakText(const void *text,  size_t bytelength, GStyle &paint, RectVec &rects) {
         int length = paint.countText(text, bytelength);
         if (length <= 0) {
             return false;
         }
-        Buffer<SkScalar> widths(length);
+        Buffer<GScalar> widths(length);
         rects.resize(length);
         paint.getTextWidths(text, bytelength, widths.data(), rects.data());
-        SkScalar size = paint.getTextSize();
-        int width = 0;
+        GScalar size = paint.getTextSize();
+        GScalar width = 0;
         for (int i = 0; i < length; ++i) {
-            rects[i].offset(m_offset.x + width, size + (SkScalar) m_offset.y);
+            rects[i].offsetTo((GScalar) m_offset.x + width, size + (GScalar) m_offset.y);
             width += widths[i];
         }
         if (rects.back().width() == 0) {
@@ -226,8 +236,7 @@ public:
     Offset getAbsOffset(RectVec &rects, int index) {
         return m_context->absOffset(getRelOffset(rects, index));
     }
-    int getIndex(RectVec &rects, int x, int y) {
-        Offset offset = Offset{x, y} - m_context->offset();
+    int getIndex(RectVec &rects, Offset offset) {
         int index = 0;
         for (int i = 0; i < rects.size(); ++i) {
             if (SkIntToScalar(offset.x) >= rects[i].x()) {
@@ -242,6 +251,15 @@ public:
             index = rects.size() + index + 1;
         }
         return index;
+    }
+    int getIndex(RectVec &rects, int x, int y) {
+        return getIndex(rects, m_context->relOffset(Offset(x, y)));
+    }
+    void getPoints(RectVec &rects, PointVec &pts) {
+        pts.ensureCapacity(rects.size());
+        for (auto &rect : rects) {
+            pts.push({rect.left(), rect.top()});
+        }
     }
     static int GetIndex(EventContext &context, Offset offset, int x, int y) {
         TextCaretService service(offset, &context);
@@ -260,12 +278,6 @@ public:
         RectVec rects;
         service.breakText(rects);
         return service.getCaretPos(rects, index);
-    }
-    static void GetPoints(RectVec &rects, PointVec &pts) {
-        pts.resize(rects.size());
-        for (auto &rect : rects) {
-            pts.push({rect.left(), rect.right()});
-        }
     }
 };
 class OffsetCaretService {
@@ -781,23 +793,38 @@ class SyntaxLineElement : public LineElement {
 public:
     Element *copy() override { return new SyntaxLineElement(); }
     void onRedraw(EventContext &context) override {
-        TextCaretService service(padding(), &context);
+        TextCaretService service(location(), &context);
         RectVec rects;
+        PointVec pts;
         service.breakText(rects);
-
+        service.getPoints(rects, pts);
         context.gutter();
         auto canvas = context.getCanvas();
         drawSelection(context);
-
-        GStyle border;
-        if (context.isSelectedRow()) {
-            border.setStyle(GStyle::StyleFillAndStroke);
-        } else {
-            border.setStyle(GStyle::StyleStroke);
+        //canvas.drawText(viewer.c_str(), viewer.size(), location().x - 1, location().y + 2);
+        if (auto *grammer = context.document()->m_grammer) {
+            using namespace lalr;
+            Parser<const wchar_t *, int> parser(grammer->parser_state_machine());
+            parser.set_default_action_handler([&](const int *value,
+                    const ParserNode<wchar_t> *nodes,
+                    size_t length,
+                    const char * id) {
+                int current = 0;
+                do {
+                    while (*id < '0' || *id > '9')
+                        id++;
+                    int style = std::atoi(id);
+                    auto &token = nodes[current].lexeme();
+                    int index = nodes[current].column() - 1;
+                    canvas.drawPosText(token.c_str(), token.length() * sizeof(GChar), &pts[index], style);
+                    current++;
+                } while((id = strchr(id, ',')));
+                return 0;
+            });
+            LineViewer viewer = context.getLineViewer();
+            parser.parse(viewer.c_str(), viewer.c_str() + viewer.length());
+            return;
         }
-        border.setColor(SK_ColorLTGRAY);
-        //canvas.drawRect(canvas.bound(0.5, 0.5), border);
-
         auto *lexer = context.getLexer();
         canvas.translate(location());
         while (lexer->has()) {
@@ -811,6 +838,7 @@ public:
             canvas.drawText(token.c_str(), token.size(), 0, 0, style);
             canvas.translate(style.measureText(token.c_str(), token.size()), 0);
         }
+
     }
 };
 class AutoLineElement : public SyntaxLineElement {
@@ -830,6 +858,7 @@ public:
     void onMouseLeave(EventContext &context, int x, int y) override;
     void onRedraw(EventContext &context) override {
         SyntaxLineElement::onRedraw(context);
+        //onDrawTips(context);
         if (context.getLineViewer().flags() & LineFlagExpand) {
             Canvas canvas = context.getCanvas();
             GStyle paint;
@@ -840,6 +869,83 @@ public:
             canvas.drawRect(rect, paint);
         }
     }
+    void onDrawTips(EventContext &context) {
+        if (context.isFocusIn()) {
+            Canvas canvas = context.getCanvas();
+            GRect bound = GRect::MakeWH(400, 40);
+            canvas.translate(0, -bound.height() - 5);
+            GStyle style;
+            style.setAntiAlias(true);
+            style.setStyle(GStyle::StyleStroke);
+            style.setColor(SK_ColorBLACK);
+            style.setAlpha(150);
+            style.setWidth(0.5f);
+            canvas->drawRoundRect(bound, 4, 4, style);
+            style.setStyle(GStyle::StyleFill);
+            style.setAlpha(80);
+            //style.setBlur(SK_ColorLTGRAY, 20);
+            //style.setBlurMask(20);
+
+            canvas->drawRoundRect(bound, 4, 4, style);
+
+        }
+    }
+};
+class ASTNodeElement : public RelativeElement {
+public:
+
+};
+class ASTLine : public ASTNodeElement {
+public:
+
+};
+class ASTLexme : public ASTNodeElement {
+public:
+    int m_line;
+    std::string m_lexme;
+};
+class ASTList : public ASTNodeElement {
+public:
+    /**
+     * 1. element { (7)
+     * 2.   element {   ---> [0] (3)
+     * 3.     node
+     * 4.   }
+     * 5.   element {   ---> [1] (3)
+     * 6.     node
+     * 7.   } }
+     * 8. }
+     * 9. element { element { none } }
+     *
+     * 1. element { element {
+     * 2.  none }
+     * 3. } element {
+     * 4.
+     * 5. }
+     */
+    std::string m_name; // element
+    std::vector<ASTNodeElement *> m_children;
+    int m_lines;
+    explicit ASTList(int line) : m_lines(line) {
+
+    }
+    int getLineNumber() override { return m_lines; }
+
+};
+class ASTElement : public RelativeElement {
+public:
+    std::vector<ASTList> m_lines;
+    explicit ASTElement() {
+        m_lines.emplace_back(1);
+    }
+    int getLineNumber() override {
+        int lines = 0;
+        for (auto & m_line : m_lines) {
+            lines += m_line.getLineNumber();
+        }
+        return lines;
+    }
+
 };
 class TextElement : public RelativeElement {
 public:

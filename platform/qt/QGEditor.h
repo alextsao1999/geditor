@@ -32,7 +32,7 @@ public:
             return;
         }
         auto *current = m_manager.current();
-        current->onRedraw(current->m_root);
+        current->onRedraw(current->root());
     }
     void resize() override {
         int width = m_widget->width(), height = m_widget->height();

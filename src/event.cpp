@@ -10,15 +10,15 @@
 #define CheckBound(ret) if (OutOfBound()) return ret
 
 LineViewer EventContext::getLineViewer(int offset, bool pushCommand) {
-    return doc->context()->m_textBuffer.getLine(getCounter(), offset, pushCommand ? this : nullptr);
+    return document()->buffer()->getLine(line() + offset, pushCommand ? this : nullptr);
 }
-Painter EventContext::getPainter() { return doc->context()->m_renderManager->getPainter(this); }
-Canvas EventContext::getCanvas() { return doc->context()->m_renderManager->getCanvas(this); }
+Painter EventContext::getPainter() { return doc->render()->getPainter(this); }
+Canvas EventContext::getCanvas() { return doc->render()->getCanvas(this); }
 bool EventContext::canEnter() { return element && element->onCanEnter(*this); }
 bool EventContext::hasChild() { return element && element->getHead() != nullptr; }
 EventContext EventContext::enter(int idx) { return EventContext(this, idx); }
-RenderManager *EventContext::getRenderManager() { return doc->context()->m_renderManager; }
-LayoutManager *EventContext::getLayoutManager() { return &doc->context()->m_layoutManager; }
+RenderManager *EventContext::getRenderManager() { return doc->render(); }
+LayoutManager *EventContext::getLayoutManager() { return doc->layouter(); }
 CaretManager *EventContext::getCaretManager() { return &doc->context()->m_caretManager; }
 
 int EventContext::count() {
@@ -51,9 +51,9 @@ void EventContext::reflow(bool relayout) {
     doc->context()->m_caretManager.update(); // reflow之后更新光标位置
 }
 void EventContext::relayout() {
-    element->onRelayout(*this, getLayoutManager());
+    element->onRelayout(*this, document()->layouter());
 }
-void EventContext::redraw() { doc->context()->m_renderManager->redraw(this); }
+void EventContext::redraw() { doc->render()->redraw(this); }
 void EventContext::focus(bool isCopy, bool force, EventContext *sender) {
     if (!element) {
         return;
@@ -96,11 +96,11 @@ GRect EventContext::viewportRect() {
 }
 Offset EventContext::viewportOffset() {
     CheckBound({});
-    return offset() - caretOffset() - doc->context()->m_renderManager->getViewportOffset();
+    return offset() - caretOffset() - doc->render()->getViewportOffset();
 }
 Offset EventContext::viewportLogicOffset() {
     CheckBound({});
-    return element->getLogicOffset() - doc->context()->m_renderManager->getViewportOffset();
+    return element->getLogicOffset() - doc->render()->getViewportOffset();
 }
 Offset EventContext::offset() {
     CheckBound({});
@@ -140,7 +140,7 @@ void EventContext::timer(long long interval, int id, int count) {
 
 Context *EventContext::getDocContext() { return doc->context(); }
 
-StyleManager *EventContext::getStyleManager() { return &getDocContext()->m_styleManager; }
+StyleManager *EventContext::getStyleManager() { return doc->style(); }
 
 SelectionState EventContext::getSelectionState() {
     CheckBound(SelectionNone);
@@ -219,13 +219,13 @@ bool EventContext::isSelectedRow() {
 
 bool EventContext::visible() {
     CheckBound(false);
-    Size size = doc->m_context.m_renderManager->getViewportSize();
-    return GRect::Intersects(GRect::MakeWH(size.width, size.height), viewportRect()) && display() != DisplayNone;
+    auto rect = doc->render()->getViewportRect();
+    return GRect::Intersects(rect, viewportRect()) && display() != DisplayNone;
 }
 
 bool EventContext::isSelecting() { return getDocContext()->m_selecting; }
 
-Lexer *EventContext::getLexer() {
+GLexer *EventContext::getLexer() {
     getDocContext()->m_lexer.enter(this);
     return &getDocContext()->m_lexer;
 }
@@ -236,7 +236,7 @@ bool EventContext::isTail() { return element && element->isTail(*this); }
 void EventContext::replace(Element *new_element, bool pushCommand) {
     if (element) {
         if (pushCommand) {
-            EventContext *caret = getCaretManager()->getEventContext();
+            EventContext *caret = document()->caret()->getEventContext();
             push(CommandType::ReplaceElement, CommandData(caret->copy(), new_element));
         }
         element = element->onReplace(*this, new_element);
@@ -305,7 +305,7 @@ bool EventContext::isMouseIn() {
 }
 
 bool EventContext::isFocusIn() {
-    return compare(getCaretManager()->getEventContext());
+    return compare(document()->caret()->getEventContext());
 }
 
 void EventContext::gutter() {
@@ -317,16 +317,12 @@ bool EventContext::contains(int line) {
 }
 
 void EventContext::insertLine(int offset, int count) {
-    for (int i = 0; i < count; ++i) {
-        getDocContext()->m_textBuffer.insertLine(getCounter(), offset);
-    }
+    document()->buffer()->insertLines(line() + offset, count);
     document()->onLineChange(*this, count);
 }
 
 void EventContext::deleteLine(int offset, int count) {
-    for (int i = 0; i < count; ++i) {
-        getDocContext()->m_textBuffer.deleteLine(getCounter(), offset);
-    }
+    document()->buffer()->deleteLines(line() + offset, count);
     document()->onLineChange(*this, -count);
 }
 

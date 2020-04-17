@@ -76,11 +76,11 @@ struct SubVisitor : Visitor {
         return ToGString(key.value);
     }
     void process(ASTFunCall *node) override {
-        lineViewer = document->context()->m_textBuffer.appendLine();
+        lineViewer = document->buffer()->appendLine();
         processing->current->append(ge_new(AutoLineElement));
     }
     void process(ASTVariable *node) override {
-        lineViewer = document->context()->m_textBuffer.appendLine();
+        lineViewer = document->buffer()->appendLine();
         processing->current->append(ge_new(AutoLineElement));
     }
     void visit(ASTProgram *node) override {

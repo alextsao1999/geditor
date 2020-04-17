@@ -14,6 +14,8 @@
 #include "client.h"
 #include "parser.h"
 #include "margin.h"
+#include <lalr/Parser.hpp>
+#include <lalr/GrammarCompiler.hpp>
 
 #define DEFINE_EVENT(EVENT, ...) virtual void EVENT(EventContext &context, ##__VA_ARGS__) {}
 #define DEFINE_EVENT2(EVENT) \
@@ -587,6 +589,11 @@ public:
 };
 class Document : public Container<DisplayBlock> {
 public:
+    typedef int (WINAPI *CallBack)(EventContext *, int, int);
+    typedef int (WINAPI *LexerHandler)(EventContext *, int, int);
+    using Grammer = lalr::GrammarCompiler;
+    Grammer *m_grammer = nullptr;
+    LexerHandler m_lexer = nullptr;
     CallBack m_onBlur = nullptr;
     Context m_context;
     Offset m_mouse;
@@ -599,12 +606,16 @@ public:
     Tag getTag(EventContext &context) override { return TAG("Document"); }
     DocumentManager *getDocumentManager() { return m_manager; }
     virtual string_ref getUri() { return nullptr; }
+public:
     virtual Margin *margin() { return nullptr; }
     inline Context *context() { return &m_context; }
-    void layout() {
-        setViewportOffset(m_viewportOffset);
-        m_root.relayout();
-    }
+    inline TextBuffer *buffer() { return &m_context.m_textBuffer; }
+    inline EventContext &root() { return m_root; }
+    inline CaretManager *caret() { return &m_context.m_caretManager; }
+    inline StyleManager *style() { return &m_context.m_styleManager; }
+    inline RenderManager *render() { return m_context.m_renderManager; }
+    inline LayoutManager *layouter() { return &m_context.m_layoutManager; }
+public:
     void undo() {
         m_context.clearSelect();
         if (m_context.m_queue.has()) {
@@ -644,7 +655,7 @@ public:
     ///////////////////////////////////////////////////////////////////
     Offset getLogicOffset() override { return {0, 0}; }
     int getLogicWidth(EventContext &context) override {
-        return m_context.m_renderManager->getViewportSize().width - 50;
+        return render()->getViewportSize().width - 50;
     }
     void setViewportOffset(Offset offset) {
         /*
@@ -676,7 +687,7 @@ public:
     void onFinishReflow(EventContext &context, Offset &offset, LayoutContext &layout) override {
         Container::onFinishReflow(context, offset, layout);
         m_height += 200;
-        m_context.m_renderManager->setVertScroll(m_height);
+        render()->setVertScroll(m_height);
     }
     virtual void onLineChange(EventContext &event, int num) {}
     virtual void onContentChange(EventContext &event, CommandType type, CommandData data) {}
@@ -693,7 +704,7 @@ public:
     }
     void onKeyCommand(KeyState key) override {
         auto command = m_context.m_keyMap.lookUp(key);
-        EventContext *ctx = m_context.m_caretManager.getEventContext();
+        EventContext *ctx = caret()->getEventContext();
         if (command == KeyCommand::CD) {
             ctx->getLineViewer().flags() |= LineFlagFold;
             ctx->redraw();

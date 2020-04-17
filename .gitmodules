@@ -3,4 +3,4 @@
 	url = https://github.com/alextsao1999/lsp-cpp
 [submodule "third_party/lalr"]
 	path = third_party/lalr
-	url = https://github.com/cwbaker/lalr
+	url = https://github.com/alextsao1999/lalr

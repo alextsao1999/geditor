@@ -20,16 +20,18 @@ EXPORT_API void WINAPI DeleteGEditor(GEditor *editor) {
     delete editor;
 }
 EXPORT_API HWND WINAPI GEditorGetHWnd(GEditor *editor) { return editor->m_hWnd; }
-EXPORT_API void WINAPI GEditorSetOnBlur(GEditor *editor, CallBack callback) {
+EXPORT_API void WINAPI GEditorSetOnBlur(GEditor *editor, Document::CallBack callback) {
     editor->m_data->current().m_onBlur = callback;
 }
 EXPORT_API void WINAPI GEditorSetStyle(GEditor *editor, int style_id, GColor color) {
-    GStyle &style = editor->m_data->current().m_context.m_styleManager.get(style_id);
+    GStyle style; //= editor->m_data->current().m_context.m_styleManager.get(style_id);
     style.setColor(color);
     style.setTextSize(14);
+    style.setFont("ËÎÌו");
     style.setTextEncoding(SkPaint::TextEncoding::kUTF16_TextEncoding);
     style.setAntiAlias(true);
-    //editor->m_data->current().m_context.m_styleManager.set(style_id, style);
+    style.setBlur(SK_ColorLTGRAY, 3.5f, 0, 0);
+    editor->m_data->current().style()->set(style_id, style);
 }
 EXPORT_API void WINAPI GEditorAddKeyword(GEditor *editor, int style, const char *keyword) {
     editor->m_data->m_manager.m_keywords.emplace(AnsiToUnicode(keyword), style);
@@ -38,8 +40,8 @@ EXPORT_API void WINAPI GEditorSetColor(GEditor *editor, int style, GColor color)
     editor->m_data->current().m_context.m_styleManager.get(style).setColor(color);
 }
 EXPORT_API void WINAPI GEditorRelayout(GEditor *editor) {
-    editor->m_data->current().m_root.relayout();
-    editor->m_data->current().m_root.redraw();
+    editor->m_data->current().root().relayout();
+    editor->m_data->current().root().redraw();
 }
 EXPORT_API int WINAPI GEditorSendMsg(GEditor *editor, int msg, int param, int value) {
     #define MSG_LoadDcr 0
@@ -68,7 +70,7 @@ EXPORT_API int WINAPI GEditorSendMsg(GEditor *editor, int msg, int param, int va
     }
     if (msg == MSG_Redraw) {
         auto &target = editor->m_data->m_render.target();
-        target.onRedraw(target.m_root);
+        target.onRedraw(target.root());
         target.m_context.m_caretManager.onDraw();
     }
     if (msg == MSG_Copy) {
@@ -98,6 +100,7 @@ EXPORT_API void WINAPI GEditorLSPNotify(GEditor *editor, const char *method, jso
     auto uri = editor->m_data->m_manager.current()->getUri();
     editor->m_data->m_manager.m_client->SendNotify(method, json);
 }
+
 EXPORT_API int WINAPI GEditorDocumentOpenFile(GEditor *editor, const char *path) {
     return editor->m_data->m_manager.openFile(path);
 }
@@ -176,12 +179,12 @@ EXPORT_API void WINAPI GEditorDocumentApplyChange(GEditor *editor, json &value) 
     if (range.start.line == range.end.line) {
 
     }
-    EventContextRef ref(editor->m_data->current().m_root.findLine(range.start.line));
+    EventContextRef ref(editor->m_data->current().root().findLine(range.start.line));
 
 }
 
 CaretPos PositionToCaretPos(GEditor *editor, Position &positon, bool focus = false) {
-    EventContext *ctx = editor->m_data->current().m_root.findLine(positon.line);
+    EventContext *ctx = editor->m_data->current().root().findLine(positon.line);
     CaretPos pos = TextCaretService::GetCaretPos(*ctx, {4, 6}, positon.character);
     if (focus) {
         ctx->pos().setIndex(positon.character);
@@ -206,51 +209,83 @@ EXPORT_API EventContext *WINAPI GEditorGetFocus(GEditor *editor) {
     return editor->m_data->current().m_context.m_caretManager.getEventContext();
 }
 EXPORT_API EventContext *WINAPI GEditorGetRoot(GEditor *editor) {
-    return &editor->m_data->current().m_root;
+    return &editor->m_data->current().root();
 }
 EXPORT_API Document *WINAPI GEditorGetDocument(GEditor *editor) {
     return &editor->m_data->current();
 }
 
 EXPORT_API int WINAPI GEditorGetLineCount(GEditor *editor) {
-    return editor->m_data->current().m_context.m_textBuffer.getLineCount();
+    return editor->m_data->current().buffer()->getLineCount();
 }
+EXPORT_API void WINAPI GEditorLineSetFlags(GEditor *editor, int line, int flags) {
+    LineViewer viewer = editor->m_data->current().buffer()->getLine(line);
+    viewer.flags() = flags;
+}
+EXPORT_API int WINAPI GEditorLineGetFlags(GEditor *editor, int line) {
+    LineViewer viewer = editor->m_data->current().buffer()->getLine(line);
+    return viewer.flags();
+}
+
 EXPORT_API void WINAPI GEditorLineInsert(GEditor *editor, int line, const char *string) {
-    auto viewer = editor->m_data->current().m_context.m_textBuffer.insertLine(line);
+    auto viewer = editor->m_data->current().buffer()->insertLine(line);
+    if (string) {
+        viewer.append(A2W(string));
+    }
+}
+EXPORT_API void WINAPI GEditorLineInsertW(GEditor *editor, int line, const wchar_t *string) {
+    auto viewer = editor->m_data->current().buffer()->insertLine(line);
     if (string) {
         viewer.append(A2W(string));
     }
 }
 EXPORT_API int WINAPI GEditorLineAppend(GEditor *editor, const char *string) {
-    LineViewer line = editor->m_data->current().m_context.m_textBuffer.appendLine();
-    line.content().append(A2W(string));
+    LineViewer line = editor->m_data->current().buffer()->appendLine();
+    if (string != nullptr) {
+        line.content().assign(A2W(string));
+    }
+    return line.m_line;
+}
+EXPORT_API int WINAPI GEditorLineAppendW(GEditor *editor, const wchar_t *string) {
+    LineViewer line = editor->m_data->current().buffer()->appendLine();
+    if (string) {
+        line.content().assign(string);
+    }
     return line.m_line;
 }
 EXPORT_API void WINAPI GEditorLineDelete(GEditor *editor, int line) {
-    editor->m_data->current().m_context.m_textBuffer.deleteLine(line);
+    editor->m_data->current().buffer()->deleteLine(line);
 }
 EXPORT_API void WINAPI GEditorLineSetString(GEditor *editor, int line, const char *string) {
-    LineViewer viewer = editor->m_data->current().m_context.m_textBuffer.getLine(line);
-    viewer.content().assign(A2W(string));
+    LineViewer viewer = editor->m_data->current().buffer()->getLine(line);
+    if (string) {
+        viewer.content().assign(A2W(string));
+    }
 }
-EXPORT_API void WINAPI GEditorLineSetFlags(GEditor *editor, int line, int flags) {
-    LineViewer viewer = editor->m_data->current().m_context.m_textBuffer.getLine(line);
-    viewer.flags() = flags;
-}
-EXPORT_API int WINAPI GEditorLineGetFlags(GEditor *editor, int line) {
-    LineViewer viewer = editor->m_data->current().m_context.m_textBuffer.getLine(line);
-    return viewer.flags();
+EXPORT_API void WINAPI GEditorLineSetStringW(GEditor *editor, int line, const wchar_t *string) {
+    LineViewer viewer = editor->m_data->current().buffer()->getLine(line);
+    if (string) {
+        viewer.content().assign(string);
+    }
 }
 EXPORT_API int WINAPI GEditorLineGetLength(GEditor *editor, int line) {
-    auto &string = editor->m_data->current().m_context.m_textBuffer.getLine(line).content();
+    auto &string = editor->m_data->current().buffer()->getLine(line).content();
     return WideCharToMultiByte(0, 0, &string.front(), string.length(), 0, 0, 0, 0);
 }
+EXPORT_API int WINAPI GEditorLineGetLengthW(GEditor *editor, int line) {
+    auto &string = editor->m_data->current().buffer()->getLine(line).content();
+    return string.length();
+}
 EXPORT_API void WINAPI GEditorLineGetString(GEditor *editor, int line, char *string, int length) {
-    auto &content = editor->m_data->current().m_context.m_textBuffer.getLine(line).content();
+    auto &content = editor->m_data->current().buffer()->getLine(line).content();
     if (content.length() == 0) {
         return;
     }
     WideCharToMultiByte(0, 0, &content.front(), content.length(), string, length, 0, 0);
+}
+EXPORT_API const wchar_t *WINAPI GEditorLineGetStringW(GEditor *editor, int line) {
+    auto &content = editor->m_data->current().buffer()->getLine(line).content();
+    return content.c_str();
 }
 EXPORT_API Element *WINAPI GEditorAppendElement(GEditor *editor, Element *element) {
     return editor->m_data->current().append(element);
@@ -356,7 +391,7 @@ EXPORT_API void WINAPI EventContextGetPos(EventContext *context, CaretPos *pos) 
 }
 EXPORT_API void WINAPI EventContextSetPos(EventContext *context, CaretPos *pos) {
     context->setPos(*pos);
-    context->getDocContext()->m_caretManager.update();
+    context->document()->caret()->update();
 }
 EXPORT_API EventContext *WINAPI EventContextFindPrev(EventContext *context, char *tag) {
     return context->findPrev(tag);
@@ -534,11 +569,12 @@ EXPORT_API void WINAPI JsonErasePath(json &value, const char *path) {
 EXPORT_API void WINAPI JsonEraseKey(json &value, const char *key) {
     value.erase(key);
 }
-EXPORT_API void WINAPI JsonInsert(json &value, int index, json &iv) {
-    value.insert(value.begin() + index, iv);
+EXPORT_API json *WINAPI JsonInsert(json &value, int index) {
+    value.insert(value.begin() + index, json());
+    return &value[index];
 }
-EXPORT_API void WINAPI JsonAppend(json &value, json &iv) {
-    value.push_back(iv);
+EXPORT_API json *WINAPI JsonAppend(json &value) {
+    return &value.emplace_back();
 }
 EXPORT_API BOOL WINAPI JsonIsNull(json &value) {
     return value.is_null();
@@ -566,32 +602,66 @@ EXPORT_API void WINAPI JsonDumpFree(std::string *value) { delete value; }
 #include <lalr/GrammarCompiler.hpp>
 #include <lalr/Parser.ipp>
 using namespace lalr;
+struct DGrammer {
+    typedef void (*ReporterHandler)(DGrammer *, const char *, int, int);
+    GrammarCompiler grammer;
+    class ErrorReporter : public ErrorPolicy {
+    public:
+        DGrammer *m_this = nullptr;
+        ReporterHandler m_handler = nullptr;
+        void lalr_error(int line, int column, int error, const char *format, va_list args) override {
+            char buffer[2048];
+            vsprintf(buffer, format, args);
+            if (m_handler) {
+                m_handler(m_this, buffer, line, column);
+            }
+        }
+        void lalr_vprintf(const char *format, va_list args) override {
+            char buffer[2048];
+            vsprintf(buffer, format, args);
+            if (m_handler) {
+                m_handler(m_this, buffer, 0, 0);
+            }
+        }
+    } reporter;
+};
 using DataType = void *;
 using DNodes = ParserNode<>;
 using DParser = Parser<const char *, DataType>;
-typedef DataType (WINAPI *ParserHandler)(const DataType *datas, const DNodes *nodes, int length);
-EXPORT_API GrammarCompiler *WINAPI CreateGrammer(const char *grammer) {
-    auto *res = new GrammarCompiler();
-    res->compile(grammer, grammer + strlen(grammer));
+typedef DataType (WINAPI *ParserHandler)(const DataType *, const DNodes *, int , const char *);
+EXPORT_API DGrammer *WINAPI CreateGrammer(const char *grammer, DGrammer::ReporterHandler handler) {
+    auto *res = new DGrammer();
+    res->reporter.m_this = res;
+    res->reporter.m_handler = handler;
+    if (res->grammer.compile(grammer, grammer + strlen(grammer), &res->reporter)) {
+        delete res;
+        return nullptr;
+    }
     return res;
 }
-EXPORT_API void WINAPI DeleteGrammer(GrammarCompiler *grammer) {
+EXPORT_API void WINAPI DeleteGrammer(DGrammer *grammer) {
     delete grammer;
 }
-EXPORT_API DParser *WINAPI CreateParser(GrammarCompiler *grammer) {
-    return new DParser(grammer->parser_state_machine());
+EXPORT_API DParser *WINAPI CreateParser(DGrammer *grammer) {
+    return new DParser(grammer->grammer.parser_state_machine());
 }
 EXPORT_API void WINAPI DeleteParser(DParser *parser) {
     delete parser;
 }
 EXPORT_API void WINAPI ParserAddHandler(DParser &parser, const char *name, ParserHandler handler) {
-    DParser::ParserActionFunction fun = [=](const DataType *data, const DNodes *nodes, size_t length) {
-        return handler(data, nodes, length);
+    DParser::ParserActionFunction fun = [=](const DataType *data, const DNodes *nodes, size_t length, const char *id) {
+        return handler(data, nodes, length, id);
     };
-    parser.parser_action_handlers()(name, fun);
+    parser.set_action_handler(name, fun);
 
     //parser.set_action_handler(name, fun);
 
+}
+EXPORT_API void WINAPI ParserSetHandler(DParser &parser, ParserHandler handler) {
+    DParser::ParserActionFunction fun = [=](const DataType *data, const DNodes *nodes, size_t length, const char *id) {
+        return handler(data, nodes, length, id);
+    };
+    parser.set_default_action_handler(fun);
 }
 EXPORT_API DataType WINAPI ParserParse(DParser &parser, const char *data) {
     parser.parse(data, data + strlen(data));
@@ -608,6 +678,17 @@ EXPORT_API int WINAPI NodesGetColumn(DNodes *node, int index) {
 }
 EXPORT_API int WINAPI NodesSymbol(DNodes *node, int index) {
     return node[index].symbol()->type;
+}
+EXPORT_API const char *WINAPI NodesGetIdentifier(DNodes *node, int index) {
+    return node[index].symbol()->identifier;
+}
+EXPORT_API const char *WINAPI NodesGetLexme(DNodes *node, int index) {
+    return node[index].symbol()->lexeme;
+}
+
+EXPORT_API void WINAPI GEditorDocumentSetLexer(GEditor *editor, DGrammer *grammer) {
+    editor->m_data->m_manager.current()->m_grammer = &grammer->grammer;
+
 }
 
 #endif //GEDITOR_DLL_H

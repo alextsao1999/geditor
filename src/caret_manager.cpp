@@ -14,6 +14,14 @@ void EventContextRef::unref() {
     }
 }
 
+CaretManager::~CaretManager() {
+/*
+    if (m_context.has()) {
+        m_context->free();
+    }
+*/
+}
+
 void CaretManager::focus(EventContext *sender, EventContext *context, bool force) {
     EventContextRef before = m_context;
     m_context = context;
@@ -46,12 +54,13 @@ void CaretManager::focus(EventContext *sender, EventContext *context, bool force
     }
 }
 
-CaretManager::~CaretManager() {
-/*
-    if (m_context.has()) {
-        m_context->free();
+void CaretManager::set(Offset pos, int index) {
+    if (!m_context) {
+        return;
     }
-*/
+    m_data.set(index, m_context->absOffset(pos));
+    m_relative = pos;
+    update();
 }
 
 void CaretManager::update() {
@@ -59,6 +68,13 @@ void CaretManager::update() {
     Offset offset = current();
     SetCaretPos(offset.x, offset.y);
     onShow();
+}
+
+Offset CaretManager::current() {
+    if (!m_context) {
+        return m_relative;
+    }
+    return m_context->offset() - m_context->caretOffset() + m_relative - m_paintManager->getViewportOffset();
 }
 
 bool CaretManager::enter(int index) {
@@ -101,13 +117,6 @@ bool CaretManager::prev() {
         return true;
     }
     return false;
-}
-
-Offset CaretManager::current() {
-    if (m_context.has()) {
-        return m_context->offset() - m_context->caretOffset() + m_relative - m_paintManager->getViewportOffset();
-    }
-    return m_relative;
 }
 
 bool CaretManager::findNext(char *tag) {
@@ -166,7 +175,7 @@ void CaretManager::onTick() {
     if (hide) {
         return;
     }
-    constexpr double step = 0.05f;
+    constexpr double step = 0.05f * 2.3;
     if (direct) {
         process += step;
     } else {

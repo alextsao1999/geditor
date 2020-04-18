@@ -92,10 +92,40 @@ public:
 
 class TextBuffer {
 public:
+    class CharsIter : public std::iterator<std::input_iterator_tag, GChar, long> {
+    private:
+        LineBuffer *m_buffer = nullptr;
+        int m_line = 0;
+        int m_pos = 0;
+        int m_length = 0;
+    public:
+        GChar operator*() const {
+            auto &&content = m_buffer->at(m_line).content();
+            if (m_pos >= m_length) {
+                return _GT('\n');
+            }
+            return content[m_pos];
+        }
+        CharsIter &operator++() {
+            if (++m_pos > m_length) {
+                m_line++;
+                m_pos = 0;
+                m_length = m_buffer->at(m_line).content().length();
+            }
+            return *this;
+        }
+        bool operator==(const CharsIter &rhs) const {
+            return m_line == rhs.m_line && m_pos == rhs.m_pos;
+        }
+        bool operator!=(const CharsIter &rhs) const { return !(*this == rhs); }
+        constexpr CharsIter() = default;
+        CharsIter(LineBuffer *buffer, int line, int pos) : m_buffer(buffer), m_line(line), m_pos(pos) {
+            m_length = m_buffer->at(line).content().length();
+        }
+    };
     LineBuffer m_buffer;
-public:
     TextBuffer() = default;
-    inline int getLineCount() { return m_buffer.size(); }
+    inline int getLineCount() const { return m_buffer.size(); }
     void insertLines(int line, int count) {
         for (int i = 0; i < count; ++i) {
             insertLine(line);
@@ -140,6 +170,9 @@ public:
         return {line, &m_buffer, context};
     }
     LineBuffer &iter() { return m_buffer; }
+    CharsIter chars(int line, int pos) {
+        return {&m_buffer, line, pos};
+    }
 
 };
 

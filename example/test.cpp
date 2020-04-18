@@ -5,7 +5,6 @@
 #include <lalr/RegexCompiler.hpp>
 #include <iostream>
 #include <string>
-#include <xutility>
 #include <array>
 using namespace lalr;
 template <typename Type = int, int BufferSize = 256, typename SizeType = size_t>
@@ -58,9 +57,6 @@ public:
         begin()[--m_count].~Type();
     }
     inline Type &operator[](const SizeType &index) {
-        if (index >= m_count) {
-            throw std::out_of_range();
-        }
         return begin()[index];
     }
 private:
@@ -113,60 +109,59 @@ int testParser() {
     const char* calculator_grammar =
             "Cpp {\n"
             "   %whitespace \"[ \\r\\n]*\";\n"
-            "   tokens: tokens token [add(0, 1)] | contents | token;\n"
-            "   contents: identifier '{' tokens '}' [style(12, 8, 0, 8)];"
-            "   token:  identifier [style(10)] | number [style(12)] | action | next [style(8)];\n"
-            "   action: '[' identifier ']' [style(8, 10, 8)] ;"
+            "   items:  items item | item ;\n"
+            "   item:  block | identifier [token(0)] | number [token(0)] | action;\n"
+            "   block: '{' items '}' [block(3, 1, 3)] | '{' error [error(0)] | '{' '}' [close(0, 1)];"
+            "   action: '[' identifier ']' [token(1)] ;"
             "   number: \"[0-9]*\";\n"
             "   identifier: \"[A-Za-z\\x4e00-\\x9fa5_][A-Za-z0-9\\x4e00-\\x9fa5_]*\";\n"
-            "   next: \".\";\n"
             "}"
     ;
     GrammarCompiler compiler;
     compiler.compile(calculator_grammar, calculator_grammar + strlen(calculator_grammar), &error);
     using NParser = Parser<const wchar_t *, int>;
     NParser parser(compiler.parser_state_machine());
+    //parser.set_debug_enabled(true);
     parser.set_lexer_action_handler("ignore",
             [](const wchar_t *begin, const wchar_t *end,
                     std::wstring *lexeme, const void **symbol, const wchar_t **position, int *lines) {
                 lexeme->assign((*position)++, 1);
     });
-    parser.set_default_action_handler([=](const int *value, const ParserNode<wchar_t> *nodes, size_t length, const char * id) {
+    parser.set_default_action_handler([&](const int *value, const ParserNode<wchar_t> *nodes, size_t length, const char * id, bool &discard) {
         const char *args = id;
         Stack<> stack;
         int type = 0;
         printf("%s  ", id);
-        if (eat(args, "style")) {
+        auto &pp = parser;
+        if (eat(args, "token")) {
             type = 1;
         }
         if (eat(args, "add")) {
             type = 2;
         }
+        if (eat(args, "error")) {
+            //discard = true;
+            type = 3;
+        }
+        args = strchr(args, '(');
         do {
+            if (*args == '\0') {
+                break;
+            }
             while (*args < '0' || *args > '9')
                 args++;
             stack.push_back(std::stol(args));
         } while((args = strchr(args, ',')));
         for (auto &arg : stack) {
-            printf("%d, ", arg);
+            printf(" token[%ws] ", nodes[arg].lexeme().c_str());
         }
         printf("\n");
         return 1;
     });
-    const wchar_t * input = L"cpp { asdf 1234 34 }";
+    const wchar_t *input = L"cp { kok kjkl";
     parser.parse(input, wcslen(input) + input);
-
     printf("<%d %d> ", parser.full(), parser.accepted());
-    printf("%d\n\n", parser.user_data());
-
-/*
-
-    const wchar_t * then = L"asdf }";
-    parser.parse(then, wcslen(then) + then, true);
-
-    printf("<%d %d> ", parser.full(), parser.accepted());
-    printf("%d\n\n", parser.user_data());
-*/
+    //printf("%d\n\n", parser.user_data());
 
     return 0;
 }

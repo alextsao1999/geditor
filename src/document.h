@@ -296,7 +296,7 @@ public:
         }
         return count;
     }
-    virtual int getLineNumber();
+    virtual int getLineNumber(); // 如果加上EventContext 可以使getNext() 也加上EventContext
     int getWidth(EventContext &context) override;
     void link(EventContext &context, Element *start, Element *end) {
         Element *prev = getPrev();
@@ -402,14 +402,14 @@ public:
     }
 };
 class AbsoluteElement : public LinkedElement {
-    int m_left{};
-    int m_top{};
-    int m_right{};
-    int m_bottom{};
-public:
-    AbsoluteElement(int left, int top, int right, int bottom) : m_left(left), m_top(top), m_right(right), m_bottom(bottom) {}
 private:
+    int m_left = 0;
+    int m_top = 0;
+    int m_right = 0;
+    int m_bottom = 0;
 public:
+    AbsoluteElement() = default;
+    AbsoluteElement(int left, int top, int right, int bottom) : m_left(left), m_top(top), m_right(right), m_bottom(bottom) {}
     Display getDisplay(EventContext &context) override { return DisplayAbsolute; }
     Offset getLogicOffset() override { return {m_left, m_top}; }
     Offset getOffset(EventContext &context) override {

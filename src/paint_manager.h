@@ -163,6 +163,7 @@ public:
         add(StyleDeafault, paint);
 
         paint.reset();
+        paint.setStyle(GStyle::StyleStroke);
         paint.setColor(SkColorSetRGB(172, 172, 172));
         add(StyleBorder, paint);
 

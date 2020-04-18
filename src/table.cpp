@@ -170,6 +170,7 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
         }
         if (auto *right = gstrchr(rchar, ch)) {
             if (line.charAt(context.pos().getIndex()) == ch) {
+                //caret->data().setIndex(caret->data())
                 context.pos().setIndex(context.pos().getIndex() + 1);
                 context.focus(false);
                 return;

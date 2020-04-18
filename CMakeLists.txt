@@ -23,7 +23,7 @@ endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
 
-set(BUILD_SHARED ON)
+#set(BUILD_SHARED ON)
 add_subdirectory(third_party)
 
 include_directories(src/)

@@ -44,17 +44,24 @@ public:
         const char* grammar =
                 "Cpp {\n"
                 "   %whitespace \"[ \\r\\n]*\";\n"
-                "   tokens: tokens token | contents | token;\n"
-                "   contents: identifier '{' tokens '}' [12, 8, 0, 8] | identifier '{' '}' [8, 8, 8];"
-                "   token:  identifier [9] | number [12] | next [8];\n"
+                "   items: items item | item;\n"
+                "   item:  block | identifier [9] | number [12] | next [8];\n"
+                "   block: '{' items '}' [12, 0, 12] | '{' error [8, 8] | '{' '}' [12,12];"
                 "   number: \"[0-9]*\\.?[0-9]+\";\n"
                 "   identifier: \"[A-Za-z\\x4e00-\\x9fa5_][A-Za-z0-9\\x4e00-\\x9fa5_]*\";\n"
                 "   next: \".\";"
                 "}"
         ;
         m_grammer->compile(grammar, strlen(grammar) + grammar);
-        //printf("%s", grammar);
         Document::append(new AutoLineElement());
+        buffer()->appendLine().append(_GT("dddd 0;"));
+        Document::append(new ASTElement());
+        buffer()->appendLine().append(_GT("return 0;"));
+        Document::append(new AutoLineElement());
+        buffer()->appendLine().append(_GT("asdfg 0;"));
+
+
+/*
         auto *table = new TableElement(2, 5);
         table->getItem(0, 2)->m_radio = true;
         table->addRow(2);
@@ -63,6 +70,7 @@ public:
         Document::append(new AutoLineElement());
         buffer()->appendLine().append(_GT("return 0;"));
         buffer()->appendLine().append(_GT("return 0;"));
+*/
         root().relayout();
 /*
         auto *doc = new ClassElement();

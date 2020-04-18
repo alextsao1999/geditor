@@ -649,7 +649,7 @@ EXPORT_API void WINAPI DeleteParser(DParser *parser) {
     delete parser;
 }
 EXPORT_API void WINAPI ParserAddHandler(DParser &parser, const char *name, ParserHandler handler) {
-    DParser::ParserActionFunction fun = [=](const DataType *data, const DNodes *nodes, size_t length, const char *id) {
+    DParser::ParserActionFunction fun = [=](const DataType *data, const DNodes *nodes, size_t length, const char *id, bool &discard) {
         return handler(data, nodes, length, id);
     };
     parser.set_action_handler(name, fun);
@@ -658,7 +658,7 @@ EXPORT_API void WINAPI ParserAddHandler(DParser &parser, const char *name, Parse
 
 }
 EXPORT_API void WINAPI ParserSetHandler(DParser &parser, ParserHandler handler) {
-    DParser::ParserActionFunction fun = [=](const DataType *data, const DNodes *nodes, size_t length, const char *id) {
+    DParser::ParserActionFunction fun = [=](const DataType *data, const DNodes *nodes, size_t length, const char *id, bool &discard) {
         return handler(data, nodes, length, id);
     };
     parser.set_default_action_handler(fun);

@@ -808,8 +808,12 @@ public:
             parser.set_default_action_handler([&](const int *value,
                     const ParserNode<wchar_t> *nodes,
                     size_t length,
-                    const char * id) {
+                    const char * id, bool &discard) {
                 int current = 0;
+                if (memcmp(id, "error", 5) == 0) {
+                    discard = true;
+                    id += 5;
+                }
                 do {
                     while (*id < '0' || *id > '9')
                         id++;
@@ -891,61 +895,49 @@ public:
         }
     }
 };
-class ASTNodeElement : public RelativeElement {
+class ASTNodeElement : public AbsoluteElement {
 public:
 
 };
-class ASTLine : public ASTNodeElement {
+class ASTLexmeElement : public ASTNodeElement {
 public:
+    ASTLexmeElement() {}
+    int m_line = 0;
+    int m_start = 0;
+    int m_end = 0;
 
 };
-class ASTLexme : public ASTNodeElement {
+class ASTListElement : public ASTNodeElement {
 public:
-    int m_line;
-    std::string m_lexme;
-};
-class ASTList : public ASTNodeElement {
-public:
-    /**
-     * 1. element { (7)
-     * 2.   element {   ---> [0] (3)
-     * 3.     node
-     * 4.   }
-     * 5.   element {   ---> [1] (3)
-     * 6.     node
-     * 7.   } }
-     * 8. }
-     * 9. element { element { none } }
-     *
-     * 1. element { element {
-     * 2.  none }
-     * 3. } element {
-     * 4.
-     * 5. }
-     */
     std::string m_name; // element
     std::vector<ASTNodeElement *> m_children;
     int m_lines;
-    explicit ASTList(int line) : m_lines(line) {
-
+    explicit ASTListElement(int line) : m_lines(line) {}
+    int getLineNumber() override { return m_lines; }
+};
+class ASTElement : public Container<DisplayBlock> {
+public:
+    class LineRender : public RelativeElement {
+    public:
+        int getLineNumber() override { return 1; }
+        int getLogicHeight(EventContext &context) override { return 30; }
+        Display getDisplay(EventContext &context) override { return DisplayBlock; }
+        void onRedraw(EventContext &context) override {
+            Canvas canvas = context.getCanvas();
+            canvas.drawRect(canvas.bound(), StyleBorder);
+            auto line = context.getLineViewer();
+            canvas.drawText(line.c_str(), line.size(), 5, 5);
+        }
+    };
+    int m_lines = 1;
+    explicit ASTElement() {
+        Container::append(new LineRender());
     }
     int getLineNumber() override { return m_lines; }
-
-};
-class ASTElement : public RelativeElement {
-public:
-    std::vector<ASTList> m_lines;
-    explicit ASTElement() {
-        m_lines.emplace_back(1);
+    int getHeight(EventContext &context) override {
+        return m_lines * 25;
     }
-    int getLineNumber() override {
-        int lines = 0;
-        for (auto & m_line : m_lines) {
-            lines += m_line.getLineNumber();
-        }
-        return lines;
-    }
-
+    int getWidth(EventContext &context) override { return Element::getWidth(context); }
 };
 class TextElement : public RelativeElement {
 public:
@@ -1007,7 +999,7 @@ public:
         }
     }
     void onKeyDown(EventContext &context, int code, int status) override {
-        auto caret = context.getCaretManager();
+        auto *caret = context.getCaretManager();
         TextCaretService service(Offset(6, 2), &context);
         if (code == VK_LEFT) {
             if (context.outer->tag().contain(TAG_UNEDITABLE) || m_radio) {
@@ -1300,7 +1292,7 @@ public:
     explicit FastRow(int column) {
         m_items.resize(column);
     }
-    inline size_t size() { return m_items.size(); }
+    inline size_t size() const { return m_items.size(); }
     inline Element *get(int index) {
         while (index < 0) {
             index += size();
@@ -1961,9 +1953,9 @@ public:
 };
 class MultiLine : public RelativeElement {
 private:
-    class SingleLine : public SyntaxLineElement {
+    class SingleLine : public AutoLineElement {
     public:
-        int count = 6;
+        int count = 1;
         Tag getTag(EventContext &context) override { return TAG("SingleLine Focus"); }
         Element *onNext(EventContext &context) override {
             if (++context.index >= count) return nullptr;
@@ -1987,11 +1979,11 @@ private:
             count--;
         }
         void onRedraw(EventContext &context) override {
-            SyntaxLineElement::onRedraw(context);
+            AutoLineElement::onRedraw(context);
             Canvas canvas = context.getCanvas();
             std::string &&line = std::to_string(context.index + 1);
             GStyle paint;
-            canvas.drawText(line.c_str(), line.length(), -15, 20, paint);
+            canvas.drawText(line.c_str(), line.length(), -10, 8, paint);
         }
         void free() override {}
     };
@@ -2005,7 +1997,6 @@ public:
     void onRedraw(EventContext &context) override {
         Canvas canvas = context.getCanvas();
         canvas.drawText(_GT("Inline C Language"), 17 * 2, 18, 2, StyleDeafaultFont);
-/*
         SkPaint border;
         border.setStyle(SkPaint::Style::kStroke_Style);
         border.setColor(SK_ColorLTGRAY);
@@ -2013,12 +2004,11 @@ public:
         canvas->drawLine(0, 20, context.width(), 20, border);
 
         border.setStyle(SkPaint::kFill_Style);
-*/
         if (expand) {
-            //canvas->drawPath(DrawUtil::triangleDown(8, 9, 8), border);
+            canvas->drawPath(DrawUtil::triangleDown(8, 9, 8), border);
             Root::onRedraw(context);
         } else {
-            //canvas->drawPath(DrawUtil::triangleRight(8, 7, 10), border);
+            canvas->drawPath(DrawUtil::triangleRight(8, 7, 10), border);
         }
     }
     int getLineNumber() override { return m_lines.count; }
@@ -2045,7 +2035,7 @@ public:
         }
     }
     void onFocus(EventContext &context) override {
-        context.getCaretManager()->set(155, 3);
+        //context.getCaretManager()->set(155, 3);
     }
     void onBlur(EventContext &context, EventContext *focus, bool force) override {
 

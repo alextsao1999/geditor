@@ -6,6 +6,8 @@ add_subdirectory(lsp)
 add_subdirectory(libjpeg)
 add_subdirectory(skia)
 add_subdirectory(ecode)
+add_subdirectory(parser)
+add_subdirectory(tree-sitter)
 
 add_library(lalr STATIC)
 target_include_directories(lalr PUBLIC lalr/lalr/)

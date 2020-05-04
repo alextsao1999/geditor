@@ -60,12 +60,12 @@ void GLexer::ParseString() {
     while (CURRENT_CHAR != first) {
         NEXT();
         if (!HAS_CHAR) {
-            TOKEN_END(TokenString, StyleErrorFont);
+            TOKEN_END(TokenLiteral, StyleErrorFont);
             return;
         }
     }
     NEXT();
-    TOKEN_END(TokenString, StyleStringFont);
+    TOKEN_END(TokenLiteral, StyleStringFont);
 }
 
 void GLexer::ParseNumber() {

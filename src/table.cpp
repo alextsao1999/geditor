@@ -189,6 +189,10 @@ void AutoLineElement::onInputChar(EventContext &context, SelectionState state, i
             line.insert(index, rchar[char_idx]);
             current->focus(false);
         }
+        if (auto *res = ASTElement::parseLines(context)) {
+            res->dump(0);
+        }
+
     }
 
 }

@@ -802,33 +802,6 @@ public:
         auto canvas = context.getCanvas();
         drawSelection(context);
         //canvas.drawText(viewer.c_str(), viewer.size(), location().x - 1, location().y + 2);
-        if (auto *grammer = context.document()->m_grammer) {
-            using namespace lalr;
-            Parser<const wchar_t *, int> parser(grammer->parser_state_machine());
-            parser.set_default_action_handler([&](const int *value,
-                    const ParserNode<wchar_t> *nodes,
-                    size_t length,
-                    const char * id, bool &discard) {
-                int current = 0;
-                if (memcmp(id, "error", 5) == 0) {
-                    discard = true;
-                    id += 5;
-                }
-                do {
-                    while (*id < '0' || *id > '9')
-                        id++;
-                    int style = std::atoi(id);
-                    auto &token = nodes[current].lexeme();
-                    int index = nodes[current].column() - 1;
-                    canvas.drawPosText(token.c_str(), token.length() * sizeof(GChar), &pts[index], style);
-                    current++;
-                } while((id = strchr(id, ',')));
-                return 0;
-            });
-            LineViewer viewer = context.getLineViewer();
-            parser.parse(viewer.c_str(), viewer.c_str() + viewer.length());
-            return;
-        }
         auto *lexer = context.getLexer();
         canvas.translate(location());
         while (lexer->has()) {
@@ -897,26 +870,46 @@ public:
 };
 class ASTNodeElement : public AbsoluteElement {
 public:
-
+    virtual void dump(int indent) {}
+    void print_dump(int indent) {
+        for (int i = 0; i < indent; ++i) {
+            printf(" ");
+        }
+    }
 };
 class ASTLexmeElement : public ASTNodeElement {
 public:
     ASTLexmeElement() {}
     int m_line = 0;
     int m_start = 0;
-    int m_end = 0;
-
+    int m_length = 0;
+    int m_style = 0;
+    GString m_lexme;
+    const char *identifier = nullptr;
+    void dump(int indent) override {
+        this->print_dump(indent);
+        printf("token: [%ws] [type:%s] [style:%d]\n", m_lexme.c_str(), identifier, m_style);
+    }
 };
 class ASTListElement : public ASTNodeElement {
 public:
     std::string m_name; // element
     std::vector<ASTNodeElement *> m_children;
-    int m_lines;
-    explicit ASTListElement(int line) : m_lines(line) {}
-    int getLineNumber() override { return m_lines; }
+    explicit ASTListElement() {}
+    inline void add(ASTNodeElement *node) {
+        m_children.push_back(node);
+    }
+    void dump(int indent) override {
+        print_dump(indent);
+        printf("list: [%s]\n", m_name.c_str());
+        for (const auto &child : m_children) {
+            child->dump(indent + 4);
+        }
+    }
 };
 class ASTElement : public Container<DisplayBlock> {
 public:
+    using ValueType = ASTNodeElement *;
     class LineRender : public RelativeElement {
     public:
         int getLineNumber() override { return 1; }
@@ -934,11 +927,114 @@ public:
         Container::append(new LineRender());
     }
     int getLineNumber() override { return m_lines; }
-    int getHeight(EventContext &context) override {
-        return m_lines * 25;
-    }
+    int getHeight(EventContext &context) override { return m_lines * 25; }
     int getWidth(EventContext &context) override { return Element::getWidth(context); }
+
+    void onLeftButtonDown(EventContext &context, int x, int y) override {
+        auto *ast = parseLines(context);
+        ast->dump(0);
+    }
+    static ValueType parseLines(EventContext &context) {
+        using namespace lalr;
+        auto *grammer = context.document()->m_grammer;
+        if (!grammer) {
+            return nullptr;
+        }
+        auto line = context.current()->getLineNumber();
+        auto begin = context.document()->buffer()->chars(context.line(), 0);
+        auto end = context.document()->buffer()->chars(context.line() + line - 1, -1);
+        Parser<TextBuffer::CharsIter, ValueType> parser(grammer->parser_state_machine());
+        auto func = [&](const ValueType *values, const ParserNode<wchar_t> *nodes,
+                        size_t length, const char *id, bool &discard) -> ValueType {
+            static const char *spaces = " ";
+            static const char *symbols = "(),$@";
+            const char *args = id;
+            auto skip = [&] () {
+                if (strchr(spaces, *args)) { // Skip Space
+                    do {
+                        args++;
+                    } while (strchr(spaces, *args));
+                }
+            };
+            auto next = [&] () -> string_ref {
+                skip();
+                if (strchr(symbols, *args)) {
+                    return {args, ++args};
+                }
+                auto *start = args;
+                while (!strchr(symbols, *args) && !strchr(spaces, *args)) {
+                    args++;
+                }
+                return { start, args };
+            };
+            auto match = [&] (const char *tok) -> bool {
+                skip();
+                auto len = strlen(tok);
+                if (memcmp(args, tok, len) == 0) {
+                    args += len;
+                    return true;
+                } else {
+                    return false;
+                }
+            };
+            std::function<ValueType()> expr = [&] () -> ValueType {
+                if (match("$")) {
+                    int index = std::stol(next().c_str());
+                    if (match("(")) {
+                        auto *res = new ASTLexmeElement();
+                        res->m_line = nodes[index].line() - 1;
+                        res->m_start = nodes[index].column() - 1;
+                        res->m_length = nodes[index].lexeme().length();
+                        res->m_lexme = nodes[index].lexeme();
+                        res->identifier = nodes[index].symbol()->identifier;
+                        if (match(")")) {
+                            return res;
+                        } else {
+                            res->m_style = std::stol(next().c_str());
+                            match(")");
+                        }
+                        return res;
+                    } else {
+                        return values[index];
+                    }
+                } else {
+                    string_ref name = next();
+                    if (name == "create") {
+                        match("(");
+                        auto *node = new ASTListElement();
+                        node->m_name = next().str();
+                        if (node->m_name == "error") {
+                            discard = true;
+                        }
+                        while (match(",")) {
+                            node->add(expr());
+                        }
+                        match(")");
+                        return node;
+                    }
+                    if (name == "add") {
+                        match("(");
+                        auto *node = (ASTListElement *) expr();
+                        while (match(",")) {
+                            node->add(expr());
+                        }
+                        match(")");
+                        return node;
+                    }
+                }
+                return nullptr;
+            };
+            return expr();
+        };
+        parser.set_default_action_handler(func);
+        parser.parse(begin, end);
+        if (parser.accepted()) {
+            return parser.user_data();
+        }
+        return nullptr;
+    }
 };
+
 class TextElement : public RelativeElement {
 public:
     GString m_data;

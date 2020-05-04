@@ -74,7 +74,7 @@ bool eat(const char *&token, const char *match) {
 int testLexer() {
     void *a_or_b;
     RegexCompiler regex;
-    regex.compile("a:string:| *|b*", &a_or_b);
+    regex.compile("(abc)+ok[aghk]okok ", &a_or_b);
     Lexer<const char *> lexer(regex.state_machine(), nullptr);
     lexer.set_action_handler("string", [](const char *begin, const char *end, std::string *lexeme, const void **symbol, const char **position, int *lines) {
         while (**position != ' ') {
@@ -105,7 +105,6 @@ int testParser() {
             printf("\n");
         }
     } error;
-
     const char* calculator_grammar =
             "Cpp {\n"
             "   %whitespace \"[ \\r\\n]*\";\n"
@@ -167,7 +166,7 @@ int testParser() {
 }
 
 int main(int argc, char *const argv[]) {
-    testParser();
+    testLexer();
 
     return 0;
 }

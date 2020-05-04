@@ -38,7 +38,7 @@ enum TokenType {
     TokenSpace,
     TokenIdentifier,
     TokenNumber,
-    TokenString,
+    TokenLiteral,
     TokenOperator,
 };
 

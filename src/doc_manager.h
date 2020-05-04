@@ -44,12 +44,14 @@ public:
         const char* grammar =
                 "Cpp {\n"
                 "   %whitespace \"[ \\r\\n]*\";\n"
-                "   items: items item | item;\n"
-                "   item:  block | identifier [9] | number [12] | next [8];\n"
-                "   block: '{' items '}' [12, 0, 12] | '{' error [8, 8] | '{' '}' [12,12];"
+                "   items: items item [add($0,$1)] | item [create(items, $0)];\n"
+                "   item:  block | identifier [$0())] | number [$0()] | \".\" [$0()];\n"
+                "   block: "
+                "      '{' items '}' [create(block, $0(), $1, $2())] | "
+                "      '{' error [create(error, $0())] | "
+                "      '{' '}' [create(block, $0(), $1())]; "
                 "   number: \"[0-9]*\\.?[0-9]+\";\n"
                 "   identifier: \"[A-Za-z\\x4e00-\\x9fa5_][A-Za-z0-9\\x4e00-\\x9fa5_]*\";\n"
-                "   next: \".\";"
                 "}"
         ;
         m_grammer->compile(grammar, strlen(grammar) + grammar);

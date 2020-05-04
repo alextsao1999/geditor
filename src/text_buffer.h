@@ -100,6 +100,9 @@ public:
         int m_length = 0;
     public:
         GChar operator*() const {
+            if (m_length == 0) {
+                return _GT('\0');
+            }
             auto &&content = m_buffer->at(m_line).content();
             if (m_pos >= m_length) {
                 return _GT('\n');
@@ -110,7 +113,11 @@ public:
             if (++m_pos > m_length) {
                 m_line++;
                 m_pos = 0;
-                m_length = m_buffer->at(m_line).content().length();
+                if (m_line >= m_buffer->size()) {
+                    m_length = 0;
+                } else {
+                    m_length = m_buffer->at(m_line).content().length();
+                }
             }
             return *this;
         }
@@ -121,6 +128,9 @@ public:
         constexpr CharsIter() = default;
         CharsIter(LineBuffer *buffer, int line, int pos) : m_buffer(buffer), m_line(line), m_pos(pos) {
             m_length = m_buffer->at(line).content().length();
+            if (m_pos < 0) {
+                m_pos += m_length + 1;
+            }
         }
     };
     LineBuffer m_buffer;

@@ -1,193 +1,32 @@
-#include <stdio.h>
-#include <exception>
-#include <lalr/Parser.hpp>
-#include <lalr/GrammarCompiler.hpp>
-#include <lalr/RegexCompiler.hpp>
+ï»¿//
+// Created by Alex on 2020/5/7.
+//
+
+#ifndef GEDITOR_PIECE_TABLE_H
+#define GEDITOR_PIECE_TABLE_H
 #include <iostream>
-#include <string>
-#include <array>
-#include <map>
 #include <set>
-#include <list>
 #include <functional>
-#include <Windows.h>
-#include <fileapi.h>
-#include <memoryapi.h>
-using namespace lalr;
-template <typename Type = int, int BufferSize = 256, typename SizeType = size_t>
-class Stack {
-public:
-    using Iterator = Type *;
-    constexpr Stack() = default;
-    constexpr Stack(std::initializer_list<Type> values) {
-        for (auto &value : values) {
-            emplace_back(value);
-        }
-    }
-    ~Stack() {
-        for (auto iter = begin(), last = end(); iter != last; iter++) {
-            iter->~Type();
-        }
-    }
-    inline bool empty() noexcept { return m_count; }
-    inline SizeType capacity() { return BufferSize; }
-    inline Iterator begin() noexcept { return (Type *) m_stacks; }
-    inline Iterator end() noexcept { return ((Type *) m_stacks) + m_count; }
-    inline SizeType length() noexcept { return m_count; }
-    inline SizeType size() noexcept { return m_count; }
-    inline Type &front() { return (Type &) m_stacks[0]; }
-    inline Type &back() { return (Type &) m_stacks[m_count - 1]; }
-    template<class ...ValTy>
-    inline void emplace_back(ValTy &&...args) {
-        new(begin() + m_count++) Type(std::forward<ValTy>(args)...);
-    }
-    inline void emplace(Iterator where, const Type &value) {
-        std::move_backward(where, end(), end() + 1);
-        ::new(where) Type(value);
-        m_count++;
-    }
-    inline void insert(SizeType index, const Type &value) {
-        emplace(begin() + index, value);
-    }
-    inline void erase(SizeType index) {
-        Iterator where = begin() + index;
-        where->~Type();
-        std::move(where + 1, begin() + m_count--, where);
-    }
-    void push_back(const Type &data) {
-        begin()[m_count++] = data;
-    }
-    void push_back(Type &&data) {
-        begin()[m_count++] = std::move(data);
-    }
-    void pop_back() {
-        begin()[--m_count].~Type();
-    }
-    inline Type &operator[](const SizeType &index) {
-        return begin()[index];
-    }
-private:
-    uint8_t m_stacks[BufferSize * sizeof(Type)]{};
-    SizeType m_count = 0;
-};
-bool eat(const char *&token, const char *match) {
-    auto len = strlen(match);
-    if (memcmp(token, match, len) == 0) {
-        token += len;
-        return true;
-    }
-    return false;
-}
-int testLexer() {
-    void *a_or_b;
-    RegexCompiler regex;
-    regex.compile("(abc)+ok[aghk]okok ", &a_or_b);
-    Lexer<const char *> lexer(regex.state_machine(), nullptr);
-    lexer.set_action_handler("string", [](const char *begin, const char *end, std::string *lexeme, const void **symbol, const char **position, int *lines) {
-        while (**position != ' ') {
-            (*position)++;
-        }
-    });
-    const char *str = "asb bbb aaa";
-    lexer.reset(str, strlen(str) + str);
-    lexer.advance();
-    do {
-        std::cout << lexer.column() - 1 << " : " << lexer.lexeme() << std::endl;
-
-        lexer.advance();
-    } while (lexer.symbol() != nullptr);
-
-    return 0;
-
-}
-int testParser() {
-    class MyEP : public ErrorPolicy {
-        void lalr_error(int line, int column, int error, const char *format, va_list args) override {
-            vprintf(format, args);
-            printf("  line:%d column:%d\n", line, column);
-        }
-
-        void lalr_vprintf(const char *format, va_list args) override {
-            vprintf(format, args);
-            printf("\n");
-        }
-    } error;
-    const char* calculator_grammar =
-            "Cpp {\n"
-            "   %whitespace \"[ \\r\\n]*\";\n"
-            "   items:  items item | item ;\n"
-            "   item:  block | identifier [token(0)] | number [token(0)] | action;\n"
-            "   block: '{' items '}' [block(3, 1, 3)] | '{' error [error(0)] | '{' '}' [close(0, 1)];"
-            "   action: '[' identifier ']' [token(1)] ;"
-            "   number: \"[0-9]*\";\n"
-            "   identifier: \"[A-Za-z\\x4e00-\\x9fa5_][A-Za-z0-9\\x4e00-\\x9fa5_]*\";\n"
-            "}"
-    ;
-    GrammarCompiler compiler;
-    compiler.compile(calculator_grammar, calculator_grammar + strlen(calculator_grammar), &error);
-    using NParser = Parser<const wchar_t *, int>;
-    NParser parser(compiler.parser_state_machine());
-    //parser.set_debug_enabled(true);
-    parser.set_lexer_action_handler("ignore",
-            [](const wchar_t *begin, const wchar_t *end,
-                    std::wstring *lexeme, const void **symbol, const wchar_t **position, int *lines) {
-                lexeme->assign((*position)++, 1);
-    });
-    parser.set_default_action_handler([&](const int *value, const ParserNode<wchar_t> *nodes, size_t length, const char * id, bool &discard) {
-        const char *args = id;
-        Stack<> stack;
-        int type = 0;
-        printf("%s  ", id);
-        auto &pp = parser;
-        if (eat(args, "token")) {
-            type = 1;
-        }
-        if (eat(args, "add")) {
-            type = 2;
-        }
-        if (eat(args, "error")) {
-            //discard = true;
-            type = 3;
-        }
-        args = strchr(args, '(');
-        do {
-            if (*args == '\0') {
-                break;
-            }
-            while (*args < '0' || *args > '9')
-                args++;
-            stack.push_back(std::stol(args));
-        } while((args = strchr(args, ',')));
-        for (auto &arg : stack) {
-            printf(" token[%ws] ", nodes[arg].lexeme().c_str());
-        }
-        printf("\n");
-        return 1;
-    });
-    const wchar_t *input = L"cp { kok kjkl";
-    parser.parse(input, wcslen(input) + input);
-    printf("<%d %d> ", parser.full(), parser.accepted());
-    //printf("%d\n\n", parser.user_data());
-
-    return 0;
-}
-//template<class char_t = char>
+#include <string>
+#include <vector>
+#include <memory>
+#include <algorithm>
+template <class char_t = char, class string_t = std::basic_string<char_t>>
 class PieceTable {
 public:
-    PieceTable() {
-        m_buffers.resize(2);
-    }
     class Piece;
-    using char_t = char;
+    constexpr static char_t char_lf = char_t('\n');
     using buffer_idx_t = uint16_t;
     using iter_t = typename std::set<Piece>::iterator;
-    using string_t = typename std::basic_string<char_t>;
     using iter_func = std::function<void(const char_t *string, size_t length)>;
     using offset_t = uint32_t;
-    enum BufferType {
+    enum {
         Append,
         Insert
     };
+    PieceTable() {
+        m_buffers.resize(2);
+    }
     struct Buffer {
         const char_t *map_ptr = nullptr;
         // Append-Only Buffer
@@ -203,7 +42,7 @@ public:
         inline void set_map(const char_t *ptr, size_t length) {
             map_ptr = ptr;
             for (size_t index = 0; index < length; ++index) {
-                if (ptr[index] == '\n') {
+                if (ptr[index] == char_lf) {
                     lines.push_back(index);
                 }
             }
@@ -213,7 +52,7 @@ public:
             size_t offset = buffer->size();
             buffer->append(string);
             for (auto ch : string) {
-                if (ch == '\n') {
+                if (ch == char_lf) {
                     lines.push_back(offset);
                 }
                 offset++;
@@ -289,7 +128,7 @@ public:
         inline const char_t *c_str() { return m_string; }
         inline size_t length() { return m_length; }
         inline string_t string() { return string_t(m_string, m_length); }
-        bool next() {
+        inline bool next() {
             if (m_remainder == 0) {
                 return false;
             }
@@ -327,6 +166,13 @@ public:
         auto iter = --m_pieces.end();
         return iter->left_length + iter->length;
     }
+    size_t length() {
+        if (m_pieces.empty()) {
+            return 0;
+        }
+        auto iter = --m_pieces.end();
+        return iter->left_length + iter->length;
+    }
     size_t lines() {
         if (m_pieces.empty()) {
             return 0;
@@ -354,19 +200,25 @@ public:
         return line_end(line - 1) + 1;
     }
     offset_t line_end(size_t line) {
+        if (line >= lines()) {
+            return size();
+        }
         auto iter = lower_line(line);
         size_t offset = line - iter->left_lines;
         auto &buffer = m_buffers[iter->buffer];
         auto start = buffer.lines[iter->buffer_line_offset + offset];
         return iter->left_length + start - iter->start;
     }
-    void append(const string_t &string) {
+    iter_t append(const string_t &string) {
         Piece piece = feed(string, Append);
         piece.left_lines = lines();
         piece.left_length = size();
-        m_pieces.emplace(piece);
+        return std::get<0>(m_pieces.emplace(piece));
     }
     iter_t insert(offset_t pos, const string_t &string) {
+        if (pos >= size()) {
+            return append(string);
+        }
         auto iter = split(pos);
         Piece pt = feed(string, Insert);
         pt.left_lines = iter->left_lines;
@@ -374,7 +226,7 @@ public:
         fixup(iter, pt.length, pt.buffer_lines);
         return m_pieces.insert(iter, pt);
     }
-    bool erase(offset_t start, offset_t end) {
+    uint32_t erase(offset_t start, offset_t end) {
         auto iter_start = split(start);
         auto iter_end = split(end);
         int32_t delta_length = 0;
@@ -385,7 +237,7 @@ public:
         }
         m_pieces.erase(iter_start, iter_end);
         fixup(iter_end, -delta_length, -delta_lines);
-        return true;
+        return delta_lines;
     }
     inline const char_t &char_at(offset_t pos) {
         auto node = upper_pos(pos);
@@ -425,7 +277,7 @@ public:
         string_t string;
         int start = line_start(line);
         int end = line_end(line);
-        string.reserve(end - start);
+        string.reserve(end - start + 1);
         iter_range(start, end, [&](const char_t *str, size_t length) {
             string.append(str, length);
         });
@@ -436,16 +288,13 @@ public:
         if (end - start == 0) {
             return string;
         }
-        string.reserve(end - start);
+        string.reserve(end - start + 1);
         iter_range(start, end, [&](const char_t *str, size_t length) {
             string.append(str, length);
         });
         return string;
     }
-    void append_origin(const char_t *map, size_t length) {
-        if (!map) {
-            return;
-        }
+    iter_t append_origin(const char_t *map, size_t length) {
         Piece piece;
         piece.buffer = m_buffers.size();
         piece.start = 0;
@@ -457,8 +306,7 @@ public:
         auto &back = m_buffers.back();
 
         piece.buffer_lines = back.lines.size();
-        m_pieces.emplace(piece);
-
+        return std::get<0>(m_pieces.emplace(piece));
     }
     iter_t insert_origin(offset_t pos, const char_t *map, size_t length) {
         auto iter = split(pos);
@@ -494,6 +342,9 @@ public:
     }
 private:
     iter_t split(offset_t pos) {
+        if (pos >= size()) {
+            return m_pieces.end();
+        }
         auto iter = upper_pos(pos);
         if (iter->left_length == pos) {
             return iter;
@@ -516,16 +367,6 @@ private:
     }
     inline iter_t upper_pos(offset_t pos) {
         return --m_pieces.upper_bound(Piece(pos, ~0));
-    }
-    inline iter_t lower_pos(offset_t pos) {
-        return --m_pieces.lower_bound(Piece(pos, ~0));
-    }
-    inline iter_t upper_line(size_t line) {
-        auto iter = m_pieces.upper_bound(Piece(~0, line));
-        if (iter == m_pieces.end()) {
-            iter = m_pieces.begin();
-        }
-        return --iter;
     }
     inline iter_t lower_line(size_t line) {
         return find_line(line + 1);
@@ -551,14 +392,13 @@ private:
         auto end = &(m_buffers[piece.buffer][piece.start + piece.length]);
         piece.buffer_lines = 0;
         for (; iter != end; iter++) {
-            if (*iter == '\n') {
+            if (*iter == char_lf) {
                 piece.buffer_lines++;
             }
         }*/
     }
     inline void fixup(iter_t iter, int32_t delta_length = 0, int32_t delta_lines = 0) {
-        auto end = m_pieces.end();
-        for (; iter != end; iter++) {
+        for (auto end = m_pieces.end(); iter != end; iter++) {
             iter->left_length += delta_length;
             iter->left_lines += delta_lines;
         }
@@ -576,135 +416,5 @@ private:
     std::vector<Buffer> m_buffers;
     std::set<Piece> m_pieces;
 };
-class Origin {
-    HANDLE m_hFile, m_hMapping;
-    const char *m_pContent = nullptr;
-    size_t m_nSize;
-public:
-    Origin(const char *file) {
-        m_hFile = CreateFileA(file, GENERIC_ALL, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        m_hMapping = CreateFileMappingA(m_hFile, NULL, PAGE_READWRITE, 0, 0, NULL);
-        m_pContent = (const char *) MapViewOfFile(m_hMapping, FILE_MAP_READ, 0, 0, 0);
-        m_nSize = GetFileSize(m_hFile, 0);
-    }
-    ~Origin() {
-        UnmapViewOfFile(m_pContent);
-        CloseHandle(m_hMapping);
-        CloseHandle(m_hFile);
-    }
-    const char *ptr() { return m_pContent; }
-    size_t size() { return m_nSize; }
-};
-void check_lu() {
-    std::vector<int> list = {10, 20, 30, 40, 50, 60};
-    auto check = [&](int i) {
-        std::cout << " ---- checking " << i << std::endl;
-        auto iter_l = std::lower_bound(list.begin(), list.end(), i);
-        auto iter_u = std::upper_bound(list.begin(), list.end(), i);
-        std::cout << (iter_l - list.begin())  << ", "  << (iter_u - list.begin()) << std::endl;
-        std::cout << *iter_l << "  " << *iter_u << std::endl;
-    };
-    check(10);
-    check(5);
-    check(46);
-    check(40);
 
-}
-
-void pt_test() {
-    //testLexer();
-    PieceTable pt;
-    //Origin origin("C:\\Users\\Administrator\\Desktop\\test.txt");
-    //Origin origin("C:\\Users\\Administrator\\Desktop\\checker.ts");
-    //pt.append_origin(origin.ptr(), origin.size());
-    pt.append("111\naaaaa\nbbbbbb");
-
-    pt.insert(pt.line_end(0), "\n");
-    pt.insert(pt.line_end(1), "test");
-    std::cout << pt.lines() << std::endl;
-    std::cout << pt.range_string(0, pt.size());
-    /*auto tick = GetTickCount();
-    for (int i = 0; i < 10; ++i) {
-        //pt.insert(pt.line_start(i), "[this is a test string]");
-        std::cout << pt.line_string(i) << std::endl;
-    }
-    std::cout << pt.lines() << std::endl;
-    std::cout << pt.line_string(2999) << std::endl;
-    std::cout << (GetTickCount() - tick) << "ms"  << std::endl;*/
-
-}
-
-class LineMarker {
-public:
-    using offset_t = uint32_t;
-    using diff_t = int32_t;
-    std::vector<offset_t> m_offsets;
-    std::vector<int> m_styles;
-    offset_t m_anchor = 0;
-    diff_t m_length = 0;
-    uint32_t get_index(offset_t pos) {
-        auto iter = std::lower_bound(m_offsets.begin(), m_offsets.end(), pos);
-        return iter - m_offsets.begin();
-    }
-    void set_last(offset_t last) {
-        while (m_anchor < m_offsets.size() && ((m_offsets[m_anchor++] += m_length) < last));
-        return;
-        auto index = get_index(last);
-        if (index > m_anchor) { // ¸üÐÂ²åÖµµã
-            fixup(m_anchor, index, m_length);
-            m_anchor = index;
-        }
-    }
-    void change(offset_t pos, diff_t length) {
-        auto index = get_index(pos);
-        if (m_anchor < index) {
-            // ²åÖµË÷ÒýÔÚÇ°Ãæ µ±Ç°ÒÑ¾­µ½²åÖµË÷ÒýºóÃæ ÐèÒª¸üÐÂÖ®¼äµÄË÷Òý
-            fixup(m_anchor, index, m_length);
-            m_anchor = index;
-            m_length = m_length + length;
-        } else {
-            // ²åÖµË÷ÒýÔÚºóÃæ ÖÐ¼ä¼ÈÒªÔö¼Ó³¤¶È ²åÖµË÷ÒýºóÃæÒ²ÐèÒªÔö¼Ó
-            fixup(index, m_anchor, length);
-            m_length += length;
-        }
-    }
-    void add_style(offset_t pos, int style) {
-        m_offsets.emplace_back(pos);
-        m_styles.emplace_back(style);
-        std::sort(m_offsets.begin(), m_offsets.end());
-    }
-    void fixup(offset_t start_index, offset_t end_index, diff_t delta) {
-        auto iter_start = m_offsets.begin() + start_index;
-        auto iter_end = m_offsets.begin() + end_index;
-        for (auto iter = iter_start; iter != iter_end; iter++) {
-            *iter += delta;
-        }
-    }
-    void dump() {
-        for (int i = 0; i < m_styles.size(); ++i) {
-            std::cout << "[" << m_offsets[i] << ", " << m_styles[i] << "] ";
-        }
-        std::cout << std::endl;
-    }
-};
-int main(int argc, char *const argv[]) {
-    LineMarker marker;
-    marker.add_style(1, 1);
-    marker.add_style(3, 2);
-    marker.add_style(5, 3);
-    marker.add_style(7, 4);
-    marker.add_style(12, 4);
-    marker.add_style(22, 4);
-    marker.add_style(55, 4);
-    marker.add_style(66, 4);
-    marker.set_last(4);
-    marker.change(3, -1);
-    marker.dump();
-    //marker.set_last(11);
-
-    //marker.dump();
-
-    return 0;
-}
-
+#endif //GEDITOR_PIECE_TABLE_H

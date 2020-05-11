@@ -93,7 +93,6 @@ struct Scanner {
 }
 
 extern "C" {
-
 void *tree_sitter_cpp_external_scanner_create() {
   return new Scanner();
 }

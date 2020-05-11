@@ -57,11 +57,9 @@ public:
         m_grammer->compile(grammar, strlen(grammar) + grammar);
         Document::append(new AutoLineElement());
         buffer()->appendLine().append(_GT("dddd 0;"));
-        Document::append(new ASTElement());
         buffer()->appendLine().append(_GT("return 0;"));
         Document::append(new AutoLineElement());
         buffer()->appendLine().append(_GT("asdfg 0;"));
-
 
 /*
         auto *table = new TableElement(2, 5);

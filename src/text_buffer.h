@@ -43,7 +43,6 @@ public:
     LineViewer() = default;
     LineViewer(int line, LineBuffer *buffer, EventContext *ctx = nullptr) :
     m_line(line), m_buffer(buffer), m_context(ctx) {}
-    inline int getLineNumber() { return m_line; }
     inline bool empty() { return content().empty(); }
     inline const GChar *c_str() { return (const GChar *) content().c_str(); }
     inline GString &content() { return (*m_buffer)[m_line].m_content; }
@@ -59,17 +58,6 @@ public:
     GChar &front() { return content().front(); }
     GChar &back() { return content().back(); }
     void clear();
-    std::string content_utf8(int length) {
-        std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt;
-        if (content().empty()) {
-            return {};
-        }
-        int total = content().length();
-        if (length > total) {
-            length = total;
-        }
-        return cvt.to_bytes(&content().front(), &content().front() + length);
-    }
     int getSpaceCount() {
         int count = 0;
         for (auto &ch : content()) {

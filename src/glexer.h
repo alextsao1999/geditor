@@ -2,8 +2,8 @@
 // Created by Alex on 2019/10/7.
 //
 
-#ifndef GEDITOR_LEXER_H
-#define GEDITOR_LEXER_H
+#ifndef GEDITOR_GLEXER_H
+#define GEDITOR_GLEXER_H
 
 #include "text_buffer.h"
 #include "paint_manager.h"
@@ -32,6 +32,7 @@ bool IsNumber(GChar ch);
 bool IsAlpha(GChar ch);
 bool IsCodeChar(GChar ch);
 bool IsSpace(GChar ch);
+
 enum TokenType {
     TokenNone,
     TokenEol,
@@ -85,4 +86,4 @@ private:
     void ParseNextToken();
 };
 
-#endif //GEDITOR_LEXER_H
+#endif //GEDITOR_GLEXER_H

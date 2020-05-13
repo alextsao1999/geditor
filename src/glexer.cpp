@@ -2,7 +2,7 @@
 // Created by Alex on 2019/10/7.
 //
 
-#include "lexer.h"
+#include "glexer.h"
 #include "document.h"
 #include "doc_manager.h"
 bool IsSpace(GChar ch){

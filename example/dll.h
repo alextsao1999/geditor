@@ -530,6 +530,36 @@ EXPORT_API int WINAPI ElementGetChildCount(Container<> *element) {
     return element->getChildCount();
 }
 
+#include "GrammerParser.h"
+
+using LLGrammer = GrammerParser<char>;
+
+EXPORT_API LLGrammer *WINAPI CreateLLGrammer(const char *grammer) {
+    auto *g = new LLGrammer();
+    if (g->compile(grammer)) {
+        return g;
+    }
+    delete g;
+    return nullptr;
+}
+EXPORT_API void WINAPI DeleteLLGrammer(LLGrammer *grammer) {
+    delete grammer;
+}
+EXPORT_API json *WINAPI LLGrammerParse(LLGrammer *grammer, const char *string, const char *rule_name) {
+    LLGrammer::GrammerParserPtr rule = nullptr;
+    if (string == nullptr || strlen(rule_name) == 0) {
+        rule = grammer->get_default();
+    } else {
+        rule = grammer->m_rules[rule_name];
+    }
+    auto *value = new json();
+    LLGrammer::GrammerBuilder::Lexer lexer;
+    lexer.reset(string, strlen(string));
+    rule->init(lexer);
+    rule->parse(lexer, *value);
+    return value;
+}
+
 EXPORT_API json *WINAPI JsonCreate() {
     return new json();
 }
@@ -684,11 +714,6 @@ EXPORT_API const char *WINAPI NodesGetIdentifier(DNodes *node, int index) {
 }
 EXPORT_API const char *WINAPI NodesGetLexme(DNodes *node, int index) {
     return node[index].symbol()->lexeme;
-}
-
-EXPORT_API void WINAPI GEditorDocumentSetLexer(GEditor *editor, DGrammer *grammer) {
-    editor->m_data->m_manager.current()->m_grammer = &grammer->grammer;
-
 }
 
 #endif //GEDITOR_DLL_H

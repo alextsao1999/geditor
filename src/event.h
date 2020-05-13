@@ -13,7 +13,7 @@
 #include "paint_manager.h"
 #include "text_buffer.h"
 #include "caret_manager.h"
-#include "lexer.h"
+#include "glexer.h"
 #include "keymap.h"
 typedef void *NotifyParam;
 typedef int32_t NotifyValue;

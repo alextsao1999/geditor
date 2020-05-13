@@ -1,2 +1,3 @@
-# geditor
-This is a structured and visualized editor.
+# GEditor
+* A toy editor
+* 架构很垃圾 目前已放弃

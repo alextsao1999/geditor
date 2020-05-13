@@ -8,18 +8,21 @@
 #include <iostream>
 #include "ParserBuilder.h"
 #include "JsonWalker.h"
+template <class char_t = char>
 class GrammerParser {
 public:
-    using char_t = wchar_t;
+    //using char_t = wchar_t;
     using Builder = ParserBuilder<char>;
     using GrammerBuilder = ParserBuilder<char_t>;
+    using GrammerParserPtr = typename GrammerBuilder::ParserPtr;
 private:
     Builder m_builder;
     Builder::ParserPtr m_parser;
-
+public:
     GrammerBuilder m_grammer;
-    JsonWalker<GrammerBuilder::ParserPtr> m_walker;
-    std::map<std::string, GrammerBuilder::ParserPtr> m_rules;
+    JsonWalker<GrammerParserPtr> m_walker;
+    std::map<std::string, GrammerParserPtr> m_rules;
+    GrammerParserPtr m_default = nullptr;
 public:
     GrammerParser() {
         auto *factor = m_builder.rule();
@@ -102,21 +105,24 @@ public:
         m_rules["identifier"] = m_grammer.rule()->id();
         m_rules["number"] = m_grammer.rule()->number();
         m_rules["string"] = m_grammer.rule()->string();
-
+        m_rules["empty"] = m_grammer.rule()->empty();
         m_parser = m_builder.rule("grammer")->id()->match("{")->repeat(rule_factor)->match("}");
     }
-    GrammerBuilder::ParserPtr compile(const char *grammer) {
+    bool compile(const char *grammer) {
         Builder::Lexer lexer;
         lexer.reset(grammer, strlen(grammer));
         Builder::Value value;
         m_parser->init(lexer);
         if (!m_parser->parse(lexer, value)) {
-            return nullptr;
+            return false;
         }
-        return m_walker(value[0]);
+        m_default = m_walker(value[0]);
+        return true;
+    }
+    GrammerParserPtr get_default() {
+        return m_default;
     }
 
 };
-
 
 #endif //GEDITOR_GRAMMERPARSER_H

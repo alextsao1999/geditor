@@ -8,7 +8,7 @@
 #include <memory>
 #include <map>
 #include <uri.h>
-#include <Lexer.h>
+#include "Lexer.h"
 template <typename char_t = char>
 struct ParserBuilder {
     using string_t = std::basic_string<char_t>;
@@ -35,10 +35,16 @@ struct ParserBuilder {
             return false;
         }
     };
+    class RuleEmpty : public Rule {
+    public:
+        bool parse(Lexer &lexer, Value &value) override {
+            return true;
+        }
+    };
     class RuleNumber : public Rule {
     public:
         bool parse(Lexer &lexer, Value &value) override {
-            if (lexer.token() == TokenNumber) {
+            if (lexer.token() == TokenKindNumber) {
                 Value literal;
                 literal["type"] = "number";
                 literal["value"] = lexer.token().str();
@@ -53,7 +59,7 @@ struct ParserBuilder {
     class RuleString : public Rule {
     public:
         bool parse(Lexer &lexer, Value &value) override {
-            if (lexer.token() == TokenLiteral) {
+            if (lexer.token() == TokenKindLiteral) {
                 Value literal;
                 literal["type"] = "literal";
                 literal["value"] = lexer.token().str();
@@ -68,7 +74,7 @@ struct ParserBuilder {
     class RuleIdentifier : public Rule {
     public:
         bool parse(Lexer &lexer, Value &value) override {
-            if (lexer.token() == TokenIdentifier) {
+            if (lexer.token() == TokenKindIdentifier) {
                 Value literal;
                 literal["type"] = "identifier";
                 literal["value"] = lexer.token().str();
@@ -164,6 +170,10 @@ struct ParserBuilder {
         }
         void error(Lexer &lexer, Value &value) {
 
+        }
+        ParserPtr empty() {
+            m_rules.emplace_back(new RuleEmpty());
+            return get_ptr();
         }
         ParserPtr id() {
             m_rules.emplace_back(new RuleIdentifier());

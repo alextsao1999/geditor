@@ -36,30 +36,13 @@ public:
     }
     void onRequest(string_ref method, value &params, value &ID) override {}
 };
-using namespace lalr;
 class NewDocument : public MarginDocument {
 public:
     explicit NewDocument(DocumentManager *mgr) : MarginDocument(mgr) {
-        m_grammer = new GrammarCompiler();
-        const char* grammar =
-                "Cpp {\n"
-                "   %whitespace \"[ \\r\\n]*\";\n"
-                "   items: items item [add($0,$1)] | item [create(items, $0)];\n"
-                "   item:  block | identifier [$0())] | number [$0()] | \".\" [$0()];\n"
-                "   block: "
-                "      '{' items '}' [create(block, $0(), $1, $2())] | "
-                "      '{' error [create(error, $0())] | "
-                "      '{' '}' [create(block, $0(), $1())]; "
-                "   number: \"[0-9]*\\.?[0-9]+\";\n"
-                "   identifier: \"[A-Za-z\\x4e00-\\x9fa5_][A-Za-z0-9\\x4e00-\\x9fa5_]*\";\n"
-                "}"
-        ;
-        m_grammer->compile(grammar, strlen(grammar) + grammar);
-        Document::append(new AutoLineElement());
+        /*Document::append(new AutoLineElement());
         buffer()->appendLine().append(_GT("dddd 0;"));
-        buffer()->appendLine().append(_GT("return 0;"));
         Document::append(new AutoLineElement());
-        buffer()->appendLine().append(_GT("asdfg 0;"));
+        buffer()->appendLine().append(_GT("asdfg 0;"));*/
 
 /*
         auto *table = new TableElement(2, 5);
@@ -71,7 +54,7 @@ public:
         buffer()->appendLine().append(_GT("return 0;"));
         buffer()->appendLine().append(_GT("return 0;"));
 */
-        root().relayout();
+        //root().relayout();
 /*
         auto *doc = new ClassElement();
         for (int i = 0; i < 2; ++i) {

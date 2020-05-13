@@ -14,8 +14,6 @@
 #include "client.h"
 #include "parser.h"
 #include "margin.h"
-#include <lalr/Parser.hpp>
-#include <lalr/GrammarCompiler.hpp>
 
 #define DEFINE_EVENT(EVENT, ...) virtual void EVENT(EventContext &context, ##__VA_ARGS__) {}
 #define DEFINE_EVENT2(EVENT) \
@@ -591,8 +589,6 @@ class Document : public Container<DisplayBlock> {
 public:
     typedef int (WINAPI *CallBack)(EventContext *, int, int);
     typedef int (WINAPI *LexerHandler)(EventContext *, int, int);
-    using Grammer = lalr::GrammarCompiler;
-    Grammer *m_grammer = nullptr;
     LexerHandler m_lexer = nullptr;
     CallBack m_onBlur = nullptr;
     Context m_context;

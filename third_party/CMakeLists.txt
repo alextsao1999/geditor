@@ -6,7 +6,6 @@ add_subdirectory(lsp)
 add_subdirectory(libjpeg)
 add_subdirectory(skia)
 add_subdirectory(ecode)
-add_subdirectory(parser)
 add_subdirectory(ast-buffer)
 
 add_library(lalr STATIC)

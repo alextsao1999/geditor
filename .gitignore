@@ -42,3 +42,4 @@ gen### C++ template
 /cmake-build-debug/
 /cmake-build-release/
 /build/
+/third_party/ast-buffer/build/

@@ -164,7 +164,7 @@ int testParser() {
         printf("\n");
         return 1;
     });
-    const wchar_t *input = L"cp { kok kjkl";
+    const wchar_t *input = L"123 asdf 122";
     parser.parse(input, wcslen(input) + input);
     printf("<%d %d> ", parser.full(), parser.accepted());
     //printf("%d\n\n", parser.user_data());
@@ -635,26 +635,19 @@ void pt_test() {
 
 }
 
-class LineMarker {
+class AutoOffset {
 public:
     using offset_t = uint32_t;
     using diff_t = int32_t;
     std::vector<offset_t> m_offsets;
-    std::vector<int> m_styles;
+    std::vector<int> m_value;
     offset_t m_anchor = 0;
     diff_t m_length = 0;
-    uint32_t get_index(offset_t pos) {
-        auto iter = std::lower_bound(m_offsets.begin(), m_offsets.end(), pos);
-        return iter - m_offsets.begin();
+    int get_value(offset_t pos) {
+        return get_index(pos);
     }
     void set_last(offset_t last) {
         while (m_anchor < m_offsets.size() && ((m_offsets[m_anchor++] += m_length) < last));
-        return;
-        auto index = get_index(last);
-        if (index > m_anchor) { // 更新插值点
-            fixup(m_anchor, index, m_length);
-            m_anchor = index;
-        }
     }
     void change(offset_t pos, diff_t length) {
         auto index = get_index(pos);
@@ -669,9 +662,9 @@ public:
             m_length += length;
         }
     }
-    void add_style(offset_t pos, int style) {
+    void add_value(offset_t pos, int value) {
         m_offsets.emplace_back(pos);
-        m_styles.emplace_back(style);
+        m_value.emplace_back(value);
         std::sort(m_offsets.begin(), m_offsets.end());
     }
     void fixup(offset_t start_index, offset_t end_index, diff_t delta) {
@@ -682,28 +675,73 @@ public:
         }
     }
     void dump() {
-        for (int i = 0; i < m_styles.size(); ++i) {
-            std::cout << "[" << m_offsets[i] << ", " << m_styles[i] << "] ";
+        for (int i = 0; i < m_value.size(); ++i) {
+            std::cout << "[" << m_offsets[i] << ", " << m_value[i] << "] ";
         }
         std::cout << std::endl;
     }
+private:
+    uint32_t get_index(offset_t pos) {
+        auto iter = std::lower_bound(m_offsets.begin(), m_offsets.end(), pos);
+        return iter - m_offsets.begin();
+    }
 };
 int main(int argc, char *const argv[]) {
-    LineMarker marker;
-    marker.add_style(1, 1);
-    marker.add_style(3, 2);
-    marker.add_style(5, 3);
-    marker.add_style(7, 4);
-    marker.add_style(12, 4);
-    marker.add_style(22, 4);
-    marker.add_style(55, 4);
-    marker.add_style(66, 4);
+/*
+    AutoOffset marker;
+    marker.add_value(1, 1);
+    marker.add_value(3, 2);
+    marker.add_value(5, 3);
+    marker.add_value(7, 4);
+    marker.add_value(12, 4);
+    marker.add_value(22, 4);
+    marker.add_value(55, 4);
+    marker.add_value(66, 4);
     marker.set_last(4);
     marker.change(3, -1);
     marker.dump();
+*/
     //marker.set_last(11);
 
     //marker.dump();
+
+
+    const char* calculator_grammar =
+            "Cpp {\n"
+            "   %whitespace \"[ \\r\\n]*\";\n"
+            "   items:  items item | item ;\n"
+            "   item:  if | ifs;\n"
+            "   if: \"if\" [if];\n"
+            "   ifs: \"(if)+\" [ifs]"
+            "}"
+    ;
+    GrammarCompiler compiler;
+    compiler.compile(calculator_grammar, calculator_grammar + strlen(calculator_grammar));
+    Parser<const char *, int> parser(compiler.parser_state_machine());
+
+    parser.set_action_handler("if",
+                              [](const int *data, const ParserNode<> *nodes, size_t length, const char *identifier,
+                                 bool &discard) {
+                                  std::cout << "[if] ";
+                                  return 0;
+                              });
+    parser.set_action_handler("ifs",
+                              [](const int *data, const ParserNode<> *nodes, size_t length, const char *identifier,
+                                 bool &discard) {
+                                  std::cout << "[ifs] ";
+                                  return 0;
+                              });
+
+            /*("if", [](const int *data, const ParserNode<> *nodes, size_t length, const char *identifier, bool &discard) {
+                std::cout << "[if] ";
+                 return 0;
+             }
+            )("ifs", [](const int *data, const ParserNode<> *nodes, size_t length, const char *identifier, bool &discard) {
+                std::cout << "[ifs] ";
+                return 0;
+            });*/
+    const char *input = "if ifif if ifif";
+    parser.parse(input, strlen(input) + input);
 
     return 0;
 }

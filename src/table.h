@@ -1347,11 +1347,12 @@ template <class RowElement = FastRow>
 class FastTable : public Container<DisplayTable> {
 public:
     //using RowElement = FastRow;
-    typedef GColor (WINAPI *ColorProvider)(int type, int row, int col);
+    typedef GColor (WINAPI *ColorProvider)(int payload, int type, int row, int col);
     int m_delta = 0;
     int m_top = 5;
     int m_column = 0;
     ColorProvider m_provider = nullptr;
+    int payload = 0;
     explicit FastTable(int column) : m_column(column) {}
     explicit FastTable(int row, int column) {
         m_column = column;
@@ -1372,13 +1373,13 @@ public:
     Type *getItem(int row, int col) { return (Type *) ((RowElement *) get(row))->get(col); }
     virtual GColor getBackgroundColor(int row, int col) {
         if (m_provider) {
-            return m_provider(0, row, col);
+            return m_provider(payload, 0, row, col);
         }
         return SK_ColorTRANSPARENT;
     }
     virtual GColor getForegroundColor(int row, int col) {
         if (m_provider) {
-            return m_provider(1, row, col);
+            return m_provider(payload, 1, row, col);
         }
         return SK_ColorBLACK;
     }
@@ -1752,7 +1753,7 @@ class SubElement : public Container<> {
         TableType type() { return m_type; }
         GColor getBackgroundColor(int row, int col) override {
             if (m_provider) {
-                return m_provider(m_type << 1, row, col);
+                return m_provider(payload, m_type << 1, row, col);
             }
             if (m_type == TableTypeHeader) {
                 if (row == 0 || row == 2) {
@@ -1767,7 +1768,7 @@ class SubElement : public Container<> {
         }
         GColor getForegroundColor(int row, int col) override {
             if (m_provider) {
-                return m_provider((m_type << 1) + 1, row, col);
+                return m_provider(payload, (m_type << 1) + 1, row, col);
             }
             if (m_type == TableTypeHeader) {
                 if (row == 0 || row == 2) {
@@ -2068,7 +2069,7 @@ class ClassElement : public Container<> {
         }
         GColor getBackgroundColor(int row, int col) override {
             if (m_provider) {
-                return m_provider(3 << 1, row, col);
+                return m_provider(payload, 3 << 1, row, col);
             }
             if (row == 0 || row == 2)
                 return SK_ColorLTGRAY;
@@ -2076,7 +2077,7 @@ class ClassElement : public Container<> {
         }
         GColor getForegroundColor(int row, int col) override {
             if (m_provider) {
-                return m_provider((3 << 1) + 1, row, col);
+                return m_provider(payload, (3 << 1) + 1, row, col);
             }
             if (row == 0 || row == 2) {
                 return SK_ColorBLACK;

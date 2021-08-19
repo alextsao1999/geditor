@@ -462,6 +462,8 @@ public:
     }
 };
 EXPORT_API Element *WINAPI CreateTableElement(int row, int column) {
+    auto *pt = new MyTable(row, column);
+    //pt->payload = payload;
     return new MyTable(row, column);
 }
 EXPORT_API Element *WINAPI CreateRowElement(int column) {
@@ -470,9 +472,20 @@ EXPORT_API Element *WINAPI CreateRowElement(int column) {
 EXPORT_API void WINAPI TableSetTop(TableElement *table, int top) {
     table->m_top = top;
 }
+EXPORT_API int WINAPI TableGetTop(TableElement *table) {
+    return table->m_top;
+}
+EXPORT_API void WINAPI TableSetIdentifier(TableElement *table, int top) {
+    table->payload = top;
+}
+EXPORT_API int WINAPI TableGetIdentifier(TableElement *table) {
+    return table->payload;
+}
+
 EXPORT_API void WINAPI TableSetColorProvider(TableElement *table, TableElement::ColorProvider p) {
     table->m_provider = p;
 }
+
 EXPORT_API void WINAPI TableSetTag(MyTable *table, const char *str) {
     table->m_tag = str;
 }
